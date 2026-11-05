@@ -34,7 +34,7 @@ function metaPara(estado: EstadoPieza | undefined, color: string): Meta {
 export function encuadre(cam: THREE.PerspectiveCamera, auto: Auto, angulo: number, aspecto: number) {
   // Distancia para que el largo y el alto quepan completos, sea cual sea la forma del visor.
   const t = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
-  const d = Math.max((auto.largo * .57) / (t * aspecto), (auto.alto * .8) / t) + 1.3;
+  const d = Math.max((auto.largo * .5) / (t * aspecto), (auto.alto * .72) / t) + .9;
   const a = THREE.MathUtils.degToRad(angulo);
   cam.position.set(Math.sin(a) * d, auto.alto * .5 + d * .2, Math.cos(a) * d);
   cam.lookAt(0, auto.alto * .43, 0);
@@ -161,8 +161,10 @@ export default function Viewer3D({ carroceria, color, estados, seleccion, onPick
       const r = dom.getBoundingClientRect();
       ptr.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
       ray.setFromCamera(ptr, cam);
-      const hit = ray.intersectObjects(auto.pickables, false)[0];
-      if (hit) pickRef.current(hit.object.userData.pieza as PiezaId);
+      // Vale solo lo primero bajo el dedo: un vidrio o una rueda no seleccionan la pieza del lado opuesto.
+      const hit = ray.intersectObject(auto.group, true)[0];
+      const id = hit?.object.userData.pieza as PiezaId | undefined;
+      if (id) pickRef.current(id);
     };
     dom.addEventListener('pointerdown', onDown);
     dom.addEventListener('pointerup', onUp);

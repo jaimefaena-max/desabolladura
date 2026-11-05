@@ -286,7 +286,7 @@ img { display: block; max-width: 100%; }
 .celda { border-radius: 20px; overflow: hidden; background: var(--fondo-2); border: 1px solid var(--linea); }
 .celda > div, .celda.admin { padding: 1.5rem; }
 .celda p { color: var(--suave); margin-top: .3rem; }
-.celda .foto { aspect-ratio: auto; height: 300px; }
+.celda .foto { aspect-ratio: auto; height: 300px; object-fit: contain; }
 .celda.maestro { grid-row: span 2; display: flex; flex-direction: column; }
 .celda.maestro .foto { flex: 1; min-height: 340px; height: auto; }
 .celda.admin { background: var(--acento); color: var(--sobre-acento); border-color: var(--acento); }
@@ -312,12 +312,14 @@ img { display: block; max-width: 100%; }
   .fo-pct { grid-column: 2; }
   .fo-monto { grid-column: 3; grid-row: 1 / span 2; }
   .bento-grid { grid-template-columns: minmax(0, 1fr); }
+  .celda .foto, .celda.maestro .foto { flex: none; height: auto; min-height: 0; aspect-ratio: 16 / 9; }
   .seguros-grid { grid-template-columns: repeat(2, 1fr); }
   .portal-3d { height: 66vw; min-height: 280px; }
 }
 @media (max-width: 620px) {
   body { font-size: 19px; }
   .barra-nombre { display: none; }
+  .nav-link { display: none; }
   .elegir-grid { grid-template-columns: minmax(0, 1fr); }
   .elegir-op { min-height: 150px; }
   .precio-fila { grid-template-columns: minmax(0, 1fr); }
