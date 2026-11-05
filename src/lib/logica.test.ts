@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { extraerJSON } from './gemini';
 import { interpretarPadron } from './padron';
-import { estadosPiezas, progreso, totales } from './piezas';
+import { estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
 import { ordenesDemo } from './seed';
 import type { Item, Orden } from './types';
@@ -11,9 +11,9 @@ const item = (c: Partial<Item>): Item => ({ id: 'x', trabajo: 'pintura', pieza: 
 
 describe('padrón', () => {
   const texto = `CERTIFICADO DE INSCRIPCION
-INSCRIPCION: RKTS.48-5
-NOMBRE: CAMILA ROJAS VERGARA
-RUT: 12.345.678-5
+INSCRIPCION: DEMA.55-5
+NOMBRE: CLIENTE DEMO CINCO
+RUT: 10.000.005-1
 MARCA: TOYOTA
 MODELO: HILUX
 AÑO: 2021
@@ -23,8 +23,8 @@ CHASIS: MR0KA3CD201234567`;
 
   it('rescata los datos del vehículo y del dueño', () => {
     expect(interpretarPadron(texto)).toEqual({
-      patente: 'RKTS48', marca: 'TOYOTA', modelo: 'HILUX', anio: 2021, color: 'PLATEADO',
-      motor: '2GD4471823', chasis: 'MR0KA3CD201234567', nombre: 'CAMILA ROJAS VERGARA', rut: '12.345.678-5',
+      patente: 'DEMA55', marca: 'TOYOTA', modelo: 'HILUX', anio: 2021, color: 'PLATEADO',
+      motor: '2GD4471823', chasis: 'MR0KA3CD201234567', nombre: 'CLIENTE DEMO CINCO', rut: '10.000.005-1',
     });
   });
   it('acepta el valor en la línea siguiente a la etiqueta', () => {
@@ -44,11 +44,17 @@ describe('patente y catálogo', () => {
     expect(patenteValida('AB1234')).toBe(true);
     expect(patenteValida('123456')).toBe(false);
     expect(verPatente('RKTS48')).toBe('RKTS-48');
+    expect(verPatente('AB1234')).toBe('AB-1234');
   });
   it('deduce carrocería y color', () => {
     expect(carroceriaDe('FORD', 'F-150')).toBe('pickup');
     expect(carroceriaDe('Toyota', 'COROLLA XEI')).toBe('sedan');
     expect(carroceriaDe('Desconocida', 'X')).toBeNull();
+    expect(carroceriaDe('Mazda', 'CX-30')).toBeNull();
+    expect(carroceriaDe('Mazda', '3')).toBe('sedan');
+    expect(carroceriaDe('Mazda', '3 Sport')).toBe('sedan');
+    expect(carroceriaDe('Mazda', 'CX-5')).toBe('suv');
+    expect(carroceriaDe('Toyota', 'Corolla Cross')).toBe('suv');
     expect(colorHex('GRIS GRAFITO').nombre).toBe('Gris');
   });
 });
@@ -90,6 +96,31 @@ describe('cobro', () => {
   });
   it('cuenta los trabajos sin monto e ignora tareas generales', () => {
     expect(totales(orden({ items: [item({}), item({ trabajo: 'general' })] })).faltan).toBe(1);
+  });
+});
+
+describe('datos de ejemplo', () => {
+  const dv = (rut: string) => {
+    let t = 0, m = 2;
+    for (const c of rut.split('-')[0].replace(/\./g, '').split('').reverse()) { t += Number(c) * m; m = m === 7 ? 2 : m + 1; }
+    const r = 11 - (t % 11);
+    return r === 11 ? '0' : r === 10 ? 'K' : String(r);
+  };
+  const ordenes = ordenesDemo();
+  it('ningún RUT tiene dígito válido ni se repite', () => {
+    const ruts = ordenes.map(o => o.cliente.rut);
+    expect(new Set(ruts).size).toBe(ruts.length);
+    ruts.forEach(r => expect(r.split('-')[1]).not.toBe(dv(r)));
+  });
+  it('las patentes llevan vocal, que las series chilenas no usan', () => {
+    ordenes.forEach(o => expect(o.vehiculo.patente).toMatch(/[AEIOU]/));
+  });
+});
+
+describe('fechas', () => {
+  it('usa la fecha local', () => {
+    const d = new Date();
+    expect(fechaLocal()).toBe(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
   });
 });
 

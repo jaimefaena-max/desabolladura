@@ -6,13 +6,13 @@ Demostración comercial de una app para talleres de desabolladura y pintura que 
 
 ## Accesos de demostración
 
-Todos los datos son ficticios.
+Todos los datos son ficticios: los RUT tienen dígito verificador inválido y las patentes usan vocales, que las series chilenas no emiten.
 
 | Perfil | Entrada |
 |---|---|
 | Maestro | Héctor Araya o Luis Quezada, PIN `1234` |
 | Administradora | Paula Fuentealba, PIN `4321` |
-| Cliente | Patente `LFZD-31`, código `COR7X2` |
+| Cliente | Patente `DEMA-22`, código `COR7X2` |
 
 ## Qué hace
 
@@ -24,8 +24,8 @@ Todos los datos son ficticios.
 
 | Función | Sin clave | Con clave de Gemini (Ajustes) |
 |---|---|---|
-| Lectura de padrón | OCR en el navegador (Tesseract) | Gemini multimodal |
-| Precio sugerido | Tabla de referencia Chile 2026 | Búsqueda en internet con fuentes |
+| Lectura de padrón | OCR en el navegador: la foto no sale del equipo y el motor se descarga de jsDelivr | Gemini multimodal: la foto se envía a Google, previa confirmación |
+| Precio sugerido | Tabla orientativa de demostración | Búsqueda en internet con fuentes |
 | Imagen del vehículo | Modelo 3D paramétrico | Además, imagen generada por Gemini |
 
 ## Límites de esta versión

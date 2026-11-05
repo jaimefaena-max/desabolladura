@@ -24,7 +24,7 @@ const SEVERIDAD: Record<Severidad, number> = { leve: .6, medio: 1, fuerte: 1.5 }
 
 const redondear = (n: number) => Math.round(n / 5000) * 5000;
 
-export const FUENTE_TABLA = 'Referencia de mercado Chile 2026';
+export const FUENTE_TABLA = 'Tabla orientativa de demostración';
 
 export function sugerir(trabajo: Trabajo, pieza: PiezaId | null, severidad: Severidad, v: Pick<Vehiculo, 'carroceria' | 'modelo' | 'anio'>): Sugerido {
   const [a, b] = BASE[trabajo];

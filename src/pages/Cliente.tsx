@@ -26,7 +26,7 @@ export function ClienteAcceso() {
           {error && <p className="error" role="alert">No encontramos ese vehículo. Revisa la patente y el código.</p>}
           <button className="btn primario grande ancho">Ver mi auto</button>
         </form>
-        <p className="pista">Ejemplo: patente LFZD-31, código COR7X2</p>
+        <p className="pista">Ejemplo: patente DEMA-22, código COR7X2</p>
       </main>
     </div>
   );

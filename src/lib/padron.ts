@@ -54,7 +54,7 @@ export function padronEjemplo(): string {
   x.font = 'bold 34px Arial'; x.fillText('CERTIFICADO DE INSCRIPCION', 60, 80);
   x.font = '22px Arial'; x.fillText('DOCUMENTO DE EJEMPLO SIN VALIDEZ', 60, 116);
   const filas = [
-    ['INSCRIPCION', 'RKTS.48-5'], ['NOMBRE', 'CAMILA ROJAS VERGARA'], ['RUT', '12.345.678-5'],
+    ['INSCRIPCION', 'DEMA.55-5'], ['NOMBRE', 'CLIENTE DEMO CINCO'], ['RUT', '10.000.005-1'],
     ['MARCA', 'TOYOTA'], ['MODELO', 'HILUX'], ['ANO', '2021'], ['COLOR', 'PLATEADO'],
     ['MOTOR', '2GD4471823'], ['CHASIS', 'MR0KA3CD201234567'],
   ];

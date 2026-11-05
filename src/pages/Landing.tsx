@@ -83,9 +83,9 @@ export default function Landing() {
       <section className="seguros">
         <h2>Hecho para trabajar con aseguradoras</h2>
         <div className="seguros-grid">
-          <div><ShieldCheck size={36} weight="light" /><h3>Siniestro y liquidador</h3><p>Cada orden guarda compañía, número de siniestro y deducible.</p></div>
+          <div><ShieldCheck size={36} weight="light" /><h3>Siniestro y deducible</h3><p>Cada orden guarda compañía, número de siniestro y deducible.</p></div>
           <div><CurrencyCircleDollar size={36} weight="light" /><h3>Cobro separado</h3><p>Calcula neto, IVA, deducible del cliente y saldo de la compañía.</p></div>
-          <div><Camera size={36} weight="light" /><h3>Ingreso con foto</h3><p>La lectura del padrón evita errores de digitación en patente y chasis.</p></div>
+          <div><Camera size={36} weight="light" /><h3>Ingreso con foto</h3><p>Propone los datos del padrón para que el maestro los revise.</p></div>
           <div><Cube size={36} weight="light" /><h3>Menos llamadas</h3><p>El dueño del auto revisa el avance sin preguntar al taller.</p></div>
         </div>
       </section>

@@ -12,7 +12,7 @@ export const CATALOGO: Record<string, Record<string, Carroceria>> = {
   Peugeot: { '208': 'hatchback', '2008': 'suv', '3008': 'suv' },
   Subaru: { Impreza: 'hatchback', Forester: 'suv', Outback: 'suv' },
   Suzuki: { Swift: 'hatchback', Baleno: 'hatchback', Vitara: 'suv', Jimny: 'suv' },
-  Toyota: { Yaris: 'sedan', Corolla: 'sedan', 'RAV4': 'suv', 'Land Cruiser': 'suv', Hilux: 'pickup' },
+  Toyota: { Yaris: 'sedan', Corolla: 'sedan', 'Corolla Cross': 'suv', 'RAV4': 'suv', 'Land Cruiser': 'suv', Hilux: 'pickup' },
   Volkswagen: { Gol: 'hatchback', Polo: 'hatchback', Virtus: 'sedan', Tiguan: 'suv', Amarok: 'pickup' },
 };
 
@@ -22,7 +22,11 @@ export function carroceriaDe(marca: string, modelo: string): Carroceria | null {
   const m = Object.keys(CATALOGO).find(k => norm(k) === norm(marca));
   if (!m) return null;
   const mod = norm(modelo);
-  const k = Object.keys(CATALOGO[m]).find(x => mod.includes(norm(x)) || norm(x).includes(mod) && mod.length > 1);
+  if (!mod) return null;
+  const palabras = modelo.toLowerCase().split(/[\s-]+/);
+  // Primero la clave más larga: «Corolla Cross» no debe caer en «Corolla». Una clave de un carácter exige palabra exacta: «CX-30» no es «3».
+  const claves = Object.keys(CATALOGO[m]).sort((a, b) => b.length - a.length);
+  const k = claves.find(x => (norm(x).length === 1 ? palabras.includes(norm(x)) : mod.includes(norm(x)) || (mod.length > 1 && norm(x).includes(mod))));
   return k ? CATALOGO[m][k] : null;
 }
 
@@ -62,5 +66,6 @@ export function patenteValida(s: string) {
 }
 export function verPatente(s: string) {
   const p = normalizarPatente(s);
+  if (/^[A-Z]{2}\d{4}$/.test(p)) return `${p.slice(0, 2)}-${p.slice(2)}`;
   return p.length === 6 ? `${p.slice(0, 4)}-${p.slice(4)}` : p;
 }

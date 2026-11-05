@@ -110,6 +110,7 @@ export function AdminOrden({ id }: { id: string }) {
         </div>
         <div>
           <div className="solo-print">
+            <p><b>DEMOSTRACIÓN, SIN VALIDEZ COMERCIAL</b></p>
             <h2>Desabolladura Premium: cotización orden {o.numero}</h2>
             <p>{v.marca} {v.modelo} {v.anio}, patente {verPatente(v.patente)}. Cliente: {o.cliente.nombre}.{p.tipo === 'aseguradora' ? ` ${p.aseguradora}, siniestro ${p.siniestro}.` : ''}</p>
           </div>
@@ -153,11 +154,11 @@ export function Ajustes() {
     <Pantalla volver="/admin" titulo="Ajustes">
       <section className="formulario angosto">
         <h2>Conectar Gemini</h2>
-        <p className="sub">Activa la lectura de padrón con IA, la búsqueda de precios en internet y las imágenes generadas. Sin clave, la app usa lectura local y la tabla de referencia.</p>
+        <p className="sub">Activa la lectura de padrón con IA, la búsqueda de precios en internet y las imágenes generadas. Sin clave, la foto se procesa en este equipo (el motor de lectura se descarga de internet) y los precios salen de una tabla orientativa.</p>
         <label className="campo"><span>Clave de API de Gemini</span>
           <input type="password" value={k} onChange={e => setK(e.target.value)} autoComplete="off" spellCheck={false} />
         </label>
-        <p className="pista">La clave queda solo en este navegador. Úsala únicamente para demostraciones.</p>
+        <p className="pista">La clave queda solo en este navegador. Con Gemini conectado, las fotos de padrón se envían a Google y pueden incluir nombre y RUT del dueño: usa solo el padrón de ejemplo.</p>
         <button className="btn primario grande" disabled={probando} onClick={guardar}>{probando ? 'Probando…' : 'Guardar y probar'}</button>
         {msg && <p className={msg.ok ? 'aviso-ok' : 'error'} role="status">{msg.t}</p>}
         <h2 className="seccion">Datos de ejemplo</h2>

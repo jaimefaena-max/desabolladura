@@ -4,14 +4,14 @@ import PiezaPicker from '../components/PiezaPicker';
 import { ir, Pantalla } from '../components/ui';
 import { claveGemini, generarImagenGemini, leerPadronGemini } from '../lib/gemini';
 import { leerConOCR, padronEjemplo, reducirImagen, type DatosPadron } from '../lib/padron';
+import { fechaLocal } from '../lib/piezas';
+import { sugerir } from '../lib/precios';
 import { ASEGURADORAS, tareasGenerales } from '../lib/seed';
 import { codigoCliente, guardarOrden, sesion, siguienteNumero, uid } from '../lib/store';
 import type { Carroceria, Item, Orden, Pagador, Vehiculo } from '../lib/types';
 import { CARROCERIAS, carroceriaDe, CATALOGO, COLORES, colorHex, normalizarPatente, patenteValida, verPatente } from '../lib/vehiculos';
 
 const PASOS = ['Padrón', 'Vehículo', 'Cliente', 'Trabajos'];
-
-function enDias(n: number) { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
 
 export default function NuevoVehiculo() {
   const u = sesion()!;
@@ -49,8 +49,11 @@ export default function NuevoVehiculo() {
 
   const finalizar = () => {
     const o: Orden = {
-      id: uid(), numero: siguienteNumero(), codigo: codigoCliente(), creada: enDias(0), entrega: enDias(7), maestroId: u.id,
-      vehiculo: { ...v, patente: normalizarPatente(v.patente) }, cliente, pagador, items, notas: '', cobrada: false, imagenIA: imagen.src,
+      id: uid(), numero: siguienteNumero(), codigo: codigoCliente(), creada: fechaLocal(), entrega: fechaLocal(7), maestroId: u.id,
+      vehiculo: { ...v, patente: normalizarPatente(v.patente) }, cliente, pagador,
+      // El maestro pudo corregir el vehículo después de agregar trabajos: el rango se recalcula con el dato final.
+      items: items.map(i => (i.trabajo === 'general' ? i : { ...i, sugerido: sugerir(i.trabajo, i.pieza, i.severidad ?? 'medio', v) })),
+      notas: '', cobrada: false, imagenIA: imagen.src,
     };
     guardarOrden(o);
     setListo(o);
@@ -67,9 +70,10 @@ export default function NuevoVehiculo() {
       <Pantalla titulo="Vehículo ingresado" sub={`Orden ${listo.numero}: ${listo.vehiculo.marca} ${listo.vehiculo.modelo}`}>
         <div className="exito">
           <CheckCircle size={72} weight="light" />
-          <p>Entrega este código al cliente para que siga su auto:</p>
+          <p>Código de seguimiento de este vehículo:</p>
           <p className="codigo">{listo.codigo}</p>
           <p className="sub">Patente {verPatente(listo.vehiculo.patente)}</p>
+          <p className="pista">Demo: este código solo funciona en este mismo navegador. No lo entregues a un cliente real.</p>
           <button className="btn primario grande" onClick={() => ir(`/maestro/ot/${listo.id}`)}>Ver tareas</button>
         </div>
       </Pantalla>
@@ -103,6 +107,8 @@ export default function NuevoVehiculo() {
               <input value={v.patente} onChange={e => cambiarVehiculo({ patente: e.target.value.toUpperCase() })} placeholder="ABCD-12" autoComplete="off" aria-invalid={!!v.patente && !patenteValida(v.patente)} />
               {v.patente && !patenteValida(v.patente) && <small className="error">Usa el formato ABCD-12 o AB-1234.</small>}
             </label>
+            <label className="campo"><span>Número de motor</span><input value={v.motor ?? ''} onChange={e => cambiarVehiculo({ motor: e.target.value.toUpperCase() })} autoComplete="off" /></label>
+            <label className="campo"><span>Número de chasis</span><input value={v.chasis ?? ''} onChange={e => cambiarVehiculo({ chasis: e.target.value.toUpperCase() })} autoComplete="off" /></label>
           </div>
           <p className="etiqueta">Color</p>
           <div className="colores">
@@ -179,8 +185,13 @@ function PasoPadron({ onDatos, onManual }: { onDatos: (d: DatosPadron) => void; 
   const input = useRef<HTMLInputElement>(null);
   const [estado, setEstado] = useState<{ avance: number; img: string; fuente: string } | null>(null);
   const [error, setError] = useState('');
+  const [porConfirmar, setPorConfirmar] = useState<string | null>(null);
+
+  // Una foto real con Gemini conectado sale del equipo: se avisa antes de enviarla.
+  const revisar = (img: string) => { if (claveGemini()) setPorConfirmar(img); else void leer(img); };
 
   const leer = async (img: string) => {
+    setPorConfirmar(null);
     setError('');
     const conGemini = !!claveGemini();
     setEstado({ avance: 0, img, fuente: conGemini ? 'Gemini está leyendo el padrón' : 'Leyendo el padrón' });
@@ -192,6 +203,19 @@ function PasoPadron({ onDatos, onManual }: { onDatos: (d: DatosPadron) => void; 
       setError(`No se pudo leer el padrón (${(e as Error).message}). Prueba otra foto o escribe los datos.`);
     }
   };
+
+  if (porConfirmar) {
+    return (
+      <section className="confirmar" role="alertdialog" aria-label="Aviso antes de enviar la foto">
+        <h2>Esta foto se enviará a Google</h2>
+        <p>Gemini recibirá la imagen, que puede incluir nombre y RUT del dueño. En esta demo usa solo el padrón de ejemplo.</p>
+        <div>
+          <button className="btn primario grande" onClick={() => setPorConfirmar(null)}>Cancelar</button>
+          <button className="btn secundario grande" onClick={() => leer(porConfirmar)}>Enviar a Gemini</button>
+        </div>
+      </section>
+    );
+  }
 
   if (estado) {
     return (
@@ -223,9 +247,9 @@ function PasoPadron({ onDatos, onManual }: { onDatos: (d: DatosPadron) => void; 
           const f = e.target.files?.[0];
           e.target.value = '';
           if (!f) return;
-          try { await leer(await reducirImagen(f)); } catch (err) { setError((err as Error).message); }
+          try { revisar(await reducirImagen(f)); } catch (err) { setError((err as Error).message); }
         }} />
-      <button className="enlace" onClick={() => leer(padronEjemplo())}>Probar con un padrón de ejemplo</button>
+      <button className="enlace" onClick={() => revisar(padronEjemplo())}>Probar con un padrón de ejemplo</button>
     </section>
   );
 }

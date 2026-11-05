@@ -23,7 +23,11 @@ function Guardia({ rol, children }: { rol: 'maestro' | 'admin'; children: React.
   return ok ? <>{children}</> : null;
 }
 
-function App() {
+function Franja() {
+  return <p className="demo-franja">Demostración: no ingreses datos reales. Todo queda solo en este navegador.</p>;
+}
+
+function Rutas() {
   const ruta = useRuta();
   useEffect(() => { scrollTo(0, 0); }, [ruta]);
   const p = ruta.split('/').filter(Boolean);
@@ -47,4 +51,4 @@ function App() {
   return <Landing />;
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(<><Franja /><Rutas /></>);

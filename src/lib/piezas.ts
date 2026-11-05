@@ -73,5 +73,12 @@ export function totales(o: Orden) {
   return { neto, iva, total, deducible, aseguradora: o.pagador.tipo === 'aseguradora' ? total - deducible : 0, faltan: cobrables.filter(i => i.monto === null).length };
 }
 
+/** Fecha local a n días: toISOString se corre un día después de las 21:00 en Chile. */
+export function fechaLocal(n = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export const clp = (n: number) => '$' + Math.round(n).toLocaleString('es-CL');
 export const fecha = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long' });
