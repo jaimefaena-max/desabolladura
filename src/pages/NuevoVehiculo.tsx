@@ -4,11 +4,12 @@ import PiezaPicker from '../components/PiezaPicker';
 import { ir, Pantalla } from '../components/ui';
 import { claveGemini, generarImagenGemini, leerPadronGemini } from '../lib/gemini';
 import { leerConOCR, padronEjemplo, reducirImagen, type DatosPadron } from '../lib/padron';
+import { conEvento, sincronizar } from '../lib/automatizacion';
 import { fechaLocal } from '../lib/piezas';
 import { sugerir } from '../lib/precios';
 import { ASEGURADORAS, tareasGenerales } from '../lib/seed';
-import { codigoCliente, guardarOrden, sesion, siguienteNumero, uid } from '../lib/store';
-import type { Carroceria, Item, Orden, Pagador, Vehiculo } from '../lib/types';
+import { codigoCliente, guardarOrden, sesion, siguienteNumero, uid, ultimaOrdenDePatente } from '../lib/store';
+import type { Carroceria, Item, Orden, Pagador, Recepcion, Vehiculo } from '../lib/types';
 import { CARROCERIAS, carroceriaDe, CATALOGO, COLORES, colorHex, normalizarPatente, patenteValida, verPatente } from '../lib/vehiculos';
 
 const PASOS = ['Padrón', 'Vehículo', 'Cliente', 'Trabajos'];
@@ -20,6 +21,7 @@ export default function NuevoVehiculo() {
   const [cliente, setCliente] = useState({ nombre: '', rut: '', telefono: '' });
   const [pagador, setPagador] = useState<Pagador>({ tipo: 'aseguradora', aseguradora: ASEGURADORAS[0], siniestro: '', deducible: 0 });
   const [items, setItems] = useState<Item[]>(tareasGenerales());
+  const [recepcion, setRecepcion] = useState<Recepcion>({ km: null, combustible: 'Medio', observaciones: '' });
   const [leido, setLeido] = useState<string | null>(null);
   const [listo, setListo] = useState<Orden | null>(null);
   const [imagen, setImagen] = useState<{ cargando: boolean; src?: string; error?: string }>({ cargando: false });
@@ -37,6 +39,15 @@ export default function NuevoVehiculo() {
     setPaso(1);
   };
 
+  // Vehículo que ya vino antes: sus datos se cargan solos con la patente.
+  const buscarConocido = (patente: string) => {
+    const previa = patenteValida(patente) ? ultimaOrdenDePatente(normalizarPatente(patente)) : undefined;
+    if (!previa) return;
+    setV(x => ({ ...previa.vehiculo, patente: x.patente }));
+    setCliente(previa.cliente);
+    setLeido('Este vehículo ya vino al taller. Se cargaron sus datos.');
+  };
+
   const cambiarVehiculo = (c: Partial<Vehiculo>) => setV(x => {
     const n = { ...x, ...c };
     if (c.marca !== undefined || c.modelo !== undefined) n.carroceria = carroceriaDe(n.marca, n.modelo) ?? n.carroceria;
@@ -48,13 +59,13 @@ export default function NuevoVehiculo() {
   const hayTrabajos = items.some(i => i.trabajo !== 'general');
 
   const finalizar = () => {
-    const o: Orden = {
-      id: uid(), numero: siguienteNumero(), codigo: codigoCliente(), creada: fechaLocal(), entrega: fechaLocal(7), maestroId: u.id,
+    const o: Orden = conEvento(sincronizar({
+      id: uid(), numero: siguienteNumero(), codigo: codigoCliente(), creada: fechaLocal(), entrega: '', maestroId: u.id,
       vehiculo: { ...v, patente: normalizarPatente(v.patente) }, cliente, pagador,
       // El maestro pudo corregir el vehículo después de agregar trabajos: el rango se recalcula con el dato final.
       items: items.map(i => (i.trabajo === 'general' ? i : { ...i, sugerido: sugerir(i.trabajo, i.pieza, i.severidad ?? 'medio', v) })),
-      notas: '', cobrada: false, imagenIA: imagen.src,
-    };
+      notas: '', cobrada: false, imagenIA: imagen.src, aprobacion: 'pendiente', repuestos: [], fotos: [], historial: [], recepcion, entregadaEl: null,
+    }), 'Vehículo ingresado al taller');
     guardarOrden(o);
     setListo(o);
   };
@@ -104,7 +115,7 @@ export default function NuevoVehiculo() {
               <input type="number" inputMode="numeric" value={v.anio} onChange={e => cambiarVehiculo({ anio: Number(e.target.value) })} />
             </label>
             <label className="campo"><span>Patente</span>
-              <input value={v.patente} onChange={e => cambiarVehiculo({ patente: e.target.value.toUpperCase() })} placeholder="ABCD-12" autoComplete="off" aria-invalid={!!v.patente && !patenteValida(v.patente)} />
+              <input value={v.patente} onChange={e => { cambiarVehiculo({ patente: e.target.value.toUpperCase() }); buscarConocido(e.target.value); }} placeholder="ABCD-12" autoComplete="off" aria-invalid={!!v.patente && !patenteValida(v.patente)} />
               {v.patente && !patenteValida(v.patente) && <small className="error">Usa el formato ABCD-12 o AB-1234.</small>}
             </label>
             <label className="campo"><span>Número de motor</span><input value={v.motor ?? ''} onChange={e => cambiarVehiculo({ motor: e.target.value.toUpperCase() })} autoComplete="off" /></label>
@@ -121,6 +132,14 @@ export default function NuevoVehiculo() {
           <p className="etiqueta">Tipo de vehículo</p>
           <div className="segmentos">
             {CARROCERIAS.map(c => <button key={c.id} aria-pressed={v.carroceria === c.id} className={v.carroceria === c.id ? 'on' : ''} onClick={() => cambiarVehiculo({ carroceria: c.id as Carroceria })}>{c.nombre}</button>)}
+          </div>
+          <p className="etiqueta">Combustible al recibir</p>
+          <div className="segmentos">
+            {['Bajo', 'Medio', 'Lleno'].map(c => <button key={c} aria-pressed={recepcion.combustible === c} className={recepcion.combustible === c ? 'on' : ''} onClick={() => setRecepcion({ ...recepcion, combustible: c })}>{c}</button>)}
+          </div>
+          <div className="campos">
+            <label className="campo"><span>Kilometraje</span><input type="number" inputMode="numeric" min={0} value={recepcion.km ?? ''} onChange={e => setRecepcion({ ...recepcion, km: e.target.value ? Number(e.target.value) : null })} /></label>
+            <label className="campo"><span>Daños previos u objetos de valor</span><input value={recepcion.observaciones} onChange={e => setRecepcion({ ...recepcion, observaciones: e.target.value })} autoComplete="off" /></label>
           </div>
           <Navegar atras={() => setPaso(0)} siguiente={() => setPaso(2)} ok={!!vehiculoOk} ayuda="Completa marca, modelo, año y patente." />
         </section>

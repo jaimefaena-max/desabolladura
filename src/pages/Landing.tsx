@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, Camera, CurrencyCircleDollar, Cube, ShieldCheck } from '@phosphor-icons/react';
+import { ArrowRight, Bell, Camera, ChatCircleDots, CurrencyCircleDollar, Kanban, Package, ShieldCheck } from '@phosphor-icons/react';
 import { Auto3D, FotoAuto, ir, Leyenda, Marca } from '../components/ui';
 import type { EstadoPieza, PiezaId } from '../lib/types';
 
@@ -9,6 +9,15 @@ const ETAPAS: { hasta: number; texto: string; e: Partial<Record<PiezaId, EstadoP
   { hasta: 74, texto: 'Maletera pintada. El parachoque entra a preparación.', e: { maletera: 'listo', parachoque_tras: 'proceso' } },
   { hasta: 99, texto: 'Todas las piezas pintadas. Falta control de calidad.', e: { maletera: 'listo', parachoque_tras: 'listo' } },
   { hasta: 100, texto: 'Listo para retirar.', e: { maletera: 'listo', parachoque_tras: 'listo' } },
+];
+
+const FUNCIONES = [
+  { Icono: Kanban, t: 'Tablero que se mueve solo', d: 'Cada vehículo cambia de etapa cuando el trabajador marca su avance.' },
+  { Icono: Bell, t: 'Alertas del día', d: 'Atrasos, repuestos por pedir, montos faltantes y autos listos, en una lista.' },
+  { Icono: Package, t: 'Repuestos automáticos', d: 'Un cambio de pieza crea el repuesto y frena la etapa hasta recibirlo.' },
+  { Icono: Camera, t: 'Fotos antes y después', d: 'Quedan en la orden como respaldo para el cliente y la compañía.' },
+  { Icono: CurrencyCircleDollar, t: 'Trabajos adicionales', d: 'Lo que aparece al desarmar vuelve a pedir aprobación antes de seguir.' },
+  { Icono: ChatCircleDots, t: 'Avisos por WhatsApp', d: 'El mensaje de cada etapa se escribe solo. Tú solo lo envías.' },
 ];
 
 export default function Landing() {
@@ -27,8 +36,8 @@ export default function Landing() {
 
       <section className="hero">
         <div className="hero-texto">
-          <h1>Cada pieza del auto, a la vista.</h1>
-          <p>Recibe, cotiza y repara desde una sola app. Tu cliente sigue el avance en 3D.</p>
+          <h1>Tu taller, en piloto automático.</h1>
+          <p>Recibe, cotiza y repara cada vehículo en una sola app. Tu cliente sigue el avance en 3D.</p>
           <div className="hero-cta">
             <button className="btn primario grande" onClick={() => ir('/entrar')}>Entrar <ArrowRight size={24} weight="bold" /></button>
             <button className="btn secundario grande" onClick={() => ir('/cliente/COR7X2')}>Ver un seguimiento</button>
@@ -40,10 +49,10 @@ export default function Landing() {
       </section>
 
       <section className="demo">
-        <div className="demo-3d">
+        <div className="demo-3d revelar">
           <Auto3D carroceria="sedan" color="#a9aeb4" estados={etapa.e} angulo={232} etiqueta="Sedán visto desde atrás, con su maletera y parachoque según el avance" />
         </div>
-        <div className="demo-panel">
+        <div className="demo-panel revelar">
           <h2>El cliente ve su auto, no un estado en texto</h2>
           <p className="pct-grande" aria-live="polite">{pct}%</p>
           <p className="demo-etapa">{etapa.texto}</p>
@@ -58,42 +67,49 @@ export default function Landing() {
       <section className="bento">
         <h2>Una app, tres miradas</h2>
         <div className="bento-grid">
-          <article className="celda maestro">
+          <article className="celda maestro revelar">
             <FotoAuto carroceria="suv" color="#1d3f72" estados={{ capot: 'pendiente', parachoque_del: 'pendiente' }} angulo={58} ancho={1100} alto={560} alt="SUV con capot y parachoque marcados por reparar" />
             <div>
-              <h3>El maestro</h3>
-              <p>Saca una foto al padrón, toca la pieza dañada y anota el trabajo. Texto grande, pensado para usar con guantes.</p>
+              <h3>El trabajador</h3>
+              <p>Saca una foto al padrón, toca la pieza dañada y anota el trabajo. Texto grande y botones claros.</p>
             </div>
           </article>
-          <article className="celda admin">
+          <article className="celda admin revelar">
             <CurrencyCircleDollar size={44} weight="light" />
             <h3>El administrador</h3>
-            <p>Recibe cada trabajo con un rango sugerido y decide el monto final al lado.</p>
+            <p>Ve el taller completo, fija cada monto y cobra separando deducible y compañía.</p>
           </article>
-          <article className="celda cliente">
+          <article className="celda cliente revelar">
             <FotoAuto carroceria="hatchback" color="#e4e6e8" angulo={320} ancho={760} alto={420} alt="Hatchback blanco terminado" />
             <div>
               <h3>El cliente</h3>
-              <p>Entra con su patente y un código. Ve porcentaje, tareas y piezas pintadas.</p>
+              <p>Entra con su patente y un código. Ve avance, fotos y aprueba su presupuesto.</p>
             </div>
           </article>
         </div>
       </section>
 
-      <section className="seguros">
-        <h2>Hecho para trabajar con aseguradoras</h2>
-        <div className="seguros-grid">
-          <div><ShieldCheck size={36} weight="light" /><h3>Siniestro y deducible</h3><p>Cada orden guarda compañía, número de siniestro y deducible.</p></div>
-          <div><CurrencyCircleDollar size={36} weight="light" /><h3>Cobro separado</h3><p>Calcula neto, IVA, deducible del cliente y saldo de la compañía.</p></div>
-          <div><Camera size={36} weight="light" /><h3>Ingreso con foto</h3><p>Propone los datos del padrón para que el maestro los revise.</p></div>
-          <div><Cube size={36} weight="light" /><h3>Menos llamadas</h3><p>El dueño del auto revisa el avance sin preguntar al taller.</p></div>
+      <section className="funciones">
+        <h2>Lo que antes dependía de la memoria, ahora pasa solo</h2>
+        <div className="funciones-grid">
+          {FUNCIONES.map(({ Icono, t, d }) => (
+            <article key={t} className="revelar"><Icono size={36} weight="light" /><h3>{t}</h3><p>{d}</p></article>
+          ))}
+        </div>
+      </section>
+
+      <section className="marca-blanca">
+        <div className="revelar">
+          <ShieldCheck size={44} weight="light" />
+          <h2>Una plataforma, cada taller con su marca</h2>
+          <p>Cada empresa entra con su logo, su color y sus datos separados.</p>
         </div>
       </section>
 
       <footer className="pie">
         <h2>Pruébala con datos de ejemplo</h2>
         <button className="btn primario grande" onClick={() => ir('/entrar')}>Entrar <ArrowRight size={24} weight="bold" /></button>
-        <p>Demostración con datos ficticios. Desarrollo de solucionesconia.cl</p>
+        <p>Demostración con datos ficticios.</p>
       </footer>
     </div>
   );

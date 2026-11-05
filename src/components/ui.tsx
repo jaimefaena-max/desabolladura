@@ -1,7 +1,10 @@
-import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { CaretLeft, SignOut } from '@phosphor-icons/react';
-import { cerrarSesion, sesion } from '../lib/store';
-import type { Carroceria, EstadoPieza, Orden, PiezaId } from '../lib/types';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { CaretLeft, Camera, ChartBar, Gear, Kanban, ListChecks, Package, SignOut } from '@phosphor-icons/react';
+import { etapaDe, nombreEtapa } from '../lib/automatizacion';
+import { guardarFoto, leerFoto } from '../lib/fotos';
+import { reducirImagen } from '../lib/padron';
+import { cerrarSesion, sesion, uid, useEmpresa } from '../lib/store';
+import type { Carroceria, EstadoPieza, FotoRef, Orden, PiezaId } from '../lib/types';
 import { estadosPiezas, progreso } from '../lib/piezas';
 import { verPatente } from '../lib/vehiculos';
 
@@ -9,21 +12,44 @@ export const Viewer3D = lazy(() => import('../three/Viewer3D'));
 
 export const ir = (ruta: string) => { location.hash = ruta; };
 
+/** Espacio de logo: cada taller carga el suyo en Ajustes. */
+export function Logo() {
+  const e = useEmpresa();
+  return e.logo ? <img className="logo-img" src={e.logo} alt={`Logo de ${e.nombre}`} /> : <span className="logo-vacio">TU LOGO<br />AQUÍ</span>;
+}
+
 export function Marca({ onClick }: { onClick?: () => void }) {
+  const e = useEmpresa();
   return (
-    <button className="marca" onClick={onClick ?? (() => ir('/'))} aria-label="Desabolladura Premium, inicio">
-      <span className="marca-signo" aria-hidden="true" />
-      <span>Desabolladura <b>Premium</b></span>
+    <button className="marca" onClick={onClick ?? (() => ir('/'))} aria-label={`${e.nombre}, inicio`}>
+      <Logo />
+      <span className="marca-txt"><b>{e.nombre}</b><small>Desabolladura Premium</small></span>
     </button>
   );
 }
 
+const NAV_ADMIN = [
+  { ruta: '/admin', nombre: 'Tablero', Icono: Kanban },
+  { ruta: '/admin/ordenes', nombre: 'Órdenes', Icono: ListChecks },
+  { ruta: '/admin/repuestos', nombre: 'Repuestos', Icono: Package },
+  { ruta: '/admin/reportes', nombre: 'Reportes', Icono: ChartBar },
+  { ruta: '/admin/ajustes', nombre: 'Ajustes', Icono: Gear },
+];
+
 export function Pantalla({ children, volver, titulo, sub, accion }: { children?: ReactNode; volver?: string; titulo?: string; sub?: string; accion?: ReactNode }) {
   const u = sesion();
+  const ruta = location.hash.replace(/^#/, '');
   return (
     <div className="app">
       <header className="barra">
         <Marca onClick={() => ir(u ? (u.rol === 'admin' ? '/admin' : '/maestro') : '/')} />
+        {u?.rol === 'admin' && (
+          <nav className="nav-admin" aria-label="Secciones">
+            {NAV_ADMIN.map(({ ruta: r, nombre, Icono }) => (
+              <button key={r} className={ruta === r ? 'on' : ''} aria-current={ruta === r ? 'page' : undefined} onClick={() => ir(r)}><Icono size={24} /> {nombre}</button>
+            ))}
+          </nav>
+        )}
         {u && (
           <div className="barra-usuario">
             <span className="barra-nombre"><b>{u.nombre}</b><small>{u.cargo}</small></span>
@@ -83,17 +109,64 @@ export function FotoAuto({ carroceria, color, estados, angulo, alt, ancho, alto 
   return src ? <img className="foto" src={src} alt={alt} /> : <div className="foto esqueleto" role="img" aria-label={alt} />;
 }
 
-export function TarjetaOrden({ o, destino, pie }: { o: Orden; destino: string; pie?: ReactNode }) {
+export function TarjetaOrden({ o, destino }: { o: Orden; destino: string }) {
   const pct = progreso(o.items), v = o.vehiculo;
   return (
     <button className="tarjeta-orden" onClick={() => ir(destino)}>
       <FotoAuto carroceria={v.carroceria} color={v.colorHex} estados={estadosPiezas(o.items)} alt={`${v.marca} ${v.modelo}`} />
       <div className="tarjeta-datos">
         <div className="tarjeta-tit"><b>{v.marca} {v.modelo}</b><span className="patente">{verPatente(v.patente)}</span></div>
-        <p>{v.anio} · {o.pagador.tipo === 'aseguradora' ? o.pagador.aseguradora : 'Particular'}</p>
+        <p>{nombreEtapa(etapaDe(o))}</p>
         <div className="tarjeta-pct"><Barra valor={pct} /><b>{pct}%</b></div>
-        {pie}
       </div>
     </button>
+  );
+}
+
+function Imagen({ id, alt }: { id: string; alt: string }) {
+  const [src, setSrc] = useState<string>();
+  useEffect(() => { let vivo = true; void leerFoto(id).then(s => { if (vivo) setSrc(s); }); return () => { vivo = false; }; }, [id]);
+  return src ? <img src={src} alt={alt} loading="lazy" /> : <div className="esqueleto" role="img" aria-label={alt} />;
+}
+
+/** Fotos del antes y el después. Con `onAgregar`, el trabajador las sube desde la cámara. */
+export function Galeria({ fotos, onAgregar }: { fotos: FotoRef[]; onAgregar?: (f: FotoRef) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const momento = useRef<FotoRef['momento']>('antes');
+  const [error, setError] = useState('');
+  const abrir = (m: FotoRef['momento']) => { momento.current = m; input.current?.click(); };
+  const grupos: { id: FotoRef['momento']; nombre: string }[] = [{ id: 'antes', nombre: 'Antes' }, { id: 'despues', nombre: 'Después' }];
+  if (!onAgregar && !fotos.length) return null;
+  return (
+    <section className="galeria">
+      <h2>Fotos del trabajo</h2>
+      {grupos.map(g => {
+        const lista = fotos.filter(f => f.momento === g.id);
+        if (!onAgregar && !lista.length) return null;
+        return (
+          <div key={g.id}>
+            <p className="etiqueta">{g.nombre}</p>
+            <div className="fotos">
+              {lista.map((f, i) => <Imagen key={f.id} id={f.id} alt={`Foto ${g.nombre.toLowerCase()} ${i + 1}`} />)}
+              {onAgregar && <button className="foto-mas" aria-label={`Agregar foto de ${g.nombre.toLowerCase()}`} onClick={() => abrir(g.id)}><Camera size={34} weight="light" /> Sacar foto</button>}
+            </div>
+          </div>
+        );
+      })}
+      {error && <p className="error" role="alert">{error}</p>}
+      {onAgregar && (
+        <input ref={input} type="file" accept="image/*" capture="environment" hidden aria-label="Foto del trabajo" onChange={async e => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (!f) return;
+          try {
+            const id = uid();
+            await guardarFoto(id, await reducirImagen(f, 1100));
+            onAgregar({ id, momento: momento.current });
+            setError('');
+          } catch { setError('No se pudo guardar la foto. Intenta otra vez.'); }
+        }} />
+      )}
+    </section>
   );
 }

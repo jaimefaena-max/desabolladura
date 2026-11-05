@@ -3,7 +3,8 @@ import { extraerJSON } from './gemini';
 import { interpretarPadron } from './padron';
 import { estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
-import { ordenesDemo } from './seed';
+import { alertas, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, sincronizar, sumarHabiles } from './automatizacion';
+import { ordenesDemo, USUARIOS } from './seed';
 import type { Item, Orden } from './types';
 import { carroceriaDe, colorHex, patenteValida, verPatente } from './vehiculos';
 
@@ -114,6 +115,61 @@ describe('datos de ejemplo', () => {
   });
   it('las patentes llevan vocal, que las series chilenas no usan', () => {
     ordenes.forEach(o => expect(o.vehiculo.patente).toMatch(/[AEIOU]/));
+  });
+});
+
+describe('automatización', () => {
+  const ordenes = ordenesDemo();
+  const buscar = (n: number) => ordenes.find(o => o.numero === n)!;
+  const con = (n: number, c: Partial<Orden>): Orden => ({ ...buscar(n), ...c });
+
+  it('ubica cada vehículo en su etapa', () => {
+    expect(etapaDe(buscar(1043))).toBe('aprobar');
+    expect(etapaDe(buscar(1041))).toBe('desabolladura');
+    expect(etapaDe(buscar(1042))).toBe('pintura');
+    expect(etapaDe(buscar(1040))).toBe('entrega');
+    expect(etapaDe(buscar(1034))).toBe('entregado');
+  });
+  it('espera repuestos antes de partir y pasa a calidad al terminar', () => {
+    const o = buscar(1043);
+    const r = { id: 'r', itemId: 'i0', nombre: 'Capot', estado: 'pedido' as const };
+    expect(etapaDe({ ...o, aprobacion: 'aprobada', repuestos: [r] })).toBe('repuestos');
+    expect(etapaDe({ ...o, aprobacion: 'aprobada', repuestos: [{ ...r, estado: 'recibido' }] })).toBe('desabolladura');
+    const lista = o.items.map(i => (i.trabajo === 'general' ? i : { ...i, estado: 'listo' as const }));
+    expect(etapaDe({ ...o, items: lista, aprobacion: 'aprobada' })).toBe('calidad');
+  });
+  it('un cambio de pieza crea su repuesto una sola vez', () => {
+    const o = buscar(1041);
+    expect(o.repuestos.map(r => r.nombre)).toEqual(['Espejo derecho']);
+    expect(sincronizar(o).repuestos).toHaveLength(1);
+  });
+  it('la fecha salta fines de semana y nunca se adelanta', () => {
+    expect(sumarHabiles('2026-11-06', 1)).toBe('2026-11-09');
+    expect(diasTrabajo([item({ severidad: 'medio' })])).toBe(2);
+    const o = con(1043, { entrega: '2099-01-01' });
+    expect(sincronizar(o).entrega).toBe('2099-01-01');
+  });
+  it('alerta atrasos, cobros, repuestos y entregas', () => {
+    const textos = alertas(ordenes, '2026-11-05').map(a => a.texto).join(' | ');
+    expect(textos).toContain('entregado sin cobrar');
+    expect(textos).toContain('pedir espejo derecho');
+    expect(textos).toContain('listo, avisa al cliente');
+    expect(alertas([con(1041, { entrega: '2020-01-01' })], '2026-11-05')[0]).toMatchObject({ urgente: true });
+  });
+  it('escribe el aviso de WhatsApp según la etapa', () => {
+    expect(mensajeCliente(buscar(1040), { nombre: 'Taller' })).toContain('listo para retirar');
+    expect(mensajeCliente(buscar(1042), { nombre: 'Taller' })).toContain('en pintura');
+    expect(enlaceWhatsApp('+56 9 1234 5678', 'hola mundo')).toBe('https://wa.me/56912345678?text=hola%20mundo');
+  });
+  it('calcula métricas solo con lo cobrado', () => {
+    const m = metricas(ordenes);
+    expect(m.ingresos).toBeGreaterThan(0);
+    expect(m.ciclo).toBeGreaterThan(0);
+    expect(m.meses).toHaveLength(6);
+    expect(metricas([])).toMatchObject({ ingresos: 0, ticket: 0, ciclo: 0 });
+  });
+  it('tiene las cuentas pedidas', () => {
+    expect(USUARIOS.map(u => [u.usuario, u.clave, u.rol])).toEqual([['admin', 'admin2027', 'admin'], ['trabajador', 'trabajador2027', 'maestro']]);
   });
 });
 

@@ -1,33 +1,75 @@
-import { useState } from 'react';
-import { ArrowsClockwise, CheckCircle, Gear, MagnifyingGlass, Printer } from '@phosphor-icons/react';
-import { Auto3D, Barra, FotoAuto, ir, Pantalla } from '../components/ui';
+import { useMemo, useRef, useState } from 'react';
+import { ArrowsClockwise, Bell, CheckCircle, MagnifyingGlass, PaperPlaneTilt, Plus, Printer, Truck, WarningCircle, WhatsappLogo } from '@phosphor-icons/react';
+import { Auto3D, Barra, FotoAuto, Galeria, ir, Logo, Pantalla } from '../components/ui';
+import { alertas, conEvento, enlaceWhatsApp, ETAPAS, etapaDe, mensajeCliente, metricas, nombreEtapa } from '../lib/automatizacion';
 import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../lib/gemini';
-import { clp, estadosPiezas, fecha, itemsCobrables, progreso, tituloItem, totales } from '../lib/piezas';
+import { reducirImagen } from '../lib/padron';
+import { clp, estadosPiezas, fecha, fechaLocal, itemsCobrables, progreso, TRABAJOS, tituloItem, totales } from '../lib/piezas';
 import { USUARIOS } from '../lib/seed';
-import { actualizar, restablecerDemo, useOrden, useOrdenes } from '../lib/store';
-import type { Item, Orden } from '../lib/types';
+import { actualizar, cambiarEmpresa, crearEmpresa, editarEmpresa, restablecerDemo, useEmpresa, useEmpresas, useOrden, useOrdenes } from '../lib/store';
+import type { Item, Orden, Repuesto } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';
 
-export function AdminInicio() {
+export function Tablero() {
   const ordenes = useOrdenes();
-  const activas = ordenes.filter(o => !o.cobrada);
-  const sinPrecio = activas.reduce((a, o) => a + totales(o).faltan, 0);
-  const porCobrar = activas.reduce((a, o) => a + totales(o).total, 0);
-  const seguros = activas.filter(o => o.pagador.tipo === 'aseguradora').length;
-  const [filtro, setFiltro] = useState<'activas' | 'cobradas'>('activas');
-  const lista = ordenes.filter(o => (filtro === 'activas' ? !o.cobrada : o.cobrada)).sort((a, b) => totales(b).faltan - totales(a).faltan);
-
+  const activas = ordenes.filter(o => !o.entregadaEl);
+  const avisos = useMemo(() => alertas(ordenes), [ordenes]);
+  const columnas = ETAPAS.filter(e => e.id !== 'entregado');
   return (
-    <Pantalla titulo="Panel del taller" sub="Fija los montos y cobra cada orden." accion={<button className="btn secundario" onClick={() => ir('/admin/ajustes')}><Gear size={22} /> Ajustes</button>}>
-      <dl className="kpis">
-        <div><dt>Vehículos en taller</dt><dd>{activas.length}</dd></div>
-        <div className={sinPrecio ? 'alerta' : ''}><dt>Trabajos sin monto</dt><dd>{sinPrecio}</dd></div>
-        <div><dt>Monto cotizado por cobrar</dt><dd>{clp(porCobrar)}</dd></div>
-        <div><dt>De aseguradoras</dt><dd>{seguros} de {activas.length}</dd></div>
-      </dl>
-      <div className="segmentos filtro">
-        <button aria-pressed={filtro === 'activas'} className={filtro === 'activas' ? 'on' : ''} onClick={() => setFiltro('activas')}>Por cobrar</button>
-        <button aria-pressed={filtro === 'cobradas'} className={filtro === 'cobradas' ? 'on' : ''} onClick={() => setFiltro('cobradas')}>Cobradas</button>
+    <Pantalla titulo="Tablero del taller" sub="Cada vehículo cambia de etapa solo, según el avance del trabajador.">
+      {avisos.length > 0 && (
+        <section className="avisos" aria-label="Alertas">
+          <h2><Bell size={26} /> Para hoy <span className="contador">{avisos.length}</span></h2>
+          <div className="avisos-lista">
+            {avisos.map(a => (
+              <button key={a.id} className={a.urgente ? 'urgente' : ''} onClick={() => ir(`/admin/ot/${a.ordenId}`)}>
+                {a.urgente && <WarningCircle size={24} weight="fill" />}<span>{a.texto}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+      <div className="kanban">
+        {columnas.map(c => {
+          const lista = activas.filter(o => etapaDe(o) === c.id);
+          return (
+            <section key={c.id} className="columna" aria-label={c.nombre}>
+              <h2>{c.nombre} <span>{lista.length}</span></h2>
+              {lista.map(o => {
+                const pct = progreso(o.items), v = o.vehiculo;
+                return (
+                  <button key={o.id} className="tarjeta-k" onClick={() => ir(`/admin/ot/${o.id}`)}>
+                    <FotoAuto carroceria={v.carroceria} color={v.colorHex} estados={estadosPiezas(o.items)} ancho={400} alto={225} alt={`${v.marca} ${v.modelo}`} />
+                    <b>{v.marca} {v.modelo}</b>
+                    <small>{verPatente(v.patente)} · Entrega {fecha(o.entrega)}</small>
+                    <span className="tarjeta-pct"><Barra valor={pct} /><b>{pct}%</b></span>
+                  </button>
+                );
+              })}
+            </section>
+          );
+        })}
+      </div>
+    </Pantalla>
+  );
+}
+
+export function Ordenes() {
+  const ordenes = useOrdenes();
+  const [filtro, setFiltro] = useState<'activas' | 'cobradas'>('activas');
+  const [q, setQ] = useState('');
+  const txt = q.trim().toLowerCase();
+  const lista = ordenes
+    .filter(o => (filtro === 'activas' ? !o.cobrada : o.cobrada))
+    .filter(o => !txt || `${o.vehiculo.patente} ${o.vehiculo.marca} ${o.vehiculo.modelo} ${o.cliente.nombre} ${o.numero}`.toLowerCase().includes(txt.replace(/-/g, '')));
+  return (
+    <Pantalla titulo="Órdenes" sub="Fija los montos y cobra cada orden.">
+      <div className="buscar-fila">
+        <div className="segmentos">
+          <button aria-pressed={filtro === 'activas'} className={filtro === 'activas' ? 'on' : ''} onClick={() => setFiltro('activas')}>Por cobrar</button>
+          <button aria-pressed={filtro === 'cobradas'} className={filtro === 'cobradas' ? 'on' : ''} onClick={() => setFiltro('cobradas')}>Cobradas</button>
+        </div>
+        <label className="campo buscar"><MagnifyingGlass size={24} /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar patente, cliente o modelo" aria-label="Buscar orden" /></label>
       </div>
       {lista.length === 0 && <p className="vacio">No hay órdenes en esta lista.</p>}
       <div className="filas-orden">
@@ -37,12 +79,84 @@ export function AdminInicio() {
             <button key={o.id} className="fila-orden" onClick={() => ir(`/admin/ot/${o.id}`)}>
               <FotoAuto carroceria={v.carroceria} color={v.colorHex} estados={estadosPiezas(o.items)} ancho={360} alto={200} alt={`${v.marca} ${v.modelo}`} />
               <span className="fo-veh"><b>{v.marca} {v.modelo} {v.anio}</b><small>Orden {o.numero} · {verPatente(v.patente)}</small></span>
-              <span className="fo-pag"><b>{o.pagador.tipo === 'aseguradora' ? o.pagador.aseguradora : 'Particular'}</b><small>{USUARIOS.find(u => u.id === o.maestroId)?.nombre}</small></span>
+              <span className="fo-pag"><b>{o.pagador.tipo === 'aseguradora' ? o.pagador.aseguradora : 'Particular'}</b><small>{nombreEtapa(etapaDe(o))}</small></span>
               <span className="fo-pct"><b>{pct}%</b><Barra valor={pct} /></span>
               <span className="fo-monto">{t.faltan ? <em>{t.faltan} sin monto</em> : <b>{clp(t.total)}</b>}</span>
             </button>
           );
         })}
+      </div>
+    </Pantalla>
+  );
+}
+
+const ESTADO_REPUESTO: { id: Repuesto['estado']; nombre: string }[] = [
+  { id: 'por_pedir', nombre: 'Por pedir' },
+  { id: 'pedido', nombre: 'Pedido' },
+  { id: 'recibido', nombre: 'Recibido' },
+];
+
+function cambiarRepuesto(ordenId: string, r: Repuesto, estado: Repuesto['estado']) {
+  actualizar(ordenId, x => conEvento(
+    { ...x, repuestos: x.repuestos.map(y => (y.id === r.id ? { ...y, estado } : y)) },
+    `Repuesto ${r.nombre.toLowerCase()}: ${ESTADO_REPUESTO.find(e => e.id === estado)!.nombre.toLowerCase()}`,
+  ));
+}
+
+function FilaRepuesto({ o, r, conVehiculo }: { o: Orden; r: Repuesto; conVehiculo?: boolean }) {
+  return (
+    <li className="repuesto">
+      <div><b>{r.nombre}</b>{conVehiculo && <small>{o.vehiculo.marca} {o.vehiculo.modelo} · {verPatente(o.vehiculo.patente)}</small>}</div>
+      <div className="segmentos tres" role="group" aria-label={`Estado de ${r.nombre}`}>
+        {ESTADO_REPUESTO.map(e => <button key={e.id} aria-pressed={r.estado === e.id} className={r.estado === e.id ? `on ${e.id === 'recibido' ? 'listo' : ''}` : ''} onClick={() => cambiarRepuesto(o.id, r, e.id)}>{e.nombre}</button>)}
+      </div>
+    </li>
+  );
+}
+
+export function Repuestos() {
+  const ordenes = useOrdenes().filter(o => !o.entregadaEl);
+  const pares = ordenes.flatMap(o => o.repuestos.map(r => ({ o, r })));
+  return (
+    <Pantalla titulo="Repuestos" sub="Cada cambio de pieza que anota el trabajador aparece aquí solo.">
+      {pares.length === 0 && <p className="vacio">No hay repuestos pendientes.</p>}
+      <ul className="repuestos">{pares.map(({ o, r }) => <FilaRepuesto key={r.id} o={o} r={r} conVehiculo />)}</ul>
+    </Pantalla>
+  );
+}
+
+export function Reportes() {
+  const m = metricas(useOrdenes());
+  const tope = Math.max(...m.meses.map(x => x.valor), 1);
+  const topeTipo = Math.max(...m.tipos.map(t => t[1]), 1);
+  const nombreTipo = (id: string) => TRABAJOS.find(t => t.id === id)?.nombre ?? id;
+  return (
+    <Pantalla titulo="Reportes" sub="Cómo va el negocio, calculado con las órdenes del taller.">
+      <dl className="kpis">
+        <div><dt>Ingresos cobrados</dt><dd>{clp(m.ingresos)}</dd></div>
+        <div><dt>Valor promedio por orden</dt><dd>{clp(m.ticket)}</dd></div>
+        <div><dt>Días promedio en taller</dt><dd>{m.ciclo.toLocaleString('es-CL')}</dd></div>
+        <div><dt>Ingresos de aseguradoras</dt><dd>{m.pctSeguro}%</dd></div>
+      </dl>
+      <div className="reportes">
+        <section>
+          <h2>Ingresos cobrados por mes</h2>
+          <div className="grafico" role="img" aria-label={`Ingresos por mes: ${m.meses.map(x => `${x.mes} ${clp(x.valor)}`).join(', ')}`}>
+            {m.meses.map(x => (
+              <div key={x.mes} title={`${x.mes}: ${clp(x.valor)}`}>
+                <small>{x.valor ? `$${Math.round(x.valor / 1000)} mil` : ''}</small>
+                <i style={{ height: `${(x.valor / tope) * 100}%` }} />
+                <span>{x.mes}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section>
+          <h2>Trabajos por tipo</h2>
+          <ul className="barras-h">
+            {m.tipos.map(([id, n]) => <li key={id} title={`${nombreTipo(id)}: ${n}`}><span>{nombreTipo(id)}</span><div><i style={{ width: `${(n / topeTipo) * 100}%` }} /><b>{n}</b></div></li>)}
+          </ul>
+        </section>
       </div>
     </Pantalla>
   );
@@ -64,7 +178,7 @@ function FilaItem({ o, i }: { o: Orden; i: Item }) {
 
   return (
     <li className="precio-fila">
-      <div className="pf-tit"><b>{titulo}</b>{i.severidad && <small>Daño {i.severidad}</small>}</div>
+      <div className="pf-tit"><b>{titulo}{i.adicional && <span className="sello">Adicional</span>}</b>{i.severidad && <small>Daño {i.severidad}</small>}</div>
       <div className="pf-sug">
         {s && <><small>Sugerido</small><b>{clp(s.min)} a {clp(s.max)}</b><small className="fuente">{s.fuente}</small></>}
         {s?.enlaces?.map(u => <a key={u} href={u} target="_blank" rel="noreferrer noopener">Ver fuente</a>)}
@@ -83,6 +197,27 @@ function FilaItem({ o, i }: { o: Orden; i: Item }) {
   );
 }
 
+function Acciones({ o }: { o: Orden }) {
+  const empresa = useEmpresa();
+  const t = totales(o), et = etapaDe(o), seguro = o.pagador.tipo === 'aseguradora';
+  const cambiar = (c: Partial<Orden>, texto: string) => actualizar(o.id, x => conEvento({ ...x, ...c }, texto));
+  const aprobar = () => cambiar({ aprobacion: 'aprobada', items: o.items.map(i => ({ ...i, adicional: false })) }, seguro ? 'Compañía autorizó el presupuesto' : 'Presupuesto aprobado');
+
+  return (
+    <div className="acciones no-print">
+      {o.aprobacion === 'pendiente' && !seguro && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ aprobacion: 'enviada' }, 'Presupuesto enviado al cliente')}><PaperPlaneTilt size={24} /> Enviar presupuesto al cliente</button>}
+      {o.aprobacion === 'enviada' && <p className="pista">Esperando que el cliente apruebe en su portal.</p>}
+      {(o.aprobacion === 'pendiente' && seguro) && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={aprobar}><CheckCircle size={24} /> La compañía autorizó</button>}
+      {et === 'entrega' && <button className="btn primario grande ancho" onClick={() => cambiar({ entregadaEl: fechaLocal(), items: o.items.map(i => ({ ...i, estado: 'listo' as const })) }, 'Vehículo entregado')}><Truck size={24} /> Marcar como entregado</button>}
+      {o.cobrada ? <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada</p> : (
+        <button className="btn secundario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ cobrada: true }, 'Orden cobrada')}>Marcar como cobrada</button>
+      )}
+      {o.cliente.telefono && <a className="btn secundario grande ancho" href={enlaceWhatsApp(o.cliente.telefono, mensajeCliente(o, empresa))} target="_blank" rel="noreferrer noopener"><WhatsappLogo size={26} /> Avisar por WhatsApp</a>}
+      {t.faltan > 0 && <p className="pista">Faltan {t.faltan} montos por definir.</p>}
+    </div>
+  );
+}
+
 export function AdminOrden({ id }: { id: string }) {
   const o = useOrden(id);
   if (!o) return <Pantalla volver="/admin" titulo="Orden no encontrada" />;
@@ -90,7 +225,7 @@ export function AdminOrden({ id }: { id: string }) {
   const maestro = USUARIOS.find(u => u.id === o.maestroId);
 
   return (
-    <Pantalla volver="/admin" titulo={`Orden ${o.numero}`} sub={`${v.marca} ${v.modelo} ${v.anio} · ${verPatente(v.patente)}`}
+    <Pantalla volver="/admin" titulo={`Orden ${o.numero}`} sub={`${v.marca} ${v.modelo} ${v.anio} · ${verPatente(v.patente)} · ${nombreEtapa(etapaDe(o))}`}
       accion={<button className="btn secundario no-print" onClick={() => window.print()}><Printer size={22} /> Imprimir cotización</button>}>
       <div className="dos-col admin">
         <div className="no-print">
@@ -98,20 +233,29 @@ export function AdminOrden({ id }: { id: string }) {
           {o.imagenIA && <img className="imagen-ia" src={o.imagenIA} alt="Imagen del vehículo generada con Gemini" />}
           <div className="avance-caja"><b className="pct">{pct}%</b><div><Barra valor={pct} /><p>Entrega: {fecha(o.entrega)}</p></div></div>
           <dl className="ficha">
-            <div><dt>Maestro</dt><dd>{maestro?.nombre}</dd></div>
+            <div><dt>Ingresó</dt><dd>{maestro?.nombre}</dd></div>
             <div><dt>Dueño</dt><dd>{o.cliente.nombre}</dd></div>
             <div><dt>RUT</dt><dd>{o.cliente.rut || 'Sin dato'}</dd></div>
             <div><dt>Teléfono</dt><dd>{o.cliente.telefono || 'Sin dato'}</dd></div>
             {p.tipo === 'aseguradora' && <div><dt>Compañía</dt><dd>{p.aseguradora}</dd></div>}
             {p.tipo === 'aseguradora' && <div><dt>Siniestro</dt><dd>{p.siniestro}</dd></div>}
+            {o.recepcion.km !== null && <div><dt>Kilometraje</dt><dd>{o.recepcion.km.toLocaleString('es-CL')} km</dd></div>}
+            <div><dt>Combustible</dt><dd>{o.recepcion.combustible}</dd></div>
+            {o.recepcion.observaciones && <div><dt>Recepción</dt><dd>{o.recepcion.observaciones}</dd></div>}
             <div><dt>Código cliente</dt><dd className="codigo-chico">{o.codigo}</dd></div>
           </dl>
           <button className="enlace" onClick={() => ir(`/cliente/${o.codigo}`)}>Abrir el portal de este cliente</button>
+          {o.repuestos.length > 0 && <section className="seccion-bloque"><h2>Repuestos</h2><ul className="repuestos">{o.repuestos.map(r => <FilaRepuesto key={r.id} o={o} r={r} />)}</ul></section>}
+          <Galeria fotos={o.fotos} />
+          <section className="seccion-bloque">
+            <h2>Historial</h2>
+            <ol className="historial">{o.historial.slice(0, 12).map((e, i) => <li key={i}><time>{new Date(e.fecha).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time>{e.texto}</li>)}</ol>
+          </section>
         </div>
         <div>
           <div className="solo-print">
             <p><b>DEMOSTRACIÓN, SIN VALIDEZ COMERCIAL</b></p>
-            <h2>Desabolladura Premium: cotización orden {o.numero}</h2>
+            <h2>Cotización orden {o.numero}</h2>
             <p>{v.marca} {v.modelo} {v.anio}, patente {verPatente(v.patente)}. Cliente: {o.cliente.nombre}.{p.tipo === 'aseguradora' ? ` ${p.aseguradora}, siniestro ${p.siniestro}.` : ''}</p>
           </div>
           <h2 className="no-print">Costos por trabajo</h2>
@@ -125,12 +269,7 @@ export function AdminOrden({ id }: { id: string }) {
               <div><dt>Paga {p.aseguradora}</dt><dd>{clp(t.aseguradora)}</dd></div>
             </>}
           </dl>
-          {t.faltan > 0 && <p className="pista no-print">Faltan {t.faltan} montos por definir.</p>}
-          {o.cobrada ? (
-            <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada</p>
-          ) : (
-            <button className="btn primario grande ancho no-print" disabled={t.faltan > 0} onClick={() => actualizar(id, x => ({ ...x, cobrada: true }))}>Marcar como cobrada</button>
-          )}
+          <Acciones o={o} />
         </div>
       </div>
     </Pantalla>
@@ -138,6 +277,9 @@ export function AdminOrden({ id }: { id: string }) {
 }
 
 export function Ajustes() {
+  const empresa = useEmpresa(), empresas = useEmpresas();
+  const logo = useRef<HTMLInputElement>(null);
+  const [nueva, setNueva] = useState('');
   const [k, setK] = useState(claveGemini());
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const [probando, setProbando] = useState(false);
@@ -151,9 +293,36 @@ export function Ajustes() {
     setProbando(false);
   };
   return (
-    <Pantalla volver="/admin" titulo="Ajustes">
+    <Pantalla titulo="Ajustes">
       <section className="formulario angosto">
-        <h2>Conectar Gemini</h2>
+        <h2>Marca del taller</h2>
+        <p className="sub">Cada empresa usa la app con su nombre, logo y color.</p>
+        <div className="logo-editor">
+          <Logo />
+          <button className="btn secundario" onClick={() => logo.current?.click()}>Subir logo</button>
+          {empresa.logo && <button className="enlace" onClick={() => editarEmpresa({ logo: undefined })}>Quitar</button>}
+          <input ref={logo} type="file" accept="image/*" hidden aria-label="Logo del taller" onChange={async e => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (f) editarEmpresa({ logo: await reducirImagen(f, 300) });
+          }} />
+        </div>
+        <div className="campos">
+          <label className="campo"><span>Nombre del taller</span><input value={empresa.nombre} onChange={e => editarEmpresa({ nombre: e.target.value })} autoComplete="off" /></label>
+          <label className="campo"><span>Color de la marca</span><input type="color" value={empresa.acento} onChange={e => editarEmpresa({ acento: e.target.value })} /></label>
+        </div>
+
+        <h2 className="seccion">Empresas</h2>
+        <p className="sub">Cada empresa tiene sus datos separados.</p>
+        <div className="empresas">
+          {empresas.map(e => <button key={e.id} aria-pressed={e.id === empresa.id} className={e.id === empresa.id ? 'on' : ''} onClick={() => cambiarEmpresa(e.id)}>{e.nombre || 'Sin nombre'}</button>)}
+        </div>
+        <form className="nueva-empresa" onSubmit={ev => { ev.preventDefault(); if (nueva.trim()) { crearEmpresa(nueva); setNueva(''); } }}>
+          <label className="campo"><span>Agregar empresa</span><input value={nueva} onChange={e => setNueva(e.target.value)} autoComplete="off" /></label>
+          <button className="btn primario" disabled={!nueva.trim()}><Plus size={22} /> Agregar</button>
+        </form>
+
+        <h2 className="seccion">Conectar Gemini</h2>
         <p className="sub">Activa la lectura de padrón con IA, la búsqueda de precios en internet y las imágenes generadas. Sin clave, la foto se procesa en este equipo (el motor de lectura se descarga de internet) y los precios salen de una tabla orientativa.</p>
         <label className="campo"><span>Clave de API de Gemini</span>
           <input type="password" value={k} onChange={e => setK(e.target.value)} autoComplete="off" spellCheck={false} />
@@ -162,7 +331,7 @@ export function Ajustes() {
         <button className="btn primario grande" disabled={probando} onClick={guardar}>{probando ? 'Probando…' : 'Guardar y probar'}</button>
         {msg && <p className={msg.ok ? 'aviso-ok' : 'error'} role="status">{msg.t}</p>}
         <h2 className="seccion">Datos de ejemplo</h2>
-        <button className="btn secundario grande" onClick={() => { if (confirm('Se borrarán los cambios y volverán los datos de ejemplo. ¿Continuar?')) restablecerDemo(); }}><ArrowsClockwise size={24} /> Restablecer demostración</button>
+        <button className="btn secundario grande" onClick={() => { if (confirm('Se borrarán los cambios de esta empresa. ¿Continuar?')) restablecerDemo(); }}><ArrowsClockwise size={24} /> Restablecer datos</button>
       </section>
     </Pantalla>
   );

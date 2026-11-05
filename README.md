@@ -10,15 +10,16 @@ Todos los datos son ficticios: los RUT tienen dígito verificador inválido y la
 
 | Perfil | Entrada |
 |---|---|
-| Maestro | Héctor Araya o Luis Quezada, PIN `1234` |
-| Administradora | Paula Fuentealba, PIN `4321` |
+| Administrador | Usuario `admin`, clave `admin2027` |
+| Trabajador | Usuario `trabajador`, clave `trabajador2027` |
 | Cliente | Patente `DEMA-22`, código `COR7X2` |
 
 ## Qué hace
 
-- **Maestro:** entra con su usuario, ingresa el vehículo con foto del padrón o a mano, toca la pieza dañada en el modelo 3D y marca el trabajo y su avance.
-- **Administrador:** ve cada trabajo con un rango sugerido, fija el monto final y separa neto, IVA, deducible y saldo de la compañía.
-- **Cliente:** entra con patente y código, y ve su vehículo en 3D con las piezas según avance, el porcentaje y las tareas pendientes.
+- **Trabajador:** ingresa el vehículo con foto del padrón o a mano, toca la pieza dañada en el modelo 3D, marca avance y sube fotos. No ve precios.
+- **Administrador:** tablero por etapas que se mueve solo, alertas, repuestos, montos con rango sugerido, cobro con deducible, avisos por WhatsApp y reportes.
+- **Cliente:** entra con patente y código, ve su vehículo en 3D, etapas, tareas y fotos, y aprueba su presupuesto.
+- **Varias empresas:** cada taller tiene nombre, logo, color y datos separados.
 
 ## Inteligencia artificial
 
@@ -33,7 +34,7 @@ Todos los datos son ficticios: los RUT tienen dígito verificador inválido y la
 Es una demostración, no un sistema de producción:
 
 - Los datos se guardan en el navegador de cada equipo. El portal del cliente solo muestra cambios hechos en ese mismo navegador.
-- El ingreso con PIN es de demostración: no hay servidor que proteja los datos.
+- Las cuentas y claves son de demostración y están en el código público: no hay servidor que proteja los datos.
 - La clave de Gemini queda en el navegador. En producción debe vivir en un backend.
 - No cargar datos reales de clientes.
 
