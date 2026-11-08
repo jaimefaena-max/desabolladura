@@ -1,40 +1,29 @@
-import { useState } from 'react';
-import { Eye, EyeSlash, SignIn } from '@phosphor-icons/react';
+import { ArrowRight, Briefcase, Wrench } from '@phosphor-icons/react';
 import { ir, Marca } from '../components/ui';
-import { iniciarSesion } from '../lib/store';
+import { entrarDemo } from '../lib/store';
+import type { Usuario } from '../lib/types';
+
+const PERFILES: { rol: Usuario['rol']; titulo: string; detalle: string; destino: string; Icono: typeof Wrench }[] = [
+  { rol: 'admin', titulo: 'Demo Administrador', detalle: 'Tablero, órdenes, precios, cobros y reportes', destino: '/admin', Icono: Briefcase },
+  { rol: 'maestro', titulo: 'Demo Trabajador', detalle: 'Ingresar vehículos, marcar daños y avance', destino: '/maestro', Icono: Wrench },
+];
 
 export default function Login() {
-  const [usuario, setUsuario] = useState('');
-  const [clave, setClave] = useState('');
-  const [ver, setVer] = useState(false);
-  const [error, setError] = useState(false);
-
-  const entrar = (e: React.FormEvent) => {
-    e.preventDefault();
-    const u = iniciarSesion(usuario, clave);
-    if (u) ir(u.rol === 'admin' ? '/admin' : '/maestro');
-    else { setError(true); setClave(''); }
-  };
-
   return (
     <div className="login">
-      <header className="login-top"><Marca /></header>
-      <main className="login-caja angosta">
-        <h1>Entrar</h1>
-        <p className="sub">Escribe tu usuario y tu clave.</p>
-        <form className="formulario" onSubmit={entrar}>
-          <label className="campo"><span>Usuario</span>
-            <input value={usuario} onChange={e => { setUsuario(e.target.value); setError(false); }} autoCapitalize="none" autoCorrect="off" autoComplete="username" required />
-          </label>
-          <label className="campo"><span>Clave</span>
-            <div className="con-boton">
-              <input type={ver ? 'text' : 'password'} value={clave} onChange={e => { setClave(e.target.value); setError(false); }} autoComplete="current-password" required />
-              <button type="button" className="icono" aria-label={ver ? 'Ocultar clave' : 'Mostrar clave'} onClick={() => setVer(!ver)}>{ver ? <EyeSlash size={26} /> : <Eye size={26} />}</button>
-            </div>
-          </label>
-          {error && <p className="error" role="alert">Usuario o clave incorrectos.</p>}
-          <button className="btn primario grande ancho"><SignIn size={26} /> Entrar</button>
-        </form>
+      <header className="login-top"><Marca onClick={() => ir('/')} /></header>
+      <main className="login-caja">
+        <h1>Entrar a la demo</h1>
+        <p className="sub">Elige un perfil. No necesitas usuario ni clave.</p>
+        <div className="perfiles">
+          {PERFILES.map(({ rol, titulo, detalle, destino, Icono }) => (
+            <button key={rol} className="perfil" onClick={() => { entrarDemo(rol); ir(destino); }}>
+              <span className="avatar claro" aria-hidden="true"><Icono size={32} weight="duotone" /></span>
+              <span><b>{titulo}</b><small>{detalle}</small></span>
+              <ArrowRight size={24} className="perfil-flecha" aria-hidden="true" />
+            </button>
+          ))}
+        </div>
         <button className="enlace centrado" onClick={() => ir('/cliente')}>Soy cliente: ver cómo va mi auto</button>
       </main>
     </div>

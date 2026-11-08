@@ -168,8 +168,9 @@ describe('automatización', () => {
     expect(m.meses).toHaveLength(6);
     expect(metricas([])).toMatchObject({ ingresos: 0, ticket: 0, ciclo: 0 });
   });
-  it('tiene las cuentas pedidas', () => {
-    expect(USUARIOS.map(u => [u.usuario, u.clave, u.rol])).toEqual([['admin', 'admin2027', 'admin'], ['trabajador', 'trabajador2027', 'maestro']]);
+  it('tiene un perfil de demo por rol, sin credenciales', () => {
+    expect(USUARIOS.map(u => [u.id, u.rol])).toEqual([['admin', 'admin'], ['trabajador', 'maestro']]);
+    expect(USUARIOS.every(u => !('clave' in u) && !('usuario' in u))).toBe(true);
   });
 });
 

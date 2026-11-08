@@ -334,7 +334,9 @@ img { display: block; max-width: 100%; }
 .perfil { display: flex; align-items: center; gap: 1rem; text-align: left; min-height: 104px; padding: 1rem; background: var(--fondo-2); border: 1.5px solid var(--linea); border-radius: var(--r); transition: border-color .2s, transform .15s; }
 .perfil:hover { border-color: var(--acento); }
 .perfil:active { transform: scale(.985); }
-.perfil span:last-child { display: flex; flex-direction: column; line-height: 1.2; }
+.perfil > span:not(.avatar) { display: flex; flex-direction: column; line-height: 1.2; }
+.perfil-flecha { margin-left: auto; color: var(--suave); flex: none; transition: transform .2s, color .2s; }
+.perfil:hover .perfil-flecha { color: var(--acento); transform: translateX(3px); }
 .perfil b { font-weight: 620; font-size: 1.22rem; }
 .perfil small { color: var(--suave); font-size: 1.02rem; }
 .avatar { display: grid; place-items: center; width: 66px; height: 66px; border-radius: 50%; background: var(--fondo-3); border: 1px solid var(--linea); font-weight: 650; font-size: 1.3rem; flex: none; }

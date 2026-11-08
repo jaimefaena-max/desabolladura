@@ -37,7 +37,7 @@ export interface Vehiculo {
   motor?: string; chasis?: string;
 }
 
-export interface Usuario { id: string; usuario: string; clave: string; nombre: string; rol: 'maestro' | 'admin'; cargo: string; }
+export interface Usuario { id: string; nombre: string; rol: 'maestro' | 'admin'; cargo: string; }
 
 export interface Pagador {
   tipo: 'aseguradora' | 'particular';

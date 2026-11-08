@@ -89,11 +89,14 @@ export function crearEmpresa(nombre: string) {
   cambiarEmpresa(e.id);
 }
 
-/* Sesión de demostración: la validación real corresponde a un servidor. */
-export function iniciarSesion(usuario: string, clave: string): Usuario | null {
-  const u = USUARIOS.find(x => x.usuario === usuario.trim().toLowerCase() && x.clave === clave);
-  if (u) sessionStorage.setItem(SESION, u.id);
-  return u ?? null;
+/*
+ * Entrada de demostración por perfil, sin usuario ni clave: no hay servidor que proteger.
+ * En un producto real esto se reemplaza por autenticación del lado del servidor.
+ */
+export function entrarDemo(rol: Usuario['rol']): Usuario {
+  const u = USUARIOS.find(x => x.rol === rol)!;
+  sessionStorage.setItem(SESION, u.id);
+  return u;
 }
 export const sesion = () => USUARIOS.find(u => u.id === sessionStorage.getItem(SESION)) ?? null;
 export const cerrarSesion = () => sessionStorage.removeItem(SESION);

@@ -8,8 +8,8 @@ import type { Aprobacion, Carroceria, EstadoItem, Item, Orden, Pagador, PiezaId,
  * y las patentes llevan vocales, que las series chilenas no usan.
  */
 export const USUARIOS: Usuario[] = [
-  { id: 'admin', usuario: 'admin', clave: 'admin2027', nombre: 'Administrador', rol: 'admin', cargo: 'Administración' },
-  { id: 'trabajador', usuario: 'trabajador', clave: 'trabajador2027', nombre: 'Trabajador', rol: 'maestro', cargo: 'Desabollador' },
+  { id: 'admin', nombre: 'Administrador', rol: 'admin', cargo: 'Administración' },
+  { id: 'trabajador', nombre: 'Trabajador', rol: 'maestro', cargo: 'Desabollador' },
 ];
 
 export const ASEGURADORAS = ['Compañía Demo Norte', 'Compañía Demo Sur', 'Compañía Demo Centro', 'Otra'];

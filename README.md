@@ -10,8 +10,8 @@ Todos los datos son ficticios: los RUT tienen dígito verificador inválido y la
 
 | Perfil | Entrada |
 |---|---|
-| Administrador | Usuario `admin`, clave `admin2027` |
-| Trabajador | Usuario `trabajador`, clave `trabajador2027` |
+| Administrador | Botón «Demo Administrador» en `#/entrar` |
+| Trabajador | Botón «Demo Trabajador» en `#/entrar` |
 | Cliente | Patente `DEMA-22`, código `COR7X2` |
 
 ## Qué hace
