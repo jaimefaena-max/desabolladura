@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Circle, CircleHalf, Check } from '@phosphor-icons/react';
+import { ArrowRight, Car, CheckCircle, Circle, CircleHalf, Check } from '@phosphor-icons/react';
 import { Auto3D, Barra, forma, Galeria, GaleriaVistas, ir, Leyenda, Marca } from '../components/ui';
 import { conEvento, ETAPAS, etapaDe } from '../lib/automatizacion';
 import { clp, estadosPiezas, fecha, itemsCobrables, progreso, tituloItem, totales } from '../lib/piezas';
@@ -7,7 +7,13 @@ import { actualizar, buscarPorAcceso, useOrdenes } from '../lib/store';
 import type { Orden } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';
 
+/** Seguimiento de muestra: el visitante entra sin escribir nada. Si esa orden se borró, sirve cualquiera. */
+const CODIGO_DEMO = 'COR7X2';
+const ordenDemo = (os: Orden[]) => os.find(o => o.codigo === CODIGO_DEMO) ?? os[0];
+
 export function ClienteAcceso() {
+  const demo = ordenDemo(useOrdenes());
+  const [conCodigo, setConCodigo] = useState(false);
   const [patente, setPatente] = useState('');
   const [codigo, setCodigo] = useState('');
   const [error, setError] = useState(false);
@@ -21,14 +27,26 @@ export function ClienteAcceso() {
       <header className="login-top"><Marca /></header>
       <main className="login-caja angosta">
         <h1>¿Cómo va mi auto?</h1>
-        <p className="sub">Escribe tu patente y el código que te entregó el taller.</p>
-        <form className="formulario" onSubmit={entrar}>
-          <label className="campo"><span>Patente</span><input value={patente} onChange={e => { setPatente(e.target.value.toUpperCase()); setError(false); }} autoComplete="off" required /></label>
-          <label className="campo"><span>Código</span><input value={codigo} onChange={e => { setCodigo(e.target.value.toUpperCase()); setError(false); }} autoComplete="off" required /></label>
-          {error && <p className="error" role="alert">No encontramos ese vehículo. Revisa la patente y el código.</p>}
-          <button className="btn primario grande ancho">Ver mi auto</button>
-        </form>
-        <p className="pista">Ejemplo: patente DEMA-22, código COR7X2</p>
+        <p className="sub">Mira el seguimiento de un auto de prueba. No necesitas escribir nada.</p>
+        {demo && (
+          <div className="perfiles">
+            <button className="perfil" onClick={() => ir('/cliente/demo')}>
+              <span className="avatar claro" aria-hidden="true"><Car size={32} weight="duotone" /></span>
+              <span><b>Demo Cliente</b><small>{demo.vehiculo.marca} {demo.vehiculo.modelo} · patente {verPatente(demo.vehiculo.patente)}</small></span>
+              <ArrowRight size={24} className="perfil-flecha" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+        {!conCodigo ? (
+          <button className="enlace centrado" onClick={() => setConCodigo(true)}>Tengo la patente y el código del taller</button>
+        ) : (
+          <form className="formulario" onSubmit={entrar}>
+            <label className="campo"><span>Patente</span><input value={patente} onChange={e => { setPatente(e.target.value.toUpperCase()); setError(false); }} autoComplete="off" autoFocus required /></label>
+            <label className="campo"><span>Código</span><input value={codigo} onChange={e => { setCodigo(e.target.value.toUpperCase()); setError(false); }} autoComplete="off" required /></label>
+            {error && <p className="error" role="alert">No encontramos ese vehículo. Revisa la patente y el código.</p>}
+            <button className="btn primario grande ancho">Ver mi auto</button>
+          </form>
+        )}
       </main>
     </div>
   );
@@ -55,7 +73,8 @@ function Presupuesto({ o }: { o: Orden }) {
 }
 
 export function ClientePortal({ codigo }: { codigo: string }) {
-  const o = useOrdenes().find(x => x.codigo === codigo);
+  const ordenes = useOrdenes();
+  const o = codigo === 'demo' ? ordenDemo(ordenes) : ordenes.find(x => x.codigo === codigo);
   if (!o) {
     return (
       <div className="login"><main className="login-caja angosta"><h1>No encontramos ese seguimiento</h1>

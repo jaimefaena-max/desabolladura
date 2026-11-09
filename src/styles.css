@@ -358,9 +358,9 @@ img { display: block; max-width: 100%; }
 /* Acceso */
 .login { min-height: 100dvh; display: flex; flex-direction: column; background: radial-gradient(ellipse at 50% -20%, #232830, var(--fondo) 62%); }
 .login-top { padding: 1.2rem clamp(1rem, 3vw, 2rem); }
-.login-caja { width: min(780px, 100%); margin: 0 auto; padding: 1.5rem 1.2rem 3rem; }
+.login-caja { width: min(620px, 100%); margin: 0 auto; padding: 1.5rem 1.2rem 3rem; }
 .login-caja.angosta { width: min(460px, 100%); }
-.perfiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: .8rem; margin-top: 1.4rem; }
+.perfiles { display: grid; gap: .8rem; margin-top: 1.4rem; }
 .perfil { display: flex; align-items: center; gap: 1rem; text-align: left; min-height: 104px; padding: 1rem; background: var(--fondo-2); border: 1.5px solid var(--linea); border-radius: var(--r); transition: border-color .2s, transform .15s; }
 .perfil:hover { border-color: var(--acento); }
 .perfil:active { transform: scale(.985); }
