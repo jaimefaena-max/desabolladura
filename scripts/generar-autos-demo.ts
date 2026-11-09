@@ -29,8 +29,8 @@ interface Auto { marca: string; modelo: string; anio: number; color: string; vis
 
 /** Deben coincidir con los vehículos de seed.ts. El histórico solo necesita la foto de tarjeta. */
 const AUTOS: Auto[] = [
-  { marca: 'Ford', modelo: 'F-150', anio: 2022, color: 'Rojo', vistas: ['frente', 'lado', 'cola'] },
-  { marca: 'Toyota', modelo: 'Corolla', anio: 2020, color: 'Plateado', vistas: ['frente', 'lado', 'cola'] },
+  { marca: 'Ford', modelo: 'F-150', anio: 2020, color: 'Rojo', vistas: ['frente', 'lado', 'cola'] },
+  { marca: 'Toyota', modelo: 'Corolla', anio: 2020, color: 'Gris azulado', vistas: ['frente', 'lado', 'cola'] },
   { marca: 'Hyundai', modelo: 'Tucson', anio: 2023, color: 'Azul', vistas: ['frente', 'lado', 'cola'] },
   { marca: 'Kia', modelo: 'Rio', anio: 2021, color: 'Gris', vistas: ['frente', 'lado', 'cola'] },
   { marca: 'Suzuki', modelo: 'Swift', anio: 2019, color: 'Blanco', vistas: ['frente', 'lado', 'cola'] },

@@ -6,7 +6,7 @@ import { interpretarPadron } from './padron';
 import { estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
 import { alertas, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, sincronizar, sumarHabiles } from './automatizacion';
-import { ordenesDemo, USUARIOS } from './seed';
+import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
 import type { Item, Orden } from './types';
 import { carroceriaDe, colorHex, patenteValida, verPatente } from './vehiculos';
 
@@ -235,5 +235,23 @@ describe('3D con medidas reales', () => {
   });
   it('sin medidas, queda igual que antes', () => {
     expect(specDe('suv')).toBe(specDe('suv', undefined));
+  });
+});
+
+describe('fotos de los autos demo', () => {
+  it('el Corolla de la demo trae sus 3 fotos y sus medidas', () => {
+    const o = ordenesDemo().find(x => x.codigo === 'COR7X2')!;
+    expect(Object.keys(o.vistas ?? {})).toEqual(['frente', 'lado', 'cola']);
+    expect(o.vehiculo.ficha?.medidas?.largo).toBe(4.63);
+  });
+  it('quien ya visitó la demo recibe las fotos sin perder sus cambios', () => {
+    const vieja = ordenesDemo().map(o => ({ ...o, vistas: undefined, notas: 'cambio del visitante', vehiculo: { ...o.vehiculo, ficha: undefined } }));
+    const nueva = conFotosDemo(vieja).find(x => x.codigo === 'COR7X2')!;
+    expect(nueva.vistas?.frente).toBe('autos/toyota-corolla-2020-frente.webp');
+    expect(nueva.notas).toBe('cambio del visitante');
+  });
+  it('no toca órdenes creadas por el visitante', () => {
+    const propia = { ...ordenesDemo()[0], id: 'propia' };
+    expect(conFotosDemo([propia])[0]).toBe(propia);
   });
 });

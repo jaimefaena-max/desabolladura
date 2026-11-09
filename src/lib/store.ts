@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { ordenesDemo, USUARIOS } from './seed';
+import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
 import type { Empresa, Orden, Usuario } from './types';
 
 /**
@@ -22,7 +22,7 @@ const leer = <T,>(k: string, base: () => T): T => {
 
 let empresas = leer<Empresa[]>(CLAVE_EMPRESAS, () => [{ id: 'demo', nombre: 'Taller Demo', acento: ACENTO, whatsapp: '' }]);
 let actual = empresas.find(e => e.id === localStorage.getItem(CLAVE_ACTUAL)) ?? empresas[0];
-const cargarOrdenes = (id: string) => leer<Orden[]>(claveOrdenes(id), () => (id === 'demo' ? ordenesDemo() : []));
+const cargarOrdenes = (id: string) => (id === 'demo' ? conFotosDemo(leer<Orden[]>(claveOrdenes(id), ordenesDemo)) : leer<Orden[]>(claveOrdenes(id), () => []));
 let ordenes = cargarOrdenes(actual.id);
 const oyentes = new Set<() => void>();
 const avisar = () => oyentes.forEach(f => f());

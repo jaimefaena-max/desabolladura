@@ -72,12 +72,12 @@ const particular: Pagador = { tipo: 'particular' };
 export function ordenesDemo(): Orden[] {
   return [
     orden({
-      numero: 1041, codigo: 'F150RJ', v: auto('Ford', 'F-150', 2022, 11, 'Rojo', '#a3121c', 'pickup'), desde: 4, aprobacion: 'aprobada', pagador: seguro('Compañía Demo Norte', 1041, 150000),
+      numero: 1041, codigo: 'F150RJ', v: auto('Ford', 'F-150', 2020, 11, 'Rojo', '#a3121c', 'pickup'), desde: 4, aprobacion: 'aprobada', pagador: seguro('Compañía Demo Norte', 1041, 150000),
       filas: [['desabolladura', 'puerta_tras_der', 'medio', 'listo'], ['pintura', 'puerta_tras_der', 'medio', 'proceso'], ['desabolladura', 'costado_tras_der', 'medio', 'proceso'], ['pintura', 'costado_tras_der', 'medio', 'pendiente'], ['cambio', 'espejo_der', 'medio', 'pendiente']],
       notas: 'Choque lateral en estacionamiento.',
     }),
     orden({
-      numero: 1042, codigo: 'COR7X2', v: auto('Toyota', 'Corolla', 2020, 22, 'Plateado', '#a9aeb4', 'sedan'), desde: 6, aprobacion: 'aprobada', pagador: seguro('Compañía Demo Centro', 1042, 90000),
+      numero: 1042, codigo: 'COR7X2', v: auto('Toyota', 'Corolla', 2020, 22, 'Gris azulado', '#717f8b', 'sedan'), desde: 6, aprobacion: 'aprobada', pagador: seguro('Compañía Demo Centro', 1042, 90000),
       filas: [['desabolladura', 'maletera', 'medio', 'listo', 240000], ['pintura', 'maletera', 'medio', 'listo', 230000], ['plastico', 'parachoque_tras', 'medio', 'listo', 120000], ['pintura', 'parachoque_tras', 'medio', 'proceso', 190000]],
       notas: 'Alcance por atrás.',
     }),
@@ -111,4 +111,17 @@ function historico(): Orden[] {
     numero, codigo: `HIS${k}0${k}`, v: auto('Chevrolet', modelo, 2018 + k, 60 + k, 'Plateado', '#a9aeb4', modelo === 'Colorado' ? 'pickup' : modelo === 'Onix' ? 'hatchback' : modelo === 'Sail' ? 'sedan' : 'suv'),
     desde, aprobacion: 'aprobada', pagador, filas: filas(a, b), cierre: 'listo', entregadaHace: hace, cobrada: numero !== 1039,
   }));
+}
+
+/**
+ * Las fotos de la demo se agregan con el tiempo: quien ya la visitó tiene sus órdenes guardadas
+ * en el navegador sin ellas. Se completan al cargar, sin borrar lo que el visitante hizo.
+ */
+export function conFotosDemo(guardadas: Orden[]): Orden[] {
+  const frescas = new Map(ordenesDemo().map(o => [o.id, o]));
+  return guardadas.map(o => {
+    const f = frescas.get(o.id);
+    if (!f?.vistas || o.vistas || f.vehiculo.patente !== o.vehiculo.patente) return o;
+    return { ...o, vistas: f.vistas, vehiculo: f.vehiculo };
+  });
 }
