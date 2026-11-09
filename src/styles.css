@@ -706,3 +706,29 @@ img { display: block; max-width: 100%; }
 .rp-detenidos small { color: var(--suave); font-size: .9rem; }
 .rp-detenidos .chip { justify-self: start; }
 @media (max-width: 620px) { .rp-form { grid-template-columns: 1fr; } .rp-detenidos button { grid-template-columns: 96px minmax(0, 1fr); } .rp-detenidos .foto, .rp-detenidos .foto-real { width: 96px; } }
+
+/* Mejora 5: rentabilidad por orden. */
+.rentabilidad { display: grid; gap: .7rem; margin: 1.2rem 0; padding: 1.1rem; border: 1px solid var(--linea); border-left: 4px solid var(--ok); border-radius: var(--r); background: var(--fondo-2); }
+.rentabilidad.justa { border-left-color: #ffc861; }
+.rentabilidad.baja, .rentabilidad.perdida { border-left-color: var(--error); }
+.rb-cabeza { display: flex; justify-content: space-between; align-items: center; gap: .6rem; }
+.rb-cabeza .ec-tit svg { color: var(--acento); }
+.rb-ganancia { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .8rem; }
+.rb-ganancia b { font-size: clamp(1.7rem, 1.3rem + 1vw, 2.2rem); font-weight: 680; font-variant-numeric: tabular-nums; }
+.rentabilidad.perdida .rb-ganancia b { color: var(--error); }
+.rb-ganancia span { color: var(--suave); font-size: .95rem; }
+.rb-cuenta { margin: 0; display: grid; gap: .45rem; }
+.rb-cuenta div { display: grid; grid-template-columns: 1fr auto; gap: .15rem 1rem; font-variant-numeric: tabular-nums; }
+.rb-cuenta dt { color: var(--suave); font-size: .95rem; }
+.rb-cuenta dd { margin: 0; font-weight: 600; }
+.rb-cuenta i { grid-column: 1 / -1; display: block; height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--error) 55%, transparent); }
+.rb-cuenta i.ing { background: var(--ok); }
+.rb-repuestos { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .6rem; }
+.rb-costo input { min-height: 50px !important; font-size: 1.05rem !important; }
+.chip.rb-buena { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.chip.rb-justa { background: rgba(255, 200, 97, .16); color: #ffc861; }
+.chip.rb-baja, .chip.rb-perdida { background: color-mix(in srgb, var(--error) 18%, transparent); color: var(--error); }
+.barras-h.margen li.bajo i { background: var(--error); }
+.rb-subtit { margin: 1.2rem 0 .4rem; font-size: 1rem; }
+.rb-peores { list-style: none; margin: 0; padding: 0; }
+.rb-peores li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .3rem .8rem; border-top: 1px solid var(--linea); }

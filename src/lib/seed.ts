@@ -1,5 +1,6 @@
 import { conEvento, sincronizar } from './automatizacion';
 import { cobradaSeguro } from './cobranza';
+import { horasEstimadas } from './rentabilidad';
 import { fechaLocal, totales } from './piezas';
 import { sugerir } from './precios';
 import autosDemo from './autosDemo.json';
@@ -51,7 +52,9 @@ function items(v: Vehiculo, filas: Fila[], cierre: EstadoItem = 'pendiente'): It
     id: `i${i}`, trabajo, pieza, severidad, estado, monto: monto ?? null, sugerido: sugerir(trabajo, pieza, severidad, v),
     ...(estado === 'listo' ? { nota: NOTA_DEMO[trabajo], terminadoEl: new Date(Date.now() - (filas.length - i) * 5 * 3600e3).toISOString() } : {}),
   }));
-  return [recepcion, ...trabajos, ...fin.map(i => ({ ...i, estado: cierre }))];
+  // Lo terminado trae las horas que anotó el maestro (en la demo, las típicas de cada trabajo).
+  const conHoras = (i: Item): Item => (i.estado === 'listo' ? { ...i, horas: horasEstimadas(i) } : i);
+  return [recepcion, ...trabajos, ...fin.map(i => ({ ...i, estado: cierre }))].map(conHoras);
 }
 
 /** Ficha y fotos generadas por scripts/generar-autos-demo.ts. Si un modelo no tiene, queda con el 3D genérico. */
@@ -66,7 +69,9 @@ interface Base {
   /** Factura a la compañía: hace cuántos días se emitió y, si ya pagó, hace cuántos días. */
   factura?: { numero: number; emitidaHace: number; pagadaHace?: number; deduciblePendiente?: boolean };
   /** Repuesto del cambio de pieza (fila `item`): proveedor y días relativos a hoy (negativo = en el futuro). */
-  parte?: { item: string; proveedor: string; pedidoHace: number; prometidoHace: number; recibidoHace?: number };
+  parte?: { item: string; proveedor: string; pedidoHace: number; prometidoHace: number; recibidoHace?: number; costo?: number };
+  /** Horas reales distintas a las típicas (p. ej. un repintado). */
+  horas?: Record<string, number>;
 }
 
 function orden(b: Base): Orden {
@@ -79,11 +84,13 @@ function orden(b: Base): Orden {
     deducibleCobradoEl: b.factura && !b.factura.deduciblePendiente && b.entregadaHace !== undefined ? dias(-b.entregadaHace) : null,
     vistas: FOTOS[slugAuto(b.v)]?.vistas,
   });
+  if (b.horas) o.items = o.items.map(i => (b.horas![i.id] !== undefined ? { ...i, horas: b.horas![i.id] } : i));
   if (b.parte) {
     const p = b.parte;
     o.repuestos = o.repuestos.map(r => (r.itemId !== p.item ? r : {
       ...r, estado: p.recibidoHace === undefined ? 'pedido' : 'recibido', proveedor: p.proveedor,
       pedidoEl: dias(-p.pedidoHace), prometido: dias(-p.prometidoHace), ...(p.recibidoHace !== undefined ? { recibidoEl: dias(-p.recibidoHace) } : {}),
+      ...(p.costo !== undefined ? { costo: p.costo } : {}),
     }));
     Object.assign(o, sincronizar(o));
   }
@@ -134,9 +141,9 @@ function historico(): Orden[] {
     ...(cambio ? [['cambio', 'espejo_der', 'medio', 'listo', 65000] as Fila] : []),
   ];
   // Historial de repuestos para medir a cada proveedor: [proveedor, pedido, prometido, recibido] en días atrás.
-  const partes: Record<number, [string, number, number, number]> = {
-    1034: ['Repuestos Norte', 149, 146, 146], 1036: ['Autopartes Centro', 91, 89, 86], 1037: ['Concesionario de la marca', 60, 57, 57],
-    1038: ['Autopartes Centro', 32, 30, 26], 1039: ['Repuestos Norte', 17, 15, 16], 1032: ['Repuestos Norte', 51, 48, 47],
+  const partes: Record<number, [string, number, number, number, number]> = {
+    1034: ['Repuestos Norte', 149, 146, 146, 26000], 1036: ['Autopartes Centro', 91, 89, 86, 24000], 1037: ['Concesionario de la marca', 60, 57, 57, 38000],
+    1038: ['Autopartes Centro', 32, 30, 26, 24000], 1039: ['Repuestos Norte', 17, 15, 16, 26000], 1032: ['Repuestos Norte', 51, 48, 47, 26000],
   };
   // Cobranza de ejemplo: pagadas a tiempo, una pagada con atraso, una al día, una por vencer y una vencida.
   type Fac = Base['factura'];
@@ -155,7 +162,9 @@ function historico(): Orden[] {
     return orden({
     numero, codigo: `HIS${k}0${k}`, v: auto('Chevrolet', modelo, 2018 + k, 60 + k, 'Plateado', '#a9aeb4', modelo === 'Colorado' ? 'pickup' : modelo === 'Onix' ? 'hatchback' : modelo === 'Sail' ? 'sedan' : 'suv'),
     desde, aprobacion: 'aprobada', pagador, filas: filas(a, b, !!p), cierre: 'listo', entregadaHace: hace, cobrada: pagador.tipo === 'particular', factura,
-    parte: p && { item: 'i2', proveedor: p[0], pedidoHace: p[1], prometidoHace: p[2], recibidoHace: p[3] },
+    parte: p && { item: 'i2', proveedor: p[0], pedidoHace: p[1], prometidoHace: p[2], recibidoHace: p[3], costo: p[4] },
+    // El Onix 1036 tuvo que repintarse: la pintura tomó casi el doble de horas y se comió la ganancia.
+    horas: numero === 1036 ? { i1: 11 } : undefined,
   });
   });
 }

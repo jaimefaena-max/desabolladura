@@ -36,6 +36,8 @@ export interface Item {
   fotoDespues?: string;
   /** Fecha y hora (ISO) en que se marcó como lista. */
   terminadoEl?: string;
+  /** Horas reales que tomó, las anota el maestro al terminar. */
+  horas?: number;
 }
 
 /** Medidas exteriores reales, en metros. */
@@ -81,6 +83,8 @@ export interface Repuesto {
   reprogramado?: boolean;
   /** Primera fecha que prometió el proveedor: su cumplimiento se mide contra esta, aunque después la mueva. */
   prometidoInicial?: string;
+  /** Lo que le costó el repuesto al taller (neto). */
+  costo?: number;
 }
 /** Factura a la compañía. Fechas AAAA-MM-DD; la ley cuenta el plazo desde que la compañía la recibe. */
 export interface Factura { numero: number; emitida: string; monto: number; pagadaEl?: string }
@@ -109,4 +113,8 @@ export interface Orden {
   imagenIA?: string;
 }
 
-export interface Empresa { id: string; nombre: string; logo?: string; acento: string; whatsapp: string; }
+export interface Empresa {
+  id: string; nombre: string; logo?: string; acento: string; whatsapp: string;
+  /** Costo de una hora de maestro para el taller (sueldo + leyes sociales), en pesos. */
+  costoHora?: number;
+}

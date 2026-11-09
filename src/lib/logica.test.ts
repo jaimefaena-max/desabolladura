@@ -8,6 +8,7 @@ import { clp, estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
 import { alertas, CMF_REPARACION, diasEnTaller, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, semaforoPlazo, sincronizar, sumarHabiles } from './automatizacion';
 import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
+import { COSTO_HORA_DEFECTO, horasEstimadas, rentabilidad, resumenRentabilidad, semaforoMargen } from './rentabilidad';
 import { diasEntre, estadoRepuesto, mensajeRepuesto, resumenRepuestos, textoEstado } from './repuestos';
 import { cobradaSeguro, COMISION_COBRANZA, correoRecordatorio, estadoFactura, resumenCobranza, vencimiento } from './cobranza';
 import type { Item, Orden } from './types';
@@ -414,6 +415,40 @@ describe('control de repuestos', () => {
     const nueva = mensajeRepuesto(o, { ...rep, prometido: sumarHabiles(fechaLocal(), 4) }, { nombre: 'Taller Demo' });
     expect(nueva).toMatch(/Ahora llega el .+ nueva fecha estimada de entrega/);
     expect(m).toMatch(/https:\/\/ejemplo\.cl\/desabolladura\/#\/cliente\/F150RJ\//);
+  });
+});
+
+describe('rentabilidad por orden', () => {
+  const orden = (n: number) => ordenesDemo().find(o => o.numero === n)!;
+  it('ganancia = cobrado neto − mano de obra − pintura e insumos − repuestos', () => {
+    const o = orden(1042), r = rentabilidad(o, {});
+    expect(r.ingreso).toBe(totales(o).neto);
+    expect(r.manoObra).toBe(Math.round(r.horas * COSTO_HORA_DEFECTO));
+    expect(r.ganancia).toBe(r.ingreso - r.manoObra - r.insumos - r.repuestos);
+    expect(r.margen).toBe(Math.round((r.ganancia / r.ingreso) * 100));
+  });
+  it('usa las horas que anotó el maestro y el costo real del repuesto cuando existen', () => {
+    const o = orden(1036), r = rentabilidad(o, {});
+    expect(r.lineas.find(l => l.item.id === 'i1')!.horas).toBe(11);
+    expect(r.repuestos).toBe(24000);
+    expect(r.estimado).toBe(false);
+    expect(r.semaforo).toBe('perdida');
+  });
+  it('el costo de la hora del taller cambia la cuenta', () => {
+    const o = orden(1042);
+    expect(rentabilidad(o, { costoHora: 10000 }).ganancia).toBeGreaterThan(rentabilidad(o, { costoHora: 20000 }).ganancia);
+  });
+  it('semáforo y estimados', () => {
+    expect([semaforoMargen(35), semaforoMargen(20), semaforoMargen(5), semaforoMargen(-3)]).toEqual(['buena', 'justa', 'baja', 'perdida']);
+    expect(horasEstimadas({ id: 'x', trabajo: 'pintura', pieza: 'capot', severidad: 'fuerte', estado: 'pendiente', monto: null })).toBe(8);
+  });
+  it('resumen: margen total, por trabajo y por quién paga; órdenes sin montos no cuentan', () => {
+    const s = resumenRentabilidad(ordenesDemo(), {});
+    expect(s.filas.some(x => x.o.numero === 1041)).toBe(false);
+    expect(s.peores[0].o.numero).toBe(1036);
+    expect(s.tipos[0].nombre).toBe('Desabolladura');
+    expect(s.pagadores.at(-1)!.nombre).toBe('Compañía Demo Norte');
+    expect(s.margen).toBe(Math.round((s.ganancia / s.ingreso) * 100));
   });
 });
 

@@ -3,6 +3,8 @@ import { ArrowsClockwise, Bell, Camera, Check, CheckCircle, CurrencyCircleDollar
 import { Auto3D, Barra, forma, FotoGuardada, FotoOrden, Galeria, GaleriaVistas, ir, Logo, Pantalla } from '../components/ui';
 import { CotizacionDoc, imprimirDocumento } from '../components/Cotizacion';
 import FilaRepuesto from '../components/FilaRepuesto';
+import Rentabilidad, { TEXTO_SEMAFORO } from '../components/Rentabilidad';
+import { COSTO_HORA_DEFECTO, resumenRentabilidad } from '../lib/rentabilidad';
 import { ExpedienteDoc } from '../components/Expediente';
 import { cobradaSeguro, estadoFactura, nombreEstado, siguienteFactura, vencimiento } from '../lib/cobranza';
 import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
@@ -96,7 +98,10 @@ export function Ordenes() {
 }
 
 export function Reportes() {
-  const m = metricas(useOrdenes());
+  const ordenes = useOrdenes(), empresa = useEmpresa();
+  const m = metricas(ordenes);
+  const rb = resumenRentabilidad(ordenes, empresa);
+  const topeMargen = Math.max(...rb.tipos.map(t => Math.abs(t.margen)), ...rb.pagadores.map(p => Math.abs(p.margen)), 1);
   const tope = Math.max(...m.meses.map(x => x.valor), 1);
   const topeTipo = Math.max(...m.tipos.map(t => t[1]), 1);
   const nombreTipo = (id: string) => TRABAJOS.find(t => t.id === id)?.nombre ?? id;
@@ -126,6 +131,38 @@ export function Reportes() {
           <ul className="barras-h">
             {m.tipos.map(([id, n]) => <li key={id} title={`${nombreTipo(id)}: ${n}`}><span>{nombreTipo(id)}</span><div><i style={{ width: `${(n / topeTipo) * 100}%` }} /><b>{n}</b></div></li>)}
           </ul>
+        </section>
+      </div>
+
+      <h2 className="seccion">Rentabilidad</h2>
+      <p className="sub">Lo cobrado (neto) menos mano de obra, pintura e insumos y repuestos. Con valores estimados donde aún no hay datos reales.</p>
+      <dl className="kpis">
+        <div><dt>Ganancia</dt><dd>{clp(rb.ganancia)}</dd></div>
+        <div><dt>Margen del taller</dt><dd>{rb.margen} %</dd></div>
+        <div><dt>Órdenes calculadas</dt><dd>{rb.filas.length}</dd></div>
+        <div className={rb.peores[0]?.r.margen < 15 ? 'alerta' : ''}><dt>Margen más bajo</dt><dd>{rb.peores[0] ? `${rb.peores[0].r.margen} %` : '—'}</dd></div>
+      </dl>
+      <div className="reportes">
+        <section>
+          <h2>Margen por tipo de trabajo</h2>
+          <ul className="barras-h margen">
+            {rb.tipos.map(t => <li key={t.id} title={`${t.nombre}: ${t.margen} % sobre ${clp(t.ingreso)}`} className={t.margen < 15 ? 'bajo' : ''}><span>{t.nombre}</span><div><i style={{ width: `${(Math.max(0, t.margen) / topeMargen) * 85}%` }} /><b>{t.margen} %</b></div></li>)}
+          </ul>
+          <p className="pista">El trabajo que más deja va primero. Si uno queda bajo 15 %, conviene revisar su precio.</p>
+        </section>
+        <section>
+          <h2>Margen por quién paga</h2>
+          <ul className="barras-h margen">
+            {rb.pagadores.map(p => <li key={p.nombre} title={`${p.nombre}: ${p.ordenes} órdenes, ${clp(p.ganancia)}`} className={p.margen < 15 ? 'bajo' : ''}><span>{p.nombre}</span><div><i style={{ width: `${(Math.max(0, p.margen) / topeMargen) * 85}%` }} /><b>{p.margen} %</b></div></li>)}
+          </ul>
+          {rb.peores.length > 0 && <>
+            <h3 className="rb-subtit">Órdenes que menos dejan</h3>
+            <ul className="rb-peores">
+              {rb.peores.map(({ o, r }) => (
+                <li key={o.id}><button className="enlace" onClick={() => ir(`/admin/ot/${o.id}`)}>Orden {o.numero} · {o.vehiculo.marca} {o.vehiculo.modelo}</button><span className={`chip rb-${r.semaforo}`}>{r.margen} % · {TEXTO_SEMAFORO[r.semaforo]}</span></li>
+              ))}
+            </ul>
+          </>}
         </section>
       </div>
     </Pantalla>
@@ -391,6 +428,7 @@ export function AdminOrden({ id }: { id: string }) {
               <div><dt>Paga {p.aseguradora}</dt><dd>{clp(t.aseguradora)}</dd></div>
             </>}
           </dl>
+          <Rentabilidad o={o} />
           <Acciones o={o} />
         </div>
       </div>
@@ -433,6 +471,13 @@ export function Ajustes() {
           <label className="campo"><span>Nombre del taller</span><input value={empresa.nombre} onChange={e => editarEmpresa({ nombre: e.target.value })} autoComplete="off" /></label>
           <label className="campo"><span>Color de la marca</span><input type="color" value={empresa.acento} onChange={e => editarEmpresa({ acento: e.target.value })} /></label>
         </div>
+
+        <h2 className="seccion">Costos del taller</h2>
+        <p className="sub">Se usan para calcular cuánto ganas en cada orden.</p>
+        <label className="campo"><span>Costo de una hora de taller (maestro + arriendo, luz, cabina y herramientas)</span>
+          <input inputMode="numeric" value={(empresa.costoHora ?? COSTO_HORA_DEFECTO).toLocaleString('es-CL')}
+            onChange={e => { const n = Number(e.target.value.replace(/\D/g, '')); editarEmpresa({ costoHora: n || undefined }); }} />
+        </label>
 
         <h2 className="seccion">Empresas</h2>
         <p className="sub">Cada empresa tiene sus datos separados.</p>

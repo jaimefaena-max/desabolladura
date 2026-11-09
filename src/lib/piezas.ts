@@ -80,5 +80,5 @@ export function fechaLocal(n = 0) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export const clp = (n: number) => '$' + Math.round(n).toLocaleString('es-CL');
+export const clp = (n: number) => (n < 0 ? '−$' : '$') + Math.round(Math.abs(n)).toLocaleString('es-CL');
 export const fecha = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'long' });
