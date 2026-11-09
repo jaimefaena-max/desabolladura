@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { ArrowsClockwise, Bell, CheckCircle, MagnifyingGlass, PaperPlaneTilt, Plus, Printer, Truck, WarningCircle, WhatsappLogo } from '@phosphor-icons/react';
 import { Auto3D, Barra, forma, FotoOrden, Galeria, GaleriaVistas, ir, Logo, Pantalla } from '../components/ui';
+import { CotizacionDoc, imprimirCotizacion } from '../components/Cotizacion';
 import { alertas, conEvento, enlaceWhatsApp, ETAPAS, etapaDe, mensajeCliente, metricas, nombreEtapa } from '../lib/automatizacion';
 import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../lib/gemini';
 import { reducirImagen } from '../lib/padron';
@@ -226,7 +227,8 @@ export function AdminOrden({ id }: { id: string }) {
 
   return (
     <Pantalla volver="/admin" titulo={`Orden ${o.numero}`} sub={`${v.marca} ${v.modelo} ${v.anio} · ${verPatente(v.patente)} · ${nombreEtapa(etapaDe(o))}`}
-      accion={<button className="btn secundario no-print" onClick={() => window.print()}><Printer size={22} /> Imprimir cotización</button>}>
+      accion={<button className="btn secundario no-print" onClick={() => imprimirCotizacion(o)}><Printer size={22} /> Descargar cotización</button>}>
+      <CotizacionDoc o={o} />
       <div className="dos-col admin">
         <div className="no-print">
           <GaleriaVistas o={o} />
@@ -253,12 +255,7 @@ export function AdminOrden({ id }: { id: string }) {
           </section>
         </div>
         <div>
-          <div className="solo-print">
-            <p><b>DEMOSTRACIÓN, SIN VALIDEZ COMERCIAL</b></p>
-            <h2>Cotización orden {o.numero}</h2>
-            <p>{v.marca} {v.modelo} {v.anio}, patente {verPatente(v.patente)}. Cliente: {o.cliente.nombre}.{p.tipo === 'aseguradora' ? ` ${p.aseguradora}, siniestro ${p.siniestro}.` : ''}</p>
-          </div>
-          <h2 className="no-print">Costos por trabajo</h2>
+          <h2>Costos por trabajo</h2>
           <ul className="precios">{itemsCobrables(o).map(i => <FilaItem key={i.id} o={o} i={i} />)}</ul>
           <dl className="totales">
             <div><dt>Neto</dt><dd>{clp(t.neto)}</dd></div>

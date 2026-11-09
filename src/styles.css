@@ -479,3 +479,59 @@ img { display: block; max-width: 100%; }
   .totales dt, .totales .total dt { color: #111; }
   .totales > div { color: #111; }
 }
+
+/* Cotización para el cliente: solo existe en papel / PDF (ver components/Cotizacion.tsx). */
+.doc-cot { display: none; }
+@media print {
+  @page { size: A4; margin: 12mm 13mm; }
+  body:has(.doc-cot) > #root { display: none !important; }
+  body:has(.doc-cot) { background: #fff; }
+  .doc-cot { display: block; color: #171a1f; font-size: 10pt; line-height: 1.4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .doc-cot h3 { margin: 0 0 .35rem; font-size: 7.5pt; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: #6a717c; }
+  .doc-cot p { margin: .1rem 0; }
+  .dc-cabecera { display: flex; justify-content: space-between; align-items: stretch; gap: 1.5rem; padding-bottom: 1rem; border-bottom: 3px solid var(--acento); }
+  .dc-taller { display: flex; align-items: center; gap: .9rem; }
+  .dc-taller > div { display: flex; flex-direction: column; color: #4b525c; font-size: 9pt; }
+  .dc-taller-nombre { font-size: 16pt; font-weight: 700; color: #171a1f; line-height: 1.15; }
+  .dc-logo { width: 74px; height: 62px; object-fit: contain; border-radius: 10px; flex: none; }
+  .dc-logo-vacio { display: grid; place-items: center; border: 1.5px dashed #9aa1ab; color: #7c838d; font-size: 7pt; font-weight: 700; letter-spacing: .05em; text-align: center; line-height: 1.2; }
+  .dc-titulo { text-align: right; display: flex; flex-direction: column; justify-content: center; }
+  .dc-etiqueta { font-size: 8pt; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--acento); }
+  .dc-titulo > b { font-size: 20pt; font-weight: 750; line-height: 1.1; }
+  .dc-titulo dl { margin: .35rem 0 0; font-size: 8.5pt; color: #4b525c; }
+  .dc-titulo dl div { display: flex; justify-content: flex-end; gap: .4rem; }
+  .dc-titulo dt { color: #8a919b; }
+  .dc-titulo dd { margin: 0; }
+  .dc-demo { margin: .6rem 0 1rem !important; padding: .3rem .7rem; border-radius: 6px; background: #f3f4f6; color: #6a717c; font-size: 7.5pt; text-align: center; letter-spacing: .04em; }
+  .dc-datos { display: grid; grid-template-columns: 1fr 1.25fr; gap: .8rem; margin-bottom: 1.1rem; }
+  .dc-tarjeta { padding: .75rem .9rem; border: 1px solid #e3e6ea; border-radius: 10px; background: #fafbfc; }
+  .dc-fuerte { font-weight: 650; font-size: 11pt; color: #171a1f; }
+  .dc-vehiculo { display: flex; justify-content: space-between; align-items: center; gap: .8rem; }
+  .dc-vehiculo img { width: 150px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; }
+  .dc-patente { display: inline-block; padding: 0 .4rem; border: 1px solid #c9ced5; border-radius: 4px; background: #fff; font-weight: 700; letter-spacing: .06em; }
+  .dc-tabla { width: 100%; border-collapse: collapse; margin-bottom: 1.1rem; }
+  .dc-tabla thead th { padding: .45rem .6rem; background: #171a1f; color: #fff; font-size: 7.5pt; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; text-align: left; }
+  .dc-tabla thead th:first-child { border-radius: 6px 0 0 6px; }
+  .dc-tabla thead th:last-child { border-radius: 0 6px 6px 0; }
+  .dc-tabla td { padding: .55rem .6rem; border-bottom: 1px solid #eceef1; vertical-align: top; }
+  .dc-tabla tbody tr:nth-child(even) td { background: #fafbfc; }
+  .dc-tabla td b { display: block; font-weight: 600; }
+  .dc-tabla td small { color: #8a919b; font-size: 8pt; }
+  .dc-tabla tr { break-inside: avoid; }
+  .dc-n { width: 1.6rem; color: #8a919b; }
+  .dc-num { text-align: right !important; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .dc-cierre { display: grid; grid-template-columns: 1fr 15rem; gap: 1.2rem; align-items: start; break-inside: avoid; }
+  .dc-condiciones ul { margin: 0; padding-left: 1rem; color: #4b525c; font-size: 8.5pt; }
+  .dc-condiciones li { margin-bottom: .2rem; }
+  .dc-totales { margin: 0; font-variant-numeric: tabular-nums; }
+  .dc-totales div { display: flex; justify-content: space-between; gap: 1rem; padding: .3rem .2rem; border-bottom: 1px solid #eceef1; }
+  .dc-totales dt { color: #4b525c; }
+  .dc-totales dd { margin: 0; font-weight: 600; }
+  .dc-totales .dc-total { margin: .35rem 0; padding: .55rem .75rem; border: 0; border-radius: 8px; background: var(--acento); color: var(--sobre-acento); }
+  .dc-totales .dc-total dt, .dc-totales .dc-total dd { color: inherit; font-size: 13pt; font-weight: 750; }
+  .dc-firmas { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; margin-top: 2.6rem; break-inside: avoid; }
+  .dc-firmas div { display: flex; flex-direction: column; font-size: 9pt; font-weight: 600; }
+  .dc-firmas span { height: 2.2rem; border-bottom: 1px solid #9aa1ab; margin-bottom: .35rem; }
+  .dc-firmas small { color: #8a919b; font-weight: 400; }
+  .dc-pie { display: flex; justify-content: space-between; margin-top: 1.6rem; padding-top: .5rem; border-top: 1px solid #e3e6ea; color: #8a919b; font-size: 7.5pt; }
+}
