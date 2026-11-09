@@ -1,5 +1,6 @@
 import { conEvento, sincronizar } from './automatizacion';
-import { fechaLocal } from './piezas';
+import { cobradaSeguro } from './cobranza';
+import { fechaLocal, totales } from './piezas';
 import { sugerir } from './precios';
 import autosDemo from './autosDemo.json';
 import { slugAuto } from './fichaModelo';
@@ -62,6 +63,8 @@ const auto = (marca: string, modelo: string, anio: number, n: number, color: str
 interface Base {
   numero: number; codigo: string; v: Vehiculo; desde: number; pagador: Pagador; aprobacion: Aprobacion;
   filas: Fila[]; cierre?: EstadoItem; entregadaHace?: number; cobrada?: boolean; notas?: string;
+  /** Factura a la compañía: hace cuántos días se emitió y, si ya pagó, hace cuántos días. */
+  factura?: { numero: number; emitidaHace: number; pagadaHace?: number; deduciblePendiente?: boolean };
 }
 
 function orden(b: Base): Orden {
@@ -71,8 +74,14 @@ function orden(b: Base): Orden {
     pagador: b.pagador, items: items(b.v, b.filas, b.cierre), notas: b.notas ?? '', aprobacion: b.aprobacion,
     repuestos: [], fotos: [], historial: [], recepcion: { km: 40000 + b.numero * 37, combustible: 'Medio', observaciones: '' },
     entregadaEl: b.entregadaHace === undefined ? null : dias(-b.entregadaHace), cobrada: b.cobrada ?? false,
+    deducibleCobradoEl: b.factura && !b.factura.deduciblePendiente && b.entregadaHace !== undefined ? dias(-b.entregadaHace) : null,
     vistas: FOTOS[slugAuto(b.v)]?.vistas,
   });
+  if (b.factura) {
+    const f = b.factura, monto = totales(o).aseguradora;
+    o.factura = { numero: f.numero, emitida: dias(-f.emitidaHace), monto, ...(f.pagadaHace !== undefined ? { pagadaEl: dias(-f.pagadaHace) } : {}) };
+    o.cobrada = cobradaSeguro(o);
+  }
   return conEvento(o, 'Vehículo ingresado al taller');
 }
 
@@ -109,17 +118,21 @@ export function ordenesDemo(): Orden[] {
 
 function historico(): Orden[] {
   const filas = (a: number, b: number): Fila[] => [['desabolladura', 'puerta_del_der', 'medio', 'listo', a], ['pintura', 'puerta_del_der', 'medio', 'listo', b]];
-  const datos: [number, string, number, number, number, number, Pagador][] = [
-    [1034, 'Sail', 150, 143, 310000, 240000, seguro('Compañía Demo Sur', 1034, 120000)],
-    [1035, 'Tracker', 118, 112, 280000, 260000, particular],
-    [1036, 'Onix', 92, 86, 190000, 170000, seguro('Compañía Demo Norte', 1036, 90000)],
-    [1037, 'Colorado', 61, 53, 420000, 380000, seguro('Compañía Demo Centro', 1037, 150000)],
-    [1038, 'Captiva', 33, 27, 260000, 230000, particular],
-    [1039, 'Sail', 18, 12, 240000, 210000, seguro('Compañía Demo Sur', 1039, 90000)],
+  // Cobranza de ejemplo: pagadas a tiempo, una pagada con atraso, una al día, una por vencer y una vencida.
+  type Fac = Base['factura'];
+  const datos: [number, string, number, number, number, number, Pagador, Fac][] = [
+    [1034, 'Sail', 150, 143, 310000, 240000, seguro('Compañía Demo Sur', 1034, 120000), { numero: 2201, emitidaHace: 143, pagadaHace: 118 }],
+    [1035, 'Tracker', 118, 112, 280000, 260000, particular, undefined],
+    [1036, 'Onix', 92, 86, 190000, 170000, seguro('Compañía Demo Norte', 1036, 90000), { numero: 2202, emitidaHace: 86, pagadaHace: 48 }],
+    [1037, 'Colorado', 61, 53, 420000, 380000, seguro('Compañía Demo Centro', 1037, 150000), { numero: 2203, emitidaHace: 53, pagadaHace: 25 }],
+    [1038, 'Captiva', 33, 27, 260000, 230000, particular, undefined],
+    [1039, 'Sail', 18, 12, 240000, 210000, seguro('Compañía Demo Sur', 1039, 90000), { numero: 2206, emitidaHace: 12, deduciblePendiente: true }],
+    [1032, 'Tracker', 52, 44, 350000, 290000, seguro('Compañía Demo Centro', 1032, 120000), { numero: 2204, emitidaHace: 44 }],
+    [1033, 'Onix', 34, 27, 210000, 190000, seguro('Compañía Demo Norte', 1033, 90000), { numero: 2205, emitidaHace: 27 }],
   ];
-  return datos.map(([numero, modelo, desde, hace, a, b, pagador], k) => orden({
+  return datos.map(([numero, modelo, desde, hace, a, b, pagador, factura], k) => orden({
     numero, codigo: `HIS${k}0${k}`, v: auto('Chevrolet', modelo, 2018 + k, 60 + k, 'Plateado', '#a9aeb4', modelo === 'Colorado' ? 'pickup' : modelo === 'Onix' ? 'hatchback' : modelo === 'Sail' ? 'sedan' : 'suv'),
-    desde, aprobacion: 'aprobada', pagador, filas: filas(a, b), cierre: 'listo', entregadaHace: hace, cobrada: numero !== 1039,
+    desde, aprobacion: 'aprobada', pagador, filas: filas(a, b), cierre: 'listo', entregadaHace: hace, cobrada: pagador.tipo === 'particular', factura,
   }));
 }
 

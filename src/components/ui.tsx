@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
-import { CaretLeft, Camera, ChartBar, Gear, Kanban, ListChecks, Package, SignOut } from '@phosphor-icons/react';
+import { CaretLeft, Camera, ChartBar, CurrencyCircleDollar, Gear, Kanban, ListChecks, Package, SignOut } from '@phosphor-icons/react';
 import { etapaDe, nombreEtapa } from '../lib/automatizacion';
 import { guardarFoto, leerFoto } from '../lib/fotos';
 import { reducirImagen } from '../lib/padron';
@@ -34,6 +34,7 @@ const NAV_ADMIN = [
   { ruta: '/admin', nombre: 'Tablero', Icono: Kanban },
   { ruta: '/admin/ordenes', nombre: 'Órdenes', Icono: ListChecks },
   { ruta: '/admin/repuestos', nombre: 'Repuestos', Icono: Package },
+  { ruta: '/admin/cobranza', nombre: 'Cobranza', Icono: CurrencyCircleDollar },
   { ruta: '/admin/reportes', nombre: 'Reportes', Icono: ChartBar },
   { ruta: '/admin/ajustes', nombre: 'Ajustes', Icono: Gear },
 ];

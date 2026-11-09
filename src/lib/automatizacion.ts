@@ -1,3 +1,4 @@
+import { estadoFactura } from './cobranza';
 import { fechaLocal, nombrePieza, totales } from './piezas';
 import type { Empresa, EtapaId, Item, Orden, Repuesto, Severidad } from './types';
 
@@ -76,7 +77,16 @@ export function alertas(ordenes: Orden[], hoy = fechaLocal()): Alerta[] {
   for (const o of ordenes) {
     const et = etapaDe(o), v = `${o.vehiculo.marca} ${o.vehiculo.modelo}`, add = (k: string, texto: string, urgente = false) => out.push({ id: `${o.id}-${k}`, ordenId: o.id, texto: `${v}: ${texto}`, urgente });
     if (et !== 'entrega' && et !== 'entregado' && o.entrega < hoy) add('atraso', 'pasó su fecha de entrega', true);
-    if (et === 'entregado' && !o.cobrada) add('cobro', 'entregado sin cobrar', true);
+    const f = o.factura, cia = o.pagador.aseguradora;
+    if (f && !f.pagadaEl) {
+      // Cobranza a la compañía: plazo legal de 30 días (Ley 19.983).
+      const e = estadoFactura(f, hoy);
+      if (e.estado === 'vencida') add('factura', `factura N.º ${f.numero} vencida hace ${-e.dias} días (${cia})`, true);
+      else if (e.estado === 'por_vencer') add('factura', `factura N.º ${f.numero} ${e.dias === 0 ? 'vence hoy' : `vence en ${e.dias} días`} (${cia})`);
+    }
+    if (et === 'entregado' && !o.cobrada && o.pagador.tipo === 'aseguradora' && !f) add('cobro', `entregado sin facturar a ${cia}`, true);
+    else if (et === 'entregado' && !o.cobrada && o.pagador.tipo === 'particular') add('cobro', 'entregado sin cobrar', true);
+    if (et === 'entregado' && o.pagador.tipo === 'aseguradora' && totales(o).deducible > 0 && !o.deducibleCobradoEl) add('deducible', 'deducible por cobrar al cliente', true);
     if (o.cobrada) continue;
     const t = totales(o);
     if (t.faltan) add('monto', `${t.faltan} ${t.faltan === 1 ? 'trabajo' : 'trabajos'} sin monto`);

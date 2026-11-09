@@ -623,3 +623,48 @@ img { display: block; max-width: 100%; }
   .de-hitos li { display: grid; grid-template-columns: 9.5rem 1fr; gap: .6rem; padding: .25rem 0; border-bottom: 1px solid #eceef1; }
   .de-hitos time { color: #8a919b; font-variant-numeric: tabular-nums; }
 }
+
+/* Mejora 3: cobranza a compañías de seguros. */
+.chip { display: inline-flex; align-items: center; padding: .2rem .65rem; border-radius: 99px; font-size: .85rem; font-weight: 600; white-space: nowrap; background: var(--fondo-3); color: var(--suave); }
+.chip.ok, .chip.pagada { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.chip.al_dia { background: color-mix(in srgb, var(--texto) 10%, transparent); color: var(--texto); }
+.chip.por_vencer { background: rgba(255, 200, 97, .16); color: #ffc861; }
+.chip.vencida { background: color-mix(in srgb, var(--error) 18%, transparent); color: var(--error); }
+.cobro-seguro { display: grid; gap: .7rem; padding: 1.1rem; border: 1px solid var(--linea); border-radius: var(--r); background: var(--fondo-2); }
+.cobro-seguro h3 { margin: 0; font-size: 1.05rem; }
+.cs-fila { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .6rem 1rem; padding-bottom: .7rem; border-bottom: 1px solid var(--linea); }
+.cs-fila > div { display: flex; flex-direction: column; }
+.cs-fila small { color: var(--suave); font-size: .9rem; }
+.cs-fila .btn { min-height: 48px; }
+.cb-aviso { margin: 1rem 0 0; padding: .8rem 1rem; border-radius: 12px; background: color-mix(in srgb, var(--acento) 10%, var(--fondo-2)); border: 1px solid color-mix(in srgb, var(--acento) 35%, var(--linea)); }
+.cb-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 1.6rem; margin-top: 1.6rem; align-items: start; }
+.cb-grid .segmentos button { min-height: 44px; }
+.cb-facturas { list-style: none; margin: 0; padding: 0; display: grid; gap: .7rem; }
+.cb-facturas li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem 1rem; padding: 1rem 1.1rem; background: var(--fondo-2); border: 1px solid var(--linea); border-left: 4px solid var(--linea); border-radius: var(--r); }
+.cb-facturas li.vencida { border-left-color: var(--error); }
+.cb-facturas li.por_vencer { border-left-color: #ffc861; }
+.cb-facturas li.pagada { border-left-color: var(--ok); }
+.cb-orden { display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; padding: 0; text-align: left; background: none; }
+.cb-orden small { color: var(--suave); font-size: .9rem; }
+.cb-orden:hover b { color: var(--acento); }
+.cb-monto { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; text-align: right; }
+.cb-monto b { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.cb-monto small { color: var(--suave); font-size: .85rem; }
+.cb-acciones { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem; }
+.cb-acciones .btn { min-height: 44px; }
+.cb-confirmar { display: inline-flex; align-items: center; gap: .6rem; }
+.cb-bloque { padding: 1.1rem; background: var(--fondo-2); border: 1px solid var(--linea); border-radius: var(--r); margin-bottom: 1rem; }
+.cb-bloque h2 { display: flex; align-items: center; gap: .4rem; margin-top: 0; font-size: 1.15rem; }
+.cb-tabla { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.cb-tabla th { text-align: left; color: var(--suave); font-weight: 560; font-size: .85rem; padding: .3rem .2rem; }
+.cb-tabla td { padding: .5rem .2rem; border-top: 1px solid var(--linea); vertical-align: top; font-variant-numeric: tabular-nums; }
+.cb-tabla th:not(:first-child), .cb-tabla td:not(:first-child) { text-align: right; }
+.cb-vencido { display: block; color: var(--error); font-size: .82rem; }
+.cb-lento { color: var(--error); font-weight: 600; }
+.cb-deducibles { list-style: none; margin: 0; padding: 0; }
+.cb-deducibles li { display: flex; justify-content: space-between; align-items: center; gap: .6rem; border-top: 1px solid var(--linea); }
+.cb-ley ul { margin: 0; padding-left: 1.1rem; color: var(--suave); font-size: .92rem; }
+.cb-ley li { margin-bottom: .4rem; }
+.cb-ley b { color: var(--texto); }
+@media (max-width: 960px) { .cb-grid { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .kpis { grid-template-columns: 1fr 1fr; } }

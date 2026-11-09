@@ -5,6 +5,7 @@ import './styles.css';
 import { ir } from './components/ui';
 import { aplicarMarca, sesion, useEmpresa } from './lib/store';
 import { AdminOrden, Ajustes, Ordenes, Reportes, Repuestos, Tablero } from './pages/Admin';
+import { Cobranza } from './pages/Cobranza';
 import { ClienteAcceso, ClientePortal } from './pages/Cliente';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -46,7 +47,7 @@ function Rutas() {
   if (p[0] === 'admin') {
     return (
       <Guardia rol="admin">
-        {p[1] === 'ajustes' ? <Ajustes /> : p[1] === 'ordenes' ? <Ordenes /> : p[1] === 'repuestos' ? <Repuestos /> : p[1] === 'reportes' ? <Reportes /> : p[1] === 'ot' && p[2] ? <AdminOrden key={p[2]} id={p[2]} /> : <Tablero />}
+        {p[1] === 'ajustes' ? <Ajustes /> : p[1] === 'ordenes' ? <Ordenes /> : p[1] === 'repuestos' ? <Repuestos /> : p[1] === 'reportes' ? <Reportes /> : p[1] === 'cobranza' ? <Cobranza /> : p[1] === 'ot' && p[2] ? <AdminOrden key={p[2]} id={p[2]} /> : <Tablero />}
       </Guardia>
     );
   }

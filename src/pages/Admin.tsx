@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowsClockwise, Bell, Camera, Check, CheckCircle, FilePdf, FolderOpen, Timer, Eye, HourglassMedium, MagnifyingGlass, PaperPlaneTilt, PencilSimple, Phone, Plus, Printer, Truck, WarningCircle, WhatsappLogo, XCircle } from '@phosphor-icons/react';
+import { ArrowsClockwise, Bell, Camera, Check, CheckCircle, CurrencyCircleDollar, FilePdf, Receipt, FolderOpen, Timer, Eye, HourglassMedium, MagnifyingGlass, PaperPlaneTilt, PencilSimple, Phone, Plus, Printer, Truck, WarningCircle, WhatsappLogo, XCircle } from '@phosphor-icons/react';
 import { Auto3D, Barra, forma, FotoGuardada, FotoOrden, Galeria, GaleriaVistas, ir, Logo, Pantalla } from '../components/ui';
 import { CotizacionDoc, imprimirDocumento } from '../components/Cotizacion';
 import { ExpedienteDoc } from '../components/Expediente';
+import { cobradaSeguro, estadoFactura, nombreEstado, siguienteFactura, vencimiento } from '../lib/cobranza';
 import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
 import { alertas, CMF_REPARACION, conEvento, diasEnTaller, enlaceWhatsApp, semaforoPlazo, ETAPAS, etapaDe, mensajeCliente, metricas, nombreEtapa } from '../lib/automatizacion';
 import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../lib/gemini';
@@ -237,6 +238,60 @@ function RespuestaCliente({ o, aprobar }: { o: Orden; aprobar: (como: string) =>
   );
 }
 
+/**
+ * Cobro de una orden con seguro: deducible al asegurado y factura a la compañía (Ley 19.983: 30 días).
+ * Cuando ambos están pagados, la orden queda cobrada sola.
+ */
+function CobroSeguro({ o }: { o: Orden }) {
+  const ordenes = useOrdenes();
+  const [confirmando, setConfirmando] = useState(false);
+  const t = totales(o), et = etapaDe(o), f = o.factura, cia = o.pagador.aseguradora ?? 'la compañía';
+  const listo = et === 'entrega' || et === 'entregado';
+  const cambiar = (c: Partial<Orden>, texto: string) => actualizar(o.id, x => {
+    const n = { ...x, ...c };
+    return conEvento({ ...n, cobrada: cobradaSeguro(n) }, texto);
+  });
+  const e = f && estadoFactura(f);
+
+  if (o.cobrada) return <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada: {cia} pagó{t.deducible ? ' y el asegurado pagó su deducible' : ''}.</p>;
+  if (!listo && !f) return <p className="pista">La factura a {cia} y el deducible se cobran al entregar el vehículo.</p>;
+  return (
+    <section className="cobro-seguro" aria-label="Cobro de la orden">
+      <h3>Cobro</h3>
+      {t.deducible > 0 && (
+        <div className="cs-fila">
+          <div><b>Deducible del asegurado</b><small>{clp(t.deducible)} · se paga al retirar</small></div>
+          {o.deducibleCobradoEl ? <span className="chip ok">Cobrado {fecha(o.deducibleCobradoEl)}</span>
+            : <button className="btn secundario" onClick={() => cambiar({ deducibleCobradoEl: fechaLocal() }, `Deducible cobrado al asegurado (${clp(t.deducible)})`)}>Cobrar deducible</button>}
+        </div>
+      )}
+      <div className="cs-fila">
+        <div>
+          <b>Factura a {cia}</b>
+          <small>{f ? `N.º ${f.numero} · emitida ${fecha(f.emitida)} · vence ${fecha(vencimiento(f))}` : `${clp(t.aseguradora)} con IVA · plazo legal 30 días`}</small>
+        </div>
+        {!f ? (
+          <button className="btn primario" disabled={t.faltan > 0} onClick={() => {
+            const numero = siguienteFactura(ordenes);
+            cambiar({ factura: { numero, emitida: fechaLocal(), monto: t.aseguradora } }, `Factura N.º ${numero} emitida a ${cia} por ${clp(t.aseguradora)}`);
+          }}><Receipt size={22} /> Emitir factura</button>
+        ) : <span className={`chip ${e!.estado}`}>{nombreEstado(e!)}</span>}
+      </div>
+      {f && !f.pagadaEl && e!.estado === 'vencida' && <p className="pista">Atrasada: corre interés por mora y una comisión de cobranza de {clp(e!.comision)} (1 %, Ley 19.983).</p>}
+      {f && !f.pagadaEl && (confirmando ? (
+        <div className="ec-confirmar" role="group" aria-label="Confirmar pago">
+          <p>¿{cia} pagó la factura N.º {f.numero} por {clp(f.monto)}?</p>
+          <div>
+            <button className="btn primario" onClick={() => { setConfirmando(false); cambiar({ factura: { ...f, pagadaEl: fechaLocal() } }, `${cia} pagó la factura N.º ${f.numero} (${clp(f.monto)})`); }}><Check size={22} weight="bold" /> Sí, pagó</button>
+            <button className="btn secundario" onClick={() => setConfirmando(false)}>Cancelar</button>
+          </div>
+        </div>
+      ) : <button className="btn secundario grande ancho" onClick={() => setConfirmando(true)}><CurrencyCircleDollar size={24} /> Registrar pago de {cia}</button>)}
+      {t.faltan > 0 && !f && <p className="pista">Faltan {t.faltan} montos para emitir la factura.</p>}
+    </section>
+  );
+}
+
 function Acciones({ o }: { o: Orden }) {
   const empresa = useEmpresa();
   const t = totales(o), et = etapaDe(o), seguro = o.pagador.tipo === 'aseguradora';
@@ -256,7 +311,7 @@ function Acciones({ o }: { o: Orden }) {
       {esperando && <RespuestaCliente o={o} aprobar={aprobar} />}
       {(o.aprobacion === 'pendiente' && seguro) && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={() => aprobar()}><CheckCircle size={24} /> La compañía autorizó</button>}
       {et === 'entrega' && <button className="btn primario grande ancho" onClick={() => cambiar({ entregadaEl: fechaLocal(), items: o.items.map(i => ({ ...i, estado: 'listo' as const })) }, 'Vehículo entregado')}><Truck size={24} /> Marcar como entregado</button>}
-      {o.cobrada ? <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada</p> : (
+      {seguro ? <CobroSeguro o={o} /> : o.cobrada ? <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada</p> : (
         <button className="btn secundario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ cobrada: true }, 'Orden cobrada')}>Marcar como cobrada</button>
       )}
       {o.cliente.telefono && !esperando && <a className="btn secundario grande ancho" href={enlaceWhatsApp(o.cliente.telefono, `${mensajeCliente(o, empresa)}

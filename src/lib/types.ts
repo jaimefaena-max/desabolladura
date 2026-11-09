@@ -71,6 +71,9 @@ export interface Pagador {
 
 export interface Evento { fecha: string; texto: string; }
 export interface Repuesto { id: string; itemId: string; nombre: string; estado: 'por_pedir' | 'pedido' | 'recibido'; }
+/** Factura a la compañía. Fechas AAAA-MM-DD; la ley cuenta el plazo desde que la compañía la recibe. */
+export interface Factura { numero: number; emitida: string; monto: number; pagadaEl?: string }
+
 export interface FotoRef { id: string; momento: 'antes' | 'despues'; }
 export interface Recepcion { km: number | null; combustible: string; observaciones: string; }
 
@@ -82,6 +85,10 @@ export interface Orden {
   aprobacion: Aprobacion; repuestos: Repuesto[]; fotos: FotoRef[]; historial: Evento[];
   recepcion: Recepcion; entregadaEl: string | null;
   cobrada: boolean;
+  /** Factura a la compañía de seguros (solo órdenes con seguro). */
+  factura?: Factura;
+  /** Fecha (AAAA-MM-DD) en que el asegurado pagó el deducible. */
+  deducibleCobradoEl?: string | null;
   /**
    * Fotos generadas del modelo, por vista. Cada valor es una ruta de la demo (`autos/…`)
    * o `idb:<id>` si vive en IndexedDB: en localStorage no caben.

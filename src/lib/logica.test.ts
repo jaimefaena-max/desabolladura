@@ -8,6 +8,7 @@ import { clp, estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
 import { alertas, CMF_REPARACION, diasEnTaller, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, semaforoPlazo, sincronizar, sumarHabiles } from './automatizacion';
 import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
+import { cobradaSeguro, COMISION_COBRANZA, correoRecordatorio, estadoFactura, resumenCobranza, vencimiento } from './cobranza';
 import type { Item, Orden } from './types';
 import { carroceriaDe, colorHex, patenteValida, verPatente } from './vehiculos';
 
@@ -160,7 +161,8 @@ describe('automatización', () => {
   });
   it('alerta atrasos, cobros, repuestos y entregas', () => {
     const textos = alertas(ordenes, '2026-11-05').map(a => a.texto).join(' | ');
-    expect(textos).toContain('entregado sin cobrar');
+    expect(textos).toMatch(/factura N\.º \d+ vencida hace \d+ días/);
+    expect(textos).toMatch(/factura N\.º \d+ vence en \d+ días/);
     expect(textos).toContain('pedir espejo derecho');
     expect(textos).toContain('listo, avisa al cliente');
     expect(alertas([con(1041, { entrega: '2020-01-01' })], '2026-11-05')[0]).toMatchObject({ urgente: true });
@@ -318,5 +320,39 @@ describe('plazo en taller frente a la CMF', () => {
     expect(semaforoPlazo(5)).toBe('ok');
     expect(semaforoPlazo(18)).toBe('atento');
     expect(semaforoPlazo(30)).toBe('atrasado');
+  });
+});
+
+describe('cobranza a compañías (Ley 19.983)', () => {
+  const f = { numero: 9, emitida: '2026-10-01', monto: 500000 };
+  it('vence a los 30 días corridos y calcula el estado', () => {
+    expect(vencimiento(f)).toBe('2026-10-31');
+    expect(estadoFactura(f, '2026-10-10')).toMatchObject({ estado: 'al_dia', dias: 21 });
+    expect(estadoFactura(f, '2026-10-26')).toMatchObject({ estado: 'por_vencer', dias: 5 });
+    expect(estadoFactura(f, '2026-11-10')).toMatchObject({ estado: 'vencida', dias: -10, comision: 500000 * COMISION_COBRANZA });
+    expect(estadoFactura({ ...f, pagadaEl: '2026-11-04' })).toMatchObject({ estado: 'pagada', diasPago: 34, atrasoPagado: 4 });
+  });
+  it('una orden con seguro queda cobrada solo con factura pagada y deducible cobrado', () => {
+    const o = ordenesDemo().find(x => x.numero === 1039)!;
+    expect(cobradaSeguro(o)).toBe(false);
+    const pagada = { ...o, factura: { ...o.factura!, pagadaEl: '2026-11-09' } };
+    expect(cobradaSeguro(pagada)).toBe(false); // falta el deducible del asegurado
+    expect(cobradaSeguro({ ...pagada, deducibleCobradoEl: '2026-11-09' })).toBe(true);
+  });
+  it('resume lo por cobrar, lo vencido y el promedio de pago por compañía', () => {
+    const r = resumenCobranza(ordenesDemo());
+    expect(r.abiertas.length).toBe(3);
+    expect(r.nVencidas).toBe(1);
+    expect(r.porCobrar).toBe(r.abiertas.reduce((a, x) => a + x.f.monto, 0));
+    expect(r.abiertas[0].e.estado).toBe('vencida');
+    expect(r.companias.find(c => c.nombre === 'Compañía Demo Norte')!.diasPromedio).toBe(38);
+  });
+  it('el recordatorio cita la ley, los días de atraso y la comisión', () => {
+    const r = resumenCobranza(ordenesDemo());
+    const correo = decodeURIComponent(correoRecordatorio(r.abiertas[0], 'Taller Demo'));
+    expect(correo).toMatch(/^mailto:\?subject=Factura N\.º \d+/);
+    expect(correo).toContain('Ley 19.983');
+    expect(correo).toMatch(/registra \d+ días de atraso/);
+    expect(correo).toContain('comisión de cobranza de 1 %');
   });
 });
