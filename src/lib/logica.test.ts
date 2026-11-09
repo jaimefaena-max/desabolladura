@@ -51,6 +51,10 @@ describe('patente y catálogo', () => {
   });
   it('deduce carrocería y color', () => {
     expect(carroceriaDe('FORD', 'F-150')).toBe('pickup');
+    expect(carroceriaDe('Jeep', 'Grand Cherokee')).toBe('suv');
+    expect(carroceriaDe('JEEP', 'Gladiator')).toBe('pickup');
+    expect(carroceriaDe('Great Wall', 'Poer')).toBe('pickup');
+    expect(carroceriaDe('MG', 'ZS')).toBe('suv');
     expect(carroceriaDe('Toyota', 'COROLLA XEI')).toBe('sedan');
     expect(carroceriaDe('Toyota', 'Corolla')).toBe('sedan');
     expect(carroceriaDe('Toyota', 'Corolla Cross')).toBe('suv');

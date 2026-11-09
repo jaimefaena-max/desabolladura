@@ -1,15 +1,22 @@
 import type { Carroceria } from './types';
 
 export const CATALOGO: Record<string, Record<string, Carroceria>> = {
+  Changan: { CS15: 'suv', CS35: 'suv', CS55: 'suv', Alsvin: 'sedan', Hunter: 'pickup' },
   Chevrolet: { Sail: 'sedan', Onix: 'hatchback', Tracker: 'suv', Captiva: 'suv', Colorado: 'pickup', Silverado: 'pickup' },
   Chery: { Tiggo: 'suv', Arrizo: 'sedan' },
   Ford: { 'F-150': 'pickup', Ranger: 'pickup', Territory: 'suv', Escape: 'suv', Explorer: 'suv' },
   Hyundai: { Accent: 'sedan', Elantra: 'sedan', Tucson: 'suv', 'Santa Fe': 'suv', Creta: 'suv' },
+  JAC: { JS2: 'suv', JS4: 'suv', T8: 'pickup', T9: 'pickup' },
+  Jeep: { Wrangler: 'suv', Compass: 'suv', Renegade: 'suv', 'Grand Cherokee': 'suv', Cherokee: 'suv', Gladiator: 'pickup' },
+  'Great Wall': { Poer: 'pickup', Wingle: 'pickup' },
+  Haval: { Jolion: 'suv', H6: 'suv' },
   Kia: { Rio: 'hatchback', Morning: 'hatchback', Cerato: 'sedan', Sportage: 'suv', Sorento: 'suv' },
+  MG: { MG3: 'hatchback', ZS: 'suv', HS: 'suv', GT: 'sedan' },
   Mazda: { '2': 'hatchback', '3': 'sedan', 'CX-5': 'suv', 'BT-50': 'pickup' },
   Mitsubishi: { L200: 'pickup', Outlander: 'suv', Montero: 'suv' },
   Nissan: { Versa: 'sedan', Sentra: 'sedan', Qashqai: 'suv', 'X-Trail': 'suv', Navara: 'pickup' },
   Peugeot: { '208': 'hatchback', '2008': 'suv', '3008': 'suv' },
+  Renault: { Kwid: 'hatchback', Duster: 'suv', Koleos: 'suv', Oroch: 'pickup', Alaskan: 'pickup' },
   Subaru: { Impreza: 'hatchback', Forester: 'suv', Outback: 'suv' },
   Suzuki: { Swift: 'hatchback', Baleno: 'hatchback', Vitara: 'suv', Jimny: 'suv' },
   Toyota: { Yaris: 'sedan', Corolla: 'sedan', 'Corolla Cross': 'suv', 'RAV4': 'suv', 'Land Cruiser': 'suv', Hilux: 'pickup' },
