@@ -356,3 +356,21 @@ describe('cobranza a compañías (Ley 19.983)', () => {
     expect(correo).toContain('comisión de cobranza de 1 %');
   });
 });
+
+describe('visitante que ya abrió la demo', () => {
+  it('recibe las facturas de ejemplo y las órdenes históricas nuevas sin perder sus cambios', () => {
+    const vieja = ordenesDemo().filter(o => o.numero !== 1032 && o.numero !== 1033)
+      .map(o => ({ ...o, factura: undefined, deducibleCobradoEl: null, notas: 'cambio del visitante' }));
+    const nueva = conFotosDemo(vieja);
+    expect(nueva.find(o => o.numero === 1039)!.factura?.numero).toBe(2206);
+    expect(nueva.find(o => o.numero === 1039)!.notas).toBe('cambio del visitante');
+    expect(nueva.some(o => o.numero === 1032) && nueva.some(o => o.numero === 1033)).toBe(true);
+    expect(resumenCobranza(nueva).abiertas.length).toBe(3);
+  });
+  it('no pisa una factura que el visitante ya emitió o pagó', () => {
+    const o = ordenesDemo().find(x => x.numero === 1039)!;
+    const propia = { ...o, factura: { ...o.factura!, pagadaEl: '2026-11-09' } };
+    expect(conFotosDemo([propia])[0].factura?.pagadaEl).toBe('2026-11-09');
+  });
+});
+

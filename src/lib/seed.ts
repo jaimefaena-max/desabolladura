@@ -142,11 +142,18 @@ function historico(): Orden[] {
  */
 export function conFotosDemo(guardadas: Orden[]): Orden[] {
   const frescas = new Map(ordenesDemo().map(o => [o.id, o]));
-  return guardadas.map(o => {
+  const actualizadas = guardadas.map(o => {
     const f = frescas.get(o.id);
-    if (!f?.vistas || f.vehiculo.patente !== o.vehiculo.patente) return o;
-    // Ya al día: mismas fotos y misma ficha (que trae medidas y el auto 3D realista).
-    if (o.vistas && JSON.stringify(o.vehiculo.ficha) === JSON.stringify(f.vehiculo.ficha)) return o;
-    return { ...o, vistas: f.vistas, vehiculo: f.vehiculo };
+    if (!f || f.vehiculo.patente !== o.vehiculo.patente) return o;
+    let n = o;
+    // Fotos y ficha del modelo (medidas para el 3D).
+    if (f.vistas && !(o.vistas && JSON.stringify(o.vehiculo.ficha) === JSON.stringify(f.vehiculo.ficha))) n = { ...n, vistas: f.vistas, vehiculo: f.vehiculo };
+    // Cobranza de ejemplo: las órdenes históricas con seguro reciben su factura si aún no la tienen.
+    if (f.factura && !o.factura && o.entregadaEl) n = { ...n, factura: f.factura, deducibleCobradoEl: f.deducibleCobradoEl, cobrada: f.cobrada };
+    return n;
   });
+  // Órdenes de ejemplo agregadas después (p. ej. facturas por vencer y vencidas).
+  const ya = new Set(guardadas.map(o => o.id));
+  const nuevas = [...frescas.values()].filter(o => !ya.has(o.id) && o.entregadaEl);
+  return nuevas.length ? [...actualizadas, ...nuevas] : actualizadas;
 }
