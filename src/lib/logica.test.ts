@@ -6,7 +6,7 @@ import { extraerJSON } from './gemini';
 import { interpretarPadron } from './padron';
 import { clp, estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
-import { alertas, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, sincronizar, sumarHabiles } from './automatizacion';
+import { alertas, CMF_REPARACION, diasEnTaller, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, semaforoPlazo, sincronizar, sumarHabiles } from './automatizacion';
 import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
 import type { Item, Orden } from './types';
 import { carroceriaDe, colorHex, patenteValida, verPatente } from './vehiculos';
@@ -304,5 +304,19 @@ describe('seguimiento por WhatsApp', () => {
     const link = m.match(/https:\/\/\S+/)![0];
     expect(desempaquetar(link.split('/').pop()!)!.wspTaller).toBe('+56 9 8765 4321');
     expect(mensajePresupuesto(o, { nombre: 'T', whatsapp: '' }, true)).toContain('sigue esperando su respuesta');
+  });
+});
+
+describe('plazo en taller frente a la CMF', () => {
+  it('cuenta días corridos desde el ingreso hasta hoy o hasta la entrega', () => {
+    expect(diasEnTaller({ creada: '2026-11-01', entregadaEl: null }, '2026-11-09')).toBe(8);
+    expect(diasEnTaller({ creada: '2026-11-01', entregadaEl: '2026-11-04' }, '2026-11-30')).toBe(3);
+    expect(diasEnTaller({ creada: '2026-11-09', entregadaEl: null }, '2026-11-09')).toBe(0);
+  });
+  it('semáforo: verde bajo el 70 % del promedio, amarillo hasta el promedio, rojo sobre él', () => {
+    expect(CMF_REPARACION.enTaller).toBeCloseTo(CMF_REPARACION.total - CMF_REPARACION.antesDelTaller, 5);
+    expect(semaforoPlazo(5)).toBe('ok');
+    expect(semaforoPlazo(18)).toBe('atento');
+    expect(semaforoPlazo(30)).toBe('atrasado');
   });
 });

@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { CheckCircle, Plus, Wrench } from '@phosphor-icons/react';
+import { useRef, useState } from 'react';
+import { Camera, CheckCircle, Plus, Wrench } from '@phosphor-icons/react';
 import PiezaPicker from '../components/PiezaPicker';
 import TerminarTrabajo from '../components/TerminarTrabajo';
-import { Auto3D, Barra, forma, Galeria, ir, Leyenda, Pantalla, TarjetaOrden } from '../components/ui';
+import { Auto3D, Barra, forma, FotoGuardada, Galeria, ir, Leyenda, Pantalla, TarjetaOrden } from '../components/ui';
+import { guardarFoto } from '../lib/fotos';
+import { reducirImagen } from '../lib/padron';
 import { conEvento, etapaDe, nombreEtapa, sincronizar } from '../lib/automatizacion';
 import { estadosPiezas, fecha, progreso, tituloItem } from '../lib/piezas';
-import { actualizar, sesion, useOrden, useOrdenes } from '../lib/store';
+import { actualizar, sesion, uid, useOrden, useOrdenes } from '../lib/store';
 import type { EstadoItem, Item } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';
 
@@ -27,6 +29,25 @@ export function MaestroInicio() {
         </>
       )}
     </Pantalla>
+  );
+}
+
+/** Un adicional necesita foto del daño: sin ella, la compañía no lo autoriza. */
+function FotoLiquidador({ id, onFoto }: { id?: string; onFoto: (id: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState(false);
+  return (
+    <div className="foto-liquidador">
+      {id && <FotoGuardada id={id} alt="Foto del daño para el liquidador" />}
+      <button className={id ? 'enlace' : 'btn secundario'} onClick={() => input.current?.click()}><Camera size={22} /> {id ? 'Cambiar foto' : 'Foto para el liquidador'}</button>
+      {error && <small className="error" role="alert">No se pudo guardar la foto.</small>}
+      <input ref={input} type="file" accept="image/*" capture="environment" hidden aria-label="Foto del daño" onChange={async e => {
+        const f = e.target.files?.[0];
+        e.target.value = '';
+        if (!f) return;
+        try { const nuevo = uid(); await guardarFoto(nuevo, await reducirImagen(f, 1100)); onFoto(nuevo); setError(false); } catch { setError(true); }
+      }} />
+    </div>
   );
 }
 
@@ -95,6 +116,7 @@ export function MaestroOrden({ id }: { id: string }) {
               <li key={i.id} className={i.estado}>
                 <p>{tituloItem(i, v.carroceria)}{i.adicional && <span className="sello">Adicional</span>}</p>
                 {i.nota && <small className="tarea-nota">«{i.nota}»</small>}
+                {i.adicional && <FotoLiquidador id={i.fotoAntes} onFoto={f => actualizar(id, x => conEvento({ ...x, items: x.items.map(y => (y.id === i.id ? { ...y, fotoAntes: f } : y)) }, `Foto del adicional para el liquidador: ${tituloItem(i, v.carroceria).toLowerCase()}`))} />}
                 <div className="segmentos tres" role="group" aria-label={`Estado de ${tituloItem(i, v.carroceria)}`}>
                   {ESTADOS.map(e => <button key={e.id} aria-pressed={i.estado === e.id} className={i.estado === e.id ? `on ${e.id}` : ''} onClick={() => cambiar(i, e.id)}>{e.nombre}</button>)}
                 </div>

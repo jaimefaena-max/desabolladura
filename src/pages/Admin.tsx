@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
-import { ArrowsClockwise, Bell, Check, CheckCircle, Eye, HourglassMedium, MagnifyingGlass, PaperPlaneTilt, PencilSimple, Phone, Plus, Printer, Truck, WarningCircle, WhatsappLogo, XCircle } from '@phosphor-icons/react';
-import { Auto3D, Barra, forma, FotoOrden, Galeria, GaleriaVistas, ir, Logo, Pantalla } from '../components/ui';
-import { CotizacionDoc, imprimirCotizacion } from '../components/Cotizacion';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowsClockwise, Bell, Camera, Check, CheckCircle, FilePdf, FolderOpen, Timer, Eye, HourglassMedium, MagnifyingGlass, PaperPlaneTilt, PencilSimple, Phone, Plus, Printer, Truck, WarningCircle, WhatsappLogo, XCircle } from '@phosphor-icons/react';
+import { Auto3D, Barra, forma, FotoGuardada, FotoOrden, Galeria, GaleriaVistas, ir, Logo, Pantalla } from '../components/ui';
+import { CotizacionDoc, imprimirDocumento } from '../components/Cotizacion';
+import { ExpedienteDoc } from '../components/Expediente';
 import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
-import { alertas, conEvento, enlaceWhatsApp, ETAPAS, etapaDe, mensajeCliente, metricas, nombreEtapa } from '../lib/automatizacion';
+import { alertas, CMF_REPARACION, conEvento, diasEnTaller, enlaceWhatsApp, semaforoPlazo, ETAPAS, etapaDe, mensajeCliente, metricas, nombreEtapa } from '../lib/automatizacion';
 import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../lib/gemini';
 import { reducirImagen } from '../lib/padron';
 import { clp, estadosPiezas, fecha, fechaLocal, itemsCobrables, progreso, TRABAJOS, tituloItem, totales } from '../lib/piezas';
@@ -265,21 +266,77 @@ ${enlaceSeguimiento(o, empresa.nombre)}`)} target="_blank" rel="noreferrer noope
   );
 }
 
+/** Días en el taller frente al promedio nacional de la CMF: el argumento del taller rápido ante la compañía. */
+function PlazoCMF({ o }: { o: Orden }) {
+  const dias = diasEnTaller(o), meta = CMF_REPARACION.enTaller, s = semaforoPlazo(dias);
+  const texto = { ok: 'Bajo el promedio nacional', atento: 'Cerca del promedio nacional', atrasado: 'Sobre el promedio nacional' }[s];
+  return (
+    <section className={`plazo-cmf ${s}`} aria-label="Plazo en el taller">
+      <p><Timer size={22} weight="fill" /><b>Día {dias} en el taller</b><span>{texto}</span></p>
+      <div className="plazo-barra"><i style={{ width: `${Math.min(100, (dias / meta) * 100)}%` }} /></div>
+      <small>Promedio nacional dentro del taller: ≈{Math.round(meta)} días (CMF, {CMF_REPARACION.periodo}).</small>
+    </section>
+  );
+}
+
+/** Trabajos descubiertos al desarmar: la compañía los autoriza aparte, con foto de cada daño. */
+function Adicionales({ o, onSolicitud }: { o: Orden; onSolicitud: () => void }) {
+  const lista = itemsCobrables(o).filter(i => i.adicional);
+  if (!lista.length) return null;
+  const sinFoto = lista.filter(i => !i.fotoAntes).length;
+  const neto = lista.reduce((a, i) => a + (i.monto ?? 0), 0);
+  return (
+    <section className="adicionales-caja">
+      <p className="ec-tit"><WarningCircle size={26} weight="fill" /><b>{lista.length} adicional{lista.length > 1 ? 'es' : ''} por autorizar</b></p>
+      <p className="ec-sub">Daños encontrados al desarmar. La compañía los autoriza aparte: envíale la solicitud con la foto de cada uno.</p>
+      <ul>
+        {lista.map(i => (
+          <li key={i.id}>
+            {i.fotoAntes ? <FotoGuardada id={i.fotoAntes} alt={`Daño en ${tituloItem(i, o.vehiculo.carroceria)}`} /> : <span className="sin-foto"><Camera size={22} />Falta foto</span>}
+            <div><b>{tituloItem(i, o.vehiculo.carroceria)}</b><small>{i.monto === null ? 'Sin monto' : clp(i.monto)}</small></div>
+          </li>
+        ))}
+      </ul>
+      {sinFoto > 0 && <p className="pista">{sinFoto} sin foto: el trabajador la saca desde su tarea («Foto para el liquidador»).</p>}
+      <button className="btn primario grande ancho" onClick={onSolicitud}><FilePdf size={24} /> Solicitud de adicionales ({clp(neto)} neto)</button>
+    </section>
+  );
+}
+
+type Documento = 'cotizacion' | 'expediente' | 'adicionales';
+
 export function AdminOrden({ id }: { id: string }) {
   const o = useOrden(id);
+  // Se arma solo el documento pedido; se imprime cuando sus fotos (IndexedDB) alcanzaron a cargar.
+  const [doc, setDoc] = useState<Documento | null>(null);
+  useEffect(() => {
+    if (!doc || !o) return;
+    const nombre = { cotizacion: 'Cotizacion', expediente: 'Expediente', adicionales: 'Adicionales' }[doc];
+    const t = setTimeout(() => imprimirDocumento(`${nombre}-${o.numero}-${o.vehiculo.patente}`, () => setDoc(null)), 450);
+    return () => clearTimeout(t);
+  }, [doc, o]);
   if (!o) return <Pantalla volver="/admin" titulo="Orden no encontrada" />;
   const v = o.vehiculo, t = totales(o), pct = progreso(o.items), p = o.pagador;
   const maestro = USUARIOS.find(u => u.id === o.maestroId);
+  const seguro = p.tipo === 'aseguradora';
 
   return (
     <Pantalla volver="/admin" titulo={`Orden ${o.numero}`} sub={`${v.marca} ${v.modelo} ${v.anio} · ${verPatente(v.patente)} · ${nombreEtapa(etapaDe(o))}`}
-      accion={<button className="btn secundario no-print" onClick={() => imprimirCotizacion(o)}><Printer size={22} /> Descargar cotización</button>}>
-      <CotizacionDoc o={o} />
+      accion={
+        <div className="acciones-titulo no-print">
+          {seguro && <button className="btn secundario" onClick={() => setDoc('expediente')}><FolderOpen size={22} /> Expediente para la compañía</button>}
+          <button className="btn secundario" onClick={() => setDoc('cotizacion')}><Printer size={22} /> Descargar cotización</button>
+        </div>
+      }>
+      {doc === 'cotizacion' && <CotizacionDoc o={o} />}
+      {doc === 'expediente' && <ExpedienteDoc o={o} />}
+      {doc === 'adicionales' && <ExpedienteDoc o={o} soloAdicionales />}
       <div className="dos-col admin">
         <div className="no-print">
           <GaleriaVistas o={o} />
           <div className="escena"><Auto3D {...forma(v)} estados={estadosPiezas(o.items)} etiqueta={`Modelo 3D de ${v.marca} ${v.modelo}`} /></div>
           <div className="avance-caja"><b className="pct">{pct}%</b><div><Barra valor={pct} /><p>Entrega: {fecha(o.entrega)}</p></div></div>
+          {seguro && <PlazoCMF o={o} />}
           <dl className="ficha">
             <div><dt>Ingresó</dt><dd>{maestro?.nombre}</dd></div>
             <div><dt>Dueño</dt><dd>{o.cliente.nombre}</dd></div>
@@ -301,6 +358,7 @@ export function AdminOrden({ id }: { id: string }) {
           </section>
         </div>
         <div>
+          {seguro && <Adicionales o={o} onSolicitud={() => setDoc('adicionales')} />}
           <h2>Costos por trabajo</h2>
           <ul className="precios">{itemsCobrables(o).map(i => <FilaItem key={i.id} o={o} i={i} />)}</ul>
           <dl className="totales">

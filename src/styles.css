@@ -577,3 +577,49 @@ img { display: block; max-width: 100%; }
 .presupuesto-wsp p, .presupuesto-confirmar p { margin: .4rem 0 .8rem; color: var(--suave); }
 .aviso-rechazo { padding: .8rem 1rem; border-radius: 12px; background: color-mix(in srgb, var(--error) 10%, transparent); color: var(--texto); margin-bottom: 1rem; }
 .vista-cliente { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .3rem 1rem; margin: 0; padding: .4rem 1.2rem; background: color-mix(in srgb, var(--acento) 12%, var(--fondo)); color: var(--suave); font-size: .95rem; }
+
+/* Mejora 2: plazo frente a la CMF, adicionales para el liquidador y expediente del siniestro. */
+.acciones-titulo { display: flex; flex-wrap: wrap; gap: .6rem; }
+.plazo-cmf { margin: .2rem 0 1rem; padding: .9rem 1rem; border-radius: 14px; background: var(--fondo-2); border: 1px solid var(--linea); }
+.plazo-cmf p { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; margin: 0 0 .55rem; }
+.plazo-cmf p span { color: var(--suave); font-size: .92rem; }
+.plazo-cmf small { color: var(--suave); font-size: .82rem; }
+.plazo-barra { height: 8px; border-radius: 99px; background: var(--fondo); overflow: hidden; margin-bottom: .45rem; }
+.plazo-barra i { display: block; height: 100%; border-radius: inherit; }
+.plazo-cmf.ok svg, .plazo-cmf.ok b { color: var(--ok); }
+.plazo-cmf.ok .plazo-barra i { background: var(--ok); }
+.plazo-cmf.atento svg, .plazo-cmf.atento b { color: #ffc861; }
+.plazo-cmf.atento .plazo-barra i { background: #ffc861; }
+.plazo-cmf.atrasado svg, .plazo-cmf.atrasado b { color: var(--error); }
+.plazo-cmf.atrasado .plazo-barra i { background: var(--error); }
+.adicionales-caja { display: grid; gap: .6rem; margin-bottom: 1.4rem; padding: 1.1rem; border: 1.5px solid color-mix(in srgb, #ffc861 50%, var(--linea)); border-radius: var(--r); background: color-mix(in srgb, #ffc861 6%, var(--fondo-2)); }
+.adicionales-caja .ec-tit svg { color: #ffc861; }
+.adicionales-caja ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.adicionales-caja li { display: flex; align-items: center; gap: .8rem; }
+.adicionales-caja li img, .adicionales-caja .sin-foto, .adicionales-caja li .esqueleto, .adicionales-caja li .foto-taller { width: 84px; height: 63px; flex: none; object-fit: cover; border-radius: 10px; }
+.adicionales-caja li div { display: flex; flex-direction: column; }
+.adicionales-caja li small { color: var(--suave); }
+.sin-foto { display: grid; place-items: center; align-content: center; gap: .1rem; border: 1.5px dashed var(--error); color: var(--error); font-size: .75rem; }
+.foto-liquidador { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: .1rem 0 .4rem; }
+.foto-liquidador img, .foto-liquidador .esqueleto { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; }
+.foto-liquidador .btn { min-height: 48px; }
+
+@media print {
+  .dc-datos.tres { grid-template-columns: 1fr 1fr 1fr; }
+  .de-fuente { color: #8a919b; font-size: 7.5pt; }
+  .de-modelo { display: block; width: 100%; max-height: 52mm; object-fit: cover; border-radius: 10px; margin-bottom: 1rem; }
+  .de-estado { display: inline-block; padding: .05rem .45rem; border-radius: 99px; background: #eef0f3; color: #4b525c; font-size: 7.5pt; font-weight: 650; white-space: nowrap; }
+  .de-estado.autorizado { background: #e3f6ec; color: #17784a; }
+  .de-estado.adicional { background: #fff2d6; color: #8a5a00; }
+  .de-seccion { margin-top: 1.1rem; break-inside: avoid; }
+  .de-fotos { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+  .de-fotos figure { margin: 0; break-inside: avoid; }
+  .de-fotos img, .de-fotos .foto-taller, .de-fotos .esqueleto { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; border: 1px solid #e3e6ea; }
+  .de-fotos .foto-taller { display: grid; place-items: center; color: #8a919b; font-size: 7.5pt; text-align: center; }
+  .de-fotos .foto-taller svg { display: none; }
+  .de-fotos figcaption { margin-top: .2rem; color: #6a717c; font-size: 7.5pt; }
+  .de-vacio { color: #8a919b; font-size: 8.5pt; }
+  .de-hitos { list-style: none; margin: 0; padding: 0; font-size: 8.5pt; }
+  .de-hitos li { display: grid; grid-template-columns: 9.5rem 1fr; gap: .6rem; padding: .25rem 0; border-bottom: 1px solid #eceef1; }
+  .de-hitos time { color: #8a919b; font-variant-numeric: tabular-nums; }
+}

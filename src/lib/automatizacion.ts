@@ -127,3 +127,23 @@ export function metricas(ordenes: Orden[], hoy = new Date()) {
     tipos: [...tipos.entries()].sort((a, b) => b[1] - a[1]),
   };
 }
+
+/**
+ * Tiempos de reparación de vehículos asegurados que publica la CMF (Circular 2236), 1.er semestre 2026:
+ * 51,6 días desde la denuncia hasta el retiro; 29,8 de ellos antes de entrar al taller.
+ * Dentro del taller quedan ≈ 21,8 días: es la vara con que se compara cada orden con seguro.
+ */
+export const CMF_REPARACION = { total: 51.6, antesDelTaller: 29.8, enTaller: 21.8, periodo: '1.er semestre de 2026' };
+
+/** Días corridos que el vehículo lleva (o llevó) en el taller. */
+export function diasEnTaller(o: Pick<Orden, 'creada' | 'entregadaEl'>, hoy = fechaLocal()) {
+  const fin = o.entregadaEl ?? hoy;
+  const d = (Date.parse(`${fin}T12:00:00`) - Date.parse(`${o.creada}T12:00:00`)) / 864e5;
+  return Math.max(0, Math.round(d));
+}
+
+/** Semáforo frente al promedio nacional: verde bajo el 70 %, amarillo hasta el promedio, rojo sobre él. */
+export function semaforoPlazo(dias: number) {
+  const r = dias / CMF_REPARACION.enTaller;
+  return r < .7 ? 'ok' : r <= 1 ? 'atento' : 'atrasado';
+}

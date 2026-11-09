@@ -17,10 +17,10 @@ const fechaLarga = (d: Date) => d.toLocaleDateString('es-CL', { day: 'numeric', 
 const desdeIso = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso);
 
 /** Abre el diálogo de impresión con un nombre de archivo útil para el PDF. */
-export function imprimirCotizacion(o: Orden) {
+export function imprimirDocumento(nombreArchivo: string, alTerminar?: () => void) {
   const antes = document.title;
-  document.title = `Cotizacion-${o.numero}-${o.vehiculo.patente}`;
-  const volver = () => { document.title = antes; window.removeEventListener('afterprint', volver); };
+  document.title = nombreArchivo;
+  const volver = () => { document.title = antes; window.removeEventListener('afterprint', volver); alTerminar?.(); };
   window.addEventListener('afterprint', volver);
   window.print();
 }
