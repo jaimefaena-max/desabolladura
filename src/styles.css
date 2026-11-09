@@ -174,6 +174,7 @@ img { display: block; max-width: 100%; }
 .viewer { width: 100%; height: 100%; touch-action: pan-y; }
 .viewer canvas { display: block; width: 100%; height: 100%; }
 .viewer-fallo { display: grid; place-items: center; color: var(--suave); text-align: center; padding: 1rem; }
+.viewer.cargando-3d { background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .05) 50%, transparent 70%); background-size: 220% 100%; animation: brillo 1.4s linear infinite; }
 .escena { height: clamp(260px, 42vw, 420px); border-radius: var(--r); background: radial-gradient(ellipse at 50% 35%, #232830, #101317 72%); overflow: hidden; border: 1px solid var(--linea); }
 .escena.alto { height: clamp(300px, 46vw, 480px); }
 .esqueleto { background: linear-gradient(100deg, var(--fondo-2) 30%, var(--fondo-3) 50%, var(--fondo-2) 70%); background-size: 220% 100%; animation: brillo 1.4s linear infinite; }

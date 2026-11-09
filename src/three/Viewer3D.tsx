@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { Carroceria, EstadoPieza, Medidas, PiezaId } from '../lib/types';
+import type { Carroceria, EstadoPieza, Medidas, Modelo3D, PiezaId } from '../lib/types';
 import { buildCar, paintFor, type Auto } from './carModel';
+import type { AutoReal } from './modeloReal';
 import { makeEnv, makeFloor } from './studio';
 
 export const ACENTO_DANO = '#e8501f';
@@ -13,6 +14,8 @@ type Estados = Partial<Record<PiezaId, EstadoPieza>>;
 interface Props {
   carroceria: Carroceria;
   medidas?: Medidas;
+  /** Auto realista creado con IA. Si no carga, se muestra el modelo paramétrico. */
+  modelo?: Modelo3D;
   color: string;
   estados?: Estados;
   seleccion?: PiezaId | null;
@@ -32,7 +35,15 @@ function metaPara(estado: EstadoPieza | undefined, color: string): Meta {
   return { color: p.color, metalness: p.metalness, roughness: p.roughness, clearcoat: p.clearcoat, emissive: negro };
 }
 
-export function encuadre(cam: THREE.PerspectiveCamera, auto: Auto, angulo: number, aspecto: number) {
+/** Tinte de una zona del auto realista: cuánto se cubre la textura y con qué color. */
+function tintePara(estado: EstadoPieza | undefined, sel: boolean) {
+  const col = new THREE.Color(estado === 'pendiente' ? ACENTO_DANO : estado === 'proceso' ? PRIMER : '#ffb199');
+  const mix = estado === 'pendiente' ? .86 : estado === 'proceso' ? .8 : sel ? .42 : 0;
+  const brillo = (estado === 'pendiente' ? .26 : 0) + (sel ? .22 : 0);
+  return { col, mix, brillo };
+}
+
+export function encuadre(cam: THREE.PerspectiveCamera, auto: { largo: number; alto: number }, angulo: number, aspecto: number) {
   // Distancia para que el largo y el alto quepan completos, sea cual sea la forma del visor.
   const t = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
   const d = Math.max((auto.largo * .5) / (t * aspecto), (auto.alto * .72) / t) + .9;
@@ -41,7 +52,84 @@ export function encuadre(cam: THREE.PerspectiveCamera, auto: Auto, angulo: numbe
   cam.lookAt(0, auto.alto * .43, 0);
 }
 
-export default function Viewer3D({ carroceria, medidas, color, estados, seleccion, onPick, autoRotate = false, angulo = 38, etiqueta }: Props) {
+/** Lo que el visor necesita de cualquiera de los dos modelos para pintar piezas y elegirlas con el dedo. */
+interface Montado {
+  group: THREE.Group; largo: number; alto: number;
+  aplicar(e: Estados, sel: PiezaId | null | undefined, animar: boolean): void;
+  /** Avanza la animación de pintura; devuelve si sigue animando. */
+  paso(): boolean;
+  pieza(hit: THREE.Intersection): PiezaId | undefined;
+  dispose(): void;
+}
+
+function montarParametrico(auto: Auto, color: string, reduce: boolean): Montado {
+  const objetivos = new Map<PiezaId, Meta>();
+  let quedan = 0;
+  const fijar = () => auto.piezas.forEach((p, id) => {
+    const m = objetivos.get(id)!;
+    p.mat.color.copy(m.color); p.mat.metalness = m.metalness; p.mat.roughness = m.roughness;
+    p.mat.clearcoat = m.clearcoat; p.mat.emissive.copy(m.emissive);
+  });
+  return {
+    group: auto.group, largo: auto.largo, alto: auto.alto,
+    aplicar(e, sel, animar) {
+      auto.piezas.forEach((_, id) => {
+        const m = metaPara(e[id], color);
+        if (sel === id) m.emissive = new THREE.Color('#ffb199').multiplyScalar(.34);
+        objetivos.set(id, m);
+      });
+      if (animar && !reduce) quedan = 50; else { quedan = 0; fijar(); }
+    },
+    paso() {
+      if (quedan <= 0) return false;
+      const k = .12;
+      auto.piezas.forEach((p, id) => {
+        const m = objetivos.get(id);
+        if (!m) return;
+        p.mat.color.lerp(m.color, k); p.mat.emissive.lerp(m.emissive, k);
+        p.mat.metalness += (m.metalness - p.mat.metalness) * k;
+        p.mat.roughness += (m.roughness - p.mat.roughness) * k;
+        p.mat.clearcoat += (m.clearcoat - p.mat.clearcoat) * k;
+      });
+      return --quedan > 0;
+    },
+    pieza: hit => hit.object.userData.pieza as PiezaId | undefined,
+    dispose: () => auto.dispose(),
+  };
+}
+
+function montarReal(auto: AutoReal, reduce: boolean): Montado {
+  const objetivos = auto.zonas.map(() => tintePara(undefined, false));
+  let quedan = 0;
+  const fijar = () => auto.zonas.forEach((z, i) => { z.col.copy(objetivos[i].col); z.mix.value = objetivos[i].mix; z.brillo.value = objetivos[i].brillo; });
+  return {
+    group: auto.group, largo: auto.largo, alto: auto.alto,
+    aplicar(e, sel, animar) {
+      auto.zonas.forEach((z, i) => {
+        const t = tintePara(e[z.id], sel === z.id);
+        // Al aparecer, el color parte del destino: solo se anima cuánto cubre.
+        if (z.mix.value < .01) z.col.copy(t.col);
+        objetivos[i] = t;
+      });
+      if (animar && !reduce) quedan = 50; else { quedan = 0; fijar(); }
+    },
+    paso() {
+      if (quedan <= 0) return false;
+      const k = .12;
+      auto.zonas.forEach((z, i) => {
+        const o = objetivos[i];
+        z.col.lerp(o.col, k);
+        z.mix.value += (o.mix - z.mix.value) * k;
+        z.brillo.value += (o.brillo - z.brillo.value) * k;
+      });
+      return --quedan > 0;
+    },
+    pieza: hit => auto.piezaEn(hit.point),
+    dispose: () => auto.dispose(),
+  };
+}
+
+export default function Viewer3D({ carroceria, medidas, modelo, color, estados, seleccion, onPick, autoRotate = false, angulo = 38, etiqueta }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const api = useRef<{ aplicar(e: Estados, sel: PiezaId | null | undefined, animar: boolean): void } | null>(null);
   const pickRef = useRef(onPick);
@@ -49,6 +137,7 @@ export default function Viewer3D({ carroceria, medidas, color, estados, seleccio
   const estadoRef = useRef({ estados, seleccion });
   estadoRef.current = { estados, seleccion };
   const [fallo, setFallo] = useState(false);
+  const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
     const el = host.current!;
@@ -69,16 +158,12 @@ export default function Viewer3D({ carroceria, medidas, color, estados, seleccio
     const scene = new THREE.Scene();
     const env = makeEnv(renderer);
     scene.environment = env.texture;
-    const auto = buildCar(carroceria, color, medidas);
-    scene.add(auto.group);
-    const floor = makeFloor(auto.largo);
-    scene.add(floor);
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const cam = new THREE.PerspectiveCamera(30, 1, .1, 60);
     const controls = new OrbitControls(cam, renderer.domElement);
     controls.enableDamping = true; controls.dampingFactor = .08;
     controls.enablePan = false; controls.maxPolarAngle = Math.PI * .495; controls.minPolarAngle = Math.PI * .12;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     controls.autoRotate = autoRotate && !reduce; controls.autoRotateSpeed = .9;
 
     const resize = () => {
@@ -87,44 +172,14 @@ export default function Viewer3D({ carroceria, medidas, color, estados, seleccio
       cam.aspect = w / h; cam.updateProjectionMatrix();
       return w / h;
     };
-    encuadre(cam, auto, angulo, resize());
-    controls.target.set(0, auto.alto * .43, 0);
-    const dist = cam.position.distanceTo(controls.target);
-    controls.minDistance = dist * .55; controls.maxDistance = dist * 1.35;
-    controls.update();
+    resize();
     const ro = new ResizeObserver(() => { resize(); pedir(); });
     ro.observe(el);
 
-    // Transiciones de pintura: cada pieza interpola hacia su estado.
-    const objetivos = new Map<PiezaId, Meta>();
-    let animando = 0;
-    const aplicar = (e: Estados, sel: PiezaId | null | undefined, animar: boolean) => {
-      auto.piezas.forEach((p, id) => {
-        const m = metaPara(e[id], color);
-        if (sel === id) m.emissive = new THREE.Color('#ffb199').multiplyScalar(.34);
-        objetivos.set(id, m);
-        if (!animar) {
-          p.mat.color.copy(m.color); p.mat.metalness = m.metalness; p.mat.roughness = m.roughness;
-          p.mat.clearcoat = m.clearcoat; p.mat.emissive.copy(m.emissive);
-        }
-      });
-      if (animar && !reduce) animando = 50;
-      else if (animar) { animando = 0; aplicar(e, sel, false); }
-      pedir();
-    };
-    const pasoPintura = () => {
-      const k = .12;
-      auto.piezas.forEach((p, id) => {
-        const m = objetivos.get(id);
-        if (!m) return;
-        p.mat.color.lerp(m.color, k); p.mat.emissive.lerp(m.emissive, k);
-        p.mat.metalness += (m.metalness - p.mat.metalness) * k;
-        p.mat.roughness += (m.roughness - p.mat.roughness) * k;
-        p.mat.clearcoat += (m.clearcoat - p.mat.clearcoat) * k;
-      });
-      animando--;
-    };
-    api.current = { aplicar };
+    let auto: Montado | null = null;
+    let floor: THREE.Mesh | null = null;
+    let vivo = true;
+    let animando = false;
 
     // Render a demanda: sin giro ni animación, la GPU queda en reposo.
     let raf = 0, visible = true, sucio = true;
@@ -139,15 +194,43 @@ export default function Viewer3D({ carroceria, medidas, color, estados, seleccio
     }
     function tick() {
       raf = 0;
+      if (!auto) return;
       medir();
-      if (animando > 0) pasoPintura();
+      animando = auto.paso();
       const movido = controls.update();
-      if (sucio || movido || animando > 0) { renderer.render(scene, cam); sucio = false; }
-      if (visible && (controls.autoRotate || animando > 0 || movido)) raf = requestAnimationFrame(tick);
+      if (sucio || movido || animando) { renderer.render(scene, cam); sucio = false; }
+      if (visible && (controls.autoRotate || animando || movido)) raf = requestAnimationFrame(tick);
     }
     controls.addEventListener('change', pedir);
     const io = new IntersectionObserver(([en]) => { visible = en.isIntersecting; if (visible) pedir(); });
     io.observe(el);
+
+    const montar = (m: Montado) => {
+      auto = m;
+      scene.add(m.group);
+      floor = makeFloor(m.largo);
+      scene.add(floor);
+      encuadre(cam, m, angulo, resize());
+      controls.target.set(0, m.alto * .43, 0);
+      const dist = cam.position.distanceTo(controls.target);
+      controls.minDistance = dist * .55; controls.maxDistance = dist * 1.35;
+      controls.update();
+      api.current = { aplicar: (e, sel, animar) => { m.aplicar(e, sel, animar); pedir(); } };
+      m.aplicar(estadoRef.current.estados ?? {}, estadoRef.current.seleccion, false);
+      pedir();
+    };
+    const parametrico = () => montarParametrico(buildCar(carroceria, color, medidas), color, reduce);
+
+    if (modelo) {
+      setCargando(true);
+      import('./modeloReal')
+        .then(({ cargarModeloReal }) => cargarModeloReal(modelo, carroceria, medidas))
+        .then(real => { if (vivo) montar(montarReal(real, reduce)); else real.dispose(); })
+        .catch(() => { if (vivo) montar(parametrico()); })
+        .finally(() => { if (vivo) setCargando(false); });
+    } else {
+      montar(parametrico());
+    }
 
     // Toque sobre pieza: se distingue de arrastre para girar.
     const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
@@ -155,7 +238,7 @@ export default function Viewer3D({ carroceria, medidas, color, estados, seleccio
     const dom = renderer.domElement;
     const onDown = (ev: PointerEvent) => { down = { x: ev.clientX, y: ev.clientY }; controls.autoRotate = false; };
     const onUp = (ev: PointerEvent) => {
-      if (!down || !pickRef.current) return;
+      if (!down || !pickRef.current || !auto) return;
       const mov = Math.hypot(ev.clientX - down.x, ev.clientY - down.y);
       down = null;
       if (mov > 8) return;
@@ -164,28 +247,26 @@ export default function Viewer3D({ carroceria, medidas, color, estados, seleccio
       ray.setFromCamera(ptr, cam);
       // Vale solo lo primero bajo el dedo: un vidrio o una rueda no seleccionan la pieza del lado opuesto.
       const hit = ray.intersectObject(auto.group, true)[0];
-      const id = hit?.object.userData.pieza as PiezaId | undefined;
+      const id = hit && auto.pieza(hit);
       if (id) pickRef.current(id);
     };
     dom.addEventListener('pointerdown', onDown);
     dom.addEventListener('pointerup', onUp);
     if (onPick) dom.style.cursor = 'pointer';
 
-    aplicar(estadoRef.current.estados ?? {}, estadoRef.current.seleccion, false);
-
     return () => {
+      vivo = false;
       cancelAnimationFrame(raf); ro.disconnect(); io.disconnect();
       dom.removeEventListener('pointerdown', onDown); dom.removeEventListener('pointerup', onUp);
-      controls.dispose(); auto.dispose(); env.dispose();
-      floor.geometry.dispose();
+      controls.dispose(); auto?.dispose(); env.dispose();
+      floor?.geometry.dispose();
       renderer.dispose(); renderer.forceContextLoss();
       dom.remove(); api.current = null;
     };
-    // El modelo se reconstruye solo si cambia carrocería o color.
+    // El modelo se reconstruye solo si cambia carrocería, color, medidas o el modelo realista.
+    // Las medidas y el modelo llegan como objetos nuevos en cada render: se comparan por valor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  // Las medidas llegan como objeto nuevo en cada render: se comparan por valor.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carroceria, color, JSON.stringify(medidas ?? null)]);
+  }, [carroceria, color, JSON.stringify(medidas ?? null), JSON.stringify(modelo ?? null)]);
 
   const primera = useRef(true);
   useEffect(() => {
@@ -194,5 +275,5 @@ export default function Viewer3D({ carroceria, medidas, color, estados, seleccio
   }, [estados, seleccion]);
 
   if (fallo) return <div className="viewer viewer-fallo"><p>Este equipo no puede mostrar el modelo 3D.</p></div>;
-  return <div ref={host} className="viewer" />;
+  return <div ref={host} className={cargando ? 'viewer cargando-3d' : 'viewer'} aria-busy={cargando || undefined} />;
 }

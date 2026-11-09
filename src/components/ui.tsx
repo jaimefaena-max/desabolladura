@@ -5,7 +5,7 @@ import { guardarFoto, leerFoto } from '../lib/fotos';
 import { reducirImagen } from '../lib/padron';
 import { cerrarSesion, sesion, uid, useEmpresa } from '../lib/store';
 import { VISTAS } from '../lib/fichaModelo';
-import type { Carroceria, EstadoPieza, FotoRef, Medidas, Orden, PiezaId, Vehiculo, Vista } from '../lib/types';
+import type { Carroceria, EstadoPieza, FotoRef, Medidas, Modelo3D, Orden, PiezaId, Vehiculo, Vista } from '../lib/types';
 import { useVista, vistasDe } from '../lib/vistas';
 import { estadosPiezas, progreso } from '../lib/piezas';
 import { verPatente } from '../lib/vehiculos';
@@ -88,9 +88,9 @@ export function Leyenda() {
 }
 
 /** Lo que el 3D necesita de un vehículo: su tipo, sus medidas reales si se conocen y su color. */
-export const forma = (v: Vehiculo) => ({ carroceria: v.carroceria, medidas: v.ficha?.medidas, color: v.colorHex });
+export const forma = (v: Vehiculo) => ({ carroceria: v.carroceria, medidas: v.ficha?.medidas, modelo: v.ficha?.modelo3d, color: v.colorHex });
 
-export function Auto3D(p: { carroceria: Carroceria; medidas?: Medidas; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; seleccion?: PiezaId | null; onPick?: (id: PiezaId) => void; autoRotate?: boolean; angulo?: number; etiqueta: string }) {
+export function Auto3D(p: { carroceria: Carroceria; medidas?: Medidas; modelo?: Modelo3D; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; seleccion?: PiezaId | null; onPick?: (id: PiezaId) => void; autoRotate?: boolean; angulo?: number; etiqueta: string }) {
   return (
     <Suspense fallback={<div className="viewer esqueleto" />}>
       <Viewer3D {...p} />

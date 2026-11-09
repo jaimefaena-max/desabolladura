@@ -35,11 +35,15 @@ export interface Item {
 export interface Medidas { largo: number; ancho: number; alto: number; entreEjes: number; }
 
 /** Lo que la IA averiguó del modelo exacto: alimenta el 3D y las fotos generadas. */
+/** Auto 3D realista creado con IA desde la foto del modelo. `giro`: grados para que el frente mire a +x. */
+export interface Modelo3D { url: string; giro?: number }
+
 export interface FichaModelo {
   generacion: string;
   rasgos: string;
   medidas?: Medidas;
   fuentes?: string[];
+  modelo3d?: Modelo3D;
 }
 
 export type Vista = 'frente' | 'lado' | 'cola';

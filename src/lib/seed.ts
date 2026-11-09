@@ -121,7 +121,9 @@ export function conFotosDemo(guardadas: Orden[]): Orden[] {
   const frescas = new Map(ordenesDemo().map(o => [o.id, o]));
   return guardadas.map(o => {
     const f = frescas.get(o.id);
-    if (!f?.vistas || o.vistas || f.vehiculo.patente !== o.vehiculo.patente) return o;
+    if (!f?.vistas || f.vehiculo.patente !== o.vehiculo.patente) return o;
+    // Ya al día: mismas fotos y misma ficha (que trae medidas y el auto 3D realista).
+    if (o.vistas && JSON.stringify(o.vehiculo.ficha) === JSON.stringify(f.vehiculo.ficha)) return o;
     return { ...o, vistas: f.vistas, vehiculo: f.vehiculo };
   });
 }

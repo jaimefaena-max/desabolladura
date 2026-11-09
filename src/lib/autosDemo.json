@@ -3,8 +3,17 @@
     "ficha": {
       "generacion": "12.ª generación (E210), desde 2019",
       "rasgos": "Focos delanteros delgados y afilados con LED, parrilla superior muy delgada, gran toma de aire inferior trapezoidal, línea de techo tipo coupé, focos traseros horizontales que entran a la tapa del maletero, llantas de 16 pulgadas de 10 rayos.",
-      "medidas": { "largo": 4.63, "ancho": 1.78, "alto": 1.435, "entreEjes": 2.7 },
-      "fuentes": []
+      "medidas": {
+        "largo": 4.63,
+        "ancho": 1.78,
+        "alto": 1.435,
+        "entreEjes": 2.7
+      },
+      "fuentes": [],
+      "modelo3d": {
+        "url": "autos/toyota-corolla-2020.glb",
+        "giro": 90
+      }
     },
     "carroceria": "sedan",
     "vistas": {
