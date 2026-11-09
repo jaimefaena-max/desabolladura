@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { Carroceria, EstadoPieza, PiezaId } from '../lib/types';
+import type { Carroceria, EstadoPieza, Medidas, PiezaId } from '../lib/types';
 import { buildCar, paintFor, type Auto } from './carModel';
 import { makeEnv, makeFloor } from './studio';
 
@@ -12,6 +12,7 @@ type Estados = Partial<Record<PiezaId, EstadoPieza>>;
 
 interface Props {
   carroceria: Carroceria;
+  medidas?: Medidas;
   color: string;
   estados?: Estados;
   seleccion?: PiezaId | null;
@@ -40,7 +41,7 @@ export function encuadre(cam: THREE.PerspectiveCamera, auto: Auto, angulo: numbe
   cam.lookAt(0, auto.alto * .43, 0);
 }
 
-export default function Viewer3D({ carroceria, color, estados, seleccion, onPick, autoRotate = false, angulo = 38, etiqueta }: Props) {
+export default function Viewer3D({ carroceria, medidas, color, estados, seleccion, onPick, autoRotate = false, angulo = 38, etiqueta }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const api = useRef<{ aplicar(e: Estados, sel: PiezaId | null | undefined, animar: boolean): void } | null>(null);
   const pickRef = useRef(onPick);
@@ -68,7 +69,7 @@ export default function Viewer3D({ carroceria, color, estados, seleccion, onPick
     const scene = new THREE.Scene();
     const env = makeEnv(renderer);
     scene.environment = env.texture;
-    const auto = buildCar(carroceria, color);
+    const auto = buildCar(carroceria, color, medidas);
     scene.add(auto.group);
     const floor = makeFloor(auto.largo);
     scene.add(floor);
@@ -182,7 +183,9 @@ export default function Viewer3D({ carroceria, color, estados, seleccion, onPick
     };
     // El modelo se reconstruye solo si cambia carrocería o color.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carroceria, color]);
+  // Las medidas llegan como objeto nuevo en cada render: se comparan por valor.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carroceria, color, JSON.stringify(medidas ?? null)]);
 
   const primera = useRef(true);
   useEffect(() => {

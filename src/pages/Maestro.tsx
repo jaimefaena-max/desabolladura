@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { CheckCircle, Plus, Wrench } from '@phosphor-icons/react';
 import PiezaPicker from '../components/PiezaPicker';
-import { Auto3D, Barra, Galeria, ir, Leyenda, Pantalla, TarjetaOrden } from '../components/ui';
+import { Auto3D, Barra, forma, Galeria, ir, Leyenda, Pantalla, TarjetaOrden } from '../components/ui';
 import { conEvento, etapaDe, nombreEtapa, sincronizar } from '../lib/automatizacion';
 import { estadosPiezas, fecha, progreso, tituloItem } from '../lib/piezas';
 import { actualizar, sesion, useOrden, useOrdenes } from '../lib/store';
@@ -70,7 +70,7 @@ export function MaestroOrden({ id }: { id: string }) {
     <Pantalla volver="/maestro" titulo={`${v.marca} ${v.modelo}`} sub={`${v.anio} · ${verPatente(v.patente)} · Orden ${o.numero}`}>
       <div className="dos-col">
         <div>
-          <div className="escena"><Auto3D carroceria={v.carroceria} color={v.colorHex} estados={estadosPiezas(o.items)} etiqueta={`Modelo 3D de ${v.marca} ${v.modelo}`} /></div>
+          <div className="escena"><Auto3D {...forma(v)} estados={estadosPiezas(o.items)} etiqueta={`Modelo 3D de ${v.marca} ${v.modelo}`} /></div>
           <Leyenda />
           <div className="avance-caja"><b className="pct">{pct}%</b><div><Barra valor={pct} /><p>{nombreEtapa(etapaDe(o))}. Entrega: {fecha(o.entrega)}</p></div></div>
           {o.notas && <p className="nota">{o.notas}</p>}

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { ArrowsClockwise, Bell, CheckCircle, MagnifyingGlass, PaperPlaneTilt, Plus, Printer, Truck, WarningCircle, WhatsappLogo } from '@phosphor-icons/react';
-import { Auto3D, Barra, FotoAuto, Galeria, ir, Logo, Pantalla } from '../components/ui';
+import { Auto3D, Barra, forma, FotoOrden, Galeria, GaleriaVistas, ir, Logo, Pantalla } from '../components/ui';
 import { alertas, conEvento, enlaceWhatsApp, ETAPAS, etapaDe, mensajeCliente, metricas, nombreEtapa } from '../lib/automatizacion';
 import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../lib/gemini';
 import { reducirImagen } from '../lib/padron';
@@ -39,7 +39,7 @@ export function Tablero() {
                 const pct = progreso(o.items), v = o.vehiculo;
                 return (
                   <button key={o.id} className="tarjeta-k" onClick={() => ir(`/admin/ot/${o.id}`)}>
-                    <FotoAuto carroceria={v.carroceria} color={v.colorHex} estados={estadosPiezas(o.items)} ancho={400} alto={225} alt={`${v.marca} ${v.modelo}`} />
+                    <FotoOrden o={o} ancho={400} alto={225} />
                     <b>{v.marca} {v.modelo}</b>
                     <small>{verPatente(v.patente)} · Entrega {fecha(o.entrega)}</small>
                     <span className="tarjeta-pct"><Barra valor={pct} /><b>{pct}%</b></span>
@@ -77,7 +77,7 @@ export function Ordenes() {
           const t = totales(o), pct = progreso(o.items), v = o.vehiculo;
           return (
             <button key={o.id} className="fila-orden" onClick={() => ir(`/admin/ot/${o.id}`)}>
-              <FotoAuto carroceria={v.carroceria} color={v.colorHex} estados={estadosPiezas(o.items)} ancho={360} alto={200} alt={`${v.marca} ${v.modelo}`} />
+              <FotoOrden o={o} ancho={360} alto={200} />
               <span className="fo-veh"><b>{v.marca} {v.modelo} {v.anio}</b><small>Orden {o.numero} · {verPatente(v.patente)}</small></span>
               <span className="fo-pag"><b>{o.pagador.tipo === 'aseguradora' ? o.pagador.aseguradora : 'Particular'}</b><small>{nombreEtapa(etapaDe(o))}</small></span>
               <span className="fo-pct"><b>{pct}%</b><Barra valor={pct} /></span>
@@ -229,8 +229,8 @@ export function AdminOrden({ id }: { id: string }) {
       accion={<button className="btn secundario no-print" onClick={() => window.print()}><Printer size={22} /> Imprimir cotización</button>}>
       <div className="dos-col admin">
         <div className="no-print">
-          <div className="escena"><Auto3D carroceria={v.carroceria} color={v.colorHex} estados={estadosPiezas(o.items)} etiqueta={`Modelo 3D de ${v.marca} ${v.modelo}`} /></div>
-          {o.imagenIA && <img className="imagen-ia" src={o.imagenIA} alt="Imagen del vehículo generada con Gemini" />}
+          <GaleriaVistas o={o} />
+          <div className="escena"><Auto3D {...forma(v)} estados={estadosPiezas(o.items)} etiqueta={`Modelo 3D de ${v.marca} ${v.modelo}`} /></div>
           <div className="avance-caja"><b className="pct">{pct}%</b><div><Barra valor={pct} /><p>Entrega: {fecha(o.entrega)}</p></div></div>
           <dl className="ficha">
             <div><dt>Ingresó</dt><dd>{maestro?.nombre}</dd></div>

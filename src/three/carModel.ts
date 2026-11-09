@@ -1,11 +1,11 @@
 import * as THREE from 'three';
-import type { Carroceria, PiezaId } from '../lib/types';
+import type { Carroceria, Medidas, PiezaId } from '../lib/types';
 
 /** Vehículo paramétrico: cada pieza de carrocería es una malla propia, seleccionable y pintable. */
 
 type Pts = [number, number][];
 
-interface Spec {
+export interface Spec {
   L: number; W: number; nF: number; nR: number;
   wheelR: number; axleF: number; axleR: number; sill: number; arch: number;
   belt: Pts; top: Pts;
@@ -160,8 +160,38 @@ export function paintFor(hex: string): Pintura {
   return { color: new THREE.Color(hex), metalness: .45, roughness: .34, clearcoat: 1, clearcoatRoughness: .05 };
 }
 
-export function buildCar(tipo: Carroceria, colorHex: string): Auto {
-  const s = SPECS[tipo], f = new Forma(s), group = new THREE.Group();
+/**
+ * Lleva la carrocería base a las medidas reales del modelo. Los topes evitan que un dato
+ * erróneo de internet deforme el auto: fuera de ellos se queda en el límite.
+ * El largo se reparte por tramos (voladizo delantero, entre ejes, voladizo trasero) para que
+ * puertas, pilares y arcos sigan a las ruedas en vez de estirarse parejo.
+ */
+export function ajustarSpec(s: Spec, m?: Medidas): Spec {
+  if (!m) return s;
+  const L = clamp(m.largo, s.L * .8, s.L * 1.2);
+  const W = clamp(m.ancho, s.W * .9, s.W * 1.1);
+  const techo = Math.max(...s.top.map(p => p[1]));
+  const kH = clamp(m.alto / techo, .85, 1.15);
+  const w = clamp(m.entreEjes / L, .5, .68), w0 = s.axleR - s.axleF;
+  const parte = s.axleF / (s.axleF + 1 - s.axleR);
+  const aF = (1 - w) * parte, aR = aF + w;
+  const g = (f: number) => (f <= s.axleF ? (f / s.axleF) * aF
+    : f <= s.axleR ? aF + ((f - s.axleF) / w0) * w
+      : aR + ((f - s.axleR) / (1 - s.axleR)) * (1 - aR));
+  const perfil = (p: Pts): Pts => p.map(([x, y]) => [g(x), y * kH]);
+  return {
+    ...s, L, W, axleF: aF, axleR: aR,
+    belt: perfil(s.belt), top: perfil(s.top),
+    cowl: g(s.cowl), wsTop: g(s.wsTop), roofEnd: g(s.roofEnd), rearBase: g(s.rearBase),
+    doors: s.doors.map(g) as Spec['doors'], tail: g(s.tail), winEnd: g(s.winEnd),
+    bed: s.bed && [g(s.bed[0]), g(s.bed[1])],
+  };
+}
+
+export const specDe = (tipo: Carroceria, m?: Medidas) => ajustarSpec(SPECS[tipo], m);
+
+export function buildCar(tipo: Carroceria, colorHex: string, medidas?: Medidas): Auto {
+  const s = specDe(tipo, medidas), f = new Forma(s), group = new THREE.Group();
   const G = .0045; // separación entre piezas
   const base = paintFor(colorHex);
   const piezas: Auto['piezas'] = new Map();

@@ -4,7 +4,9 @@ import { etapaDe, nombreEtapa } from '../lib/automatizacion';
 import { guardarFoto, leerFoto } from '../lib/fotos';
 import { reducirImagen } from '../lib/padron';
 import { cerrarSesion, sesion, uid, useEmpresa } from '../lib/store';
-import type { Carroceria, EstadoPieza, FotoRef, Orden, PiezaId } from '../lib/types';
+import { VISTAS } from '../lib/fichaModelo';
+import type { Carroceria, EstadoPieza, FotoRef, Medidas, Orden, PiezaId, Vehiculo, Vista } from '../lib/types';
+import { useVista, vistasDe } from '../lib/vistas';
 import { estadosPiezas, progreso } from '../lib/piezas';
 import { verPatente } from '../lib/vehiculos';
 
@@ -85,7 +87,10 @@ export function Leyenda() {
   );
 }
 
-export function Auto3D(p: { carroceria: Carroceria; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; seleccion?: PiezaId | null; onPick?: (id: PiezaId) => void; autoRotate?: boolean; angulo?: number; etiqueta: string }) {
+/** Lo que el 3D necesita de un vehículo: su tipo, sus medidas reales si se conocen y su color. */
+export const forma = (v: Vehiculo) => ({ carroceria: v.carroceria, medidas: v.ficha?.medidas, color: v.colorHex });
+
+export function Auto3D(p: { carroceria: Carroceria; medidas?: Medidas; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; seleccion?: PiezaId | null; onPick?: (id: PiezaId) => void; autoRotate?: boolean; angulo?: number; etiqueta: string }) {
   return (
     <Suspense fallback={<div className="viewer esqueleto" />}>
       <Viewer3D {...p} />
@@ -93,14 +98,54 @@ export function Auto3D(p: { carroceria: Carroceria; color: string; estados?: Par
   );
 }
 
-export function FotoAuto({ carroceria, color, estados, angulo, alt, ancho, alto }: { carroceria: Carroceria; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; angulo?: number; alt: string; ancho?: number; alto?: number }) {
+/** Foto de tarjeta: la imagen generada del modelo si existe; si no, una vista del 3D. */
+export function FotoOrden({ o, ancho, alto }: { o: Orden; ancho?: number; alto?: number }) {
+  const v = o.vehiculo, src = useVista(vistasDe(o)?.frente), alt = `${v.marca} ${v.modelo}`;
+  if (src) return <img className="foto foto-real" src={src} alt={alt} loading="lazy" decoding="async" />;
+  return <FotoAuto {...forma(v)} estados={estadosPiezas(o.items)} ancho={ancho} alto={alto} alt={alt} />;
+}
+
+/** Las tres vistas generadas del modelo, con miniaturas para cambiar entre ellas. */
+export function GaleriaVistas({ o }: { o: Orden }) {
+  const vistas = vistasDe(o), v = o.vehiculo;
+  const disponibles = VISTAS.filter(x => vistas?.[x.id]);
+  const [actual, setActual] = useState<Vista>('frente');
+  const elegida = disponibles.find(x => x.id === actual) ?? disponibles[0];
+  const src = useVista(elegida && vistas?.[elegida.id]);
+  if (!elegida) return null;
+  return (
+    <figure className="galeria">
+      <div className="galeria-foto">
+        {src ? <img key={src} src={src} alt={`${v.marca} ${v.modelo} ${v.anio}, vista ${elegida.nombre.toLowerCase()}`} /> : <div className="esqueleto" />}
+      </div>
+      {disponibles.length > 1 && (
+        <div className="galeria-vistas" role="group" aria-label="Vistas del vehículo">
+          {disponibles.map(x => <Miniatura key={x.id} ref_={vistas![x.id]!} nombre={x.nombre} on={x.id === elegida.id} onClick={() => setActual(x.id)} />)}
+        </div>
+      )}
+      <figcaption>Imagen referencial creada con IA{v.ficha ? ` · ${v.ficha.generacion}` : ''}</figcaption>
+    </figure>
+  );
+}
+
+function Miniatura({ ref_, nombre, on, onClick }: { ref_: string; nombre: string; on: boolean; onClick: () => void }) {
+  const src = useVista(ref_);
+  return (
+    <button className={on ? 'on' : ''} aria-pressed={on} onClick={onClick}>
+      {src ? <img src={src} alt="" /> : <span className="esqueleto" />}
+      <span>{nombre}</span>
+    </button>
+  );
+}
+
+export function FotoAuto({ carroceria, medidas, color, estados, angulo, alt, ancho, alto }: { carroceria: Carroceria; medidas?: Medidas; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; angulo?: number; alt: string; ancho?: number; alto?: number }) {
   const [src, setSrc] = useState<string | null>(null);
-  const clave = JSON.stringify([carroceria, color, estados, angulo]);
+  const clave = JSON.stringify([carroceria, medidas, color, estados, angulo]);
   useEffect(() => {
     let vivo = true;
     const t = setTimeout(async () => {
       const { foto } = await import('../three/snapshot');
-      const url = foto({ carroceria, color, estados, angulo, ancho, alto });
+      const url = foto({ carroceria, medidas, color, estados, angulo, ancho, alto });
       if (vivo) setSrc(url);
     }, 30);
     return () => { vivo = false; clearTimeout(t); };
@@ -113,7 +158,7 @@ export function TarjetaOrden({ o, destino }: { o: Orden; destino: string }) {
   const pct = progreso(o.items), v = o.vehiculo;
   return (
     <button className="tarjeta-orden" onClick={() => ir(destino)}>
-      <FotoAuto carroceria={v.carroceria} color={v.colorHex} estados={estadosPiezas(o.items)} alt={`${v.marca} ${v.modelo}`} />
+      <FotoOrden o={o} />
       <div className="tarjeta-datos">
         <div className="tarjeta-tit"><b>{v.marca} {v.modelo}</b><span className="patente">{verPatente(v.patente)}</span></div>
         <p>{nombreEtapa(etapaDe(o))}</p>

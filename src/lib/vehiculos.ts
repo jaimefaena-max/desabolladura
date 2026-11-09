@@ -26,6 +26,9 @@ export function carroceriaDe(marca: string, modelo: string): Carroceria | null {
   const palabras = modelo.toLowerCase().split(/[\s-]+/);
   // Primero la clave más larga: «Corolla Cross» no debe caer en «Corolla». Una clave de un carácter exige palabra exacta: «CX-30» no es «3».
   const claves = Object.keys(CATALOGO[m]).sort((a, b) => b.length - a.length);
+  // El nombre exacto gana: «Corolla» no es «Corolla Cross» aunque esté contenido en él.
+  const exacta = claves.find(x => norm(x) === mod);
+  if (exacta) return CATALOGO[m][exacta];
   const k = claves.find(x => (norm(x).length === 1 ? palabras.includes(norm(x)) : mod.includes(norm(x)) || (mod.length > 1 && norm(x).includes(mod))));
   return k ? CATALOGO[m][k] : null;
 }

@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Camera, CheckCircle, PencilSimple, Sparkle } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, ArrowsClockwise, Camera, CheckCircle, PencilSimple, Sparkle } from '@phosphor-icons/react';
 import PiezaPicker from '../components/PiezaPicker';
 import { ir, Pantalla } from '../components/ui';
-import { claveGemini, generarImagenGemini, leerPadronGemini } from '../lib/gemini';
+import { VISTAS } from '../lib/fichaModelo';
+import { claveGemini, fichaModeloGemini, generarVistasGemini, leerPadronGemini } from '../lib/gemini';
 import { leerConOCR, padronEjemplo, reducirImagen, type DatosPadron } from '../lib/padron';
 import { conEvento, sincronizar } from '../lib/automatizacion';
 import { fechaLocal } from '../lib/piezas';
@@ -10,9 +11,14 @@ import { sugerir } from '../lib/precios';
 import { ASEGURADORAS, tareasGenerales } from '../lib/seed';
 import { codigoCliente, guardarOrden, sesion, siguienteNumero, uid, ultimaOrdenDePatente } from '../lib/store';
 import type { Carroceria, Item, Orden, Pagador, Recepcion, Vehiculo } from '../lib/types';
+import { guardarVistas, vistasDe, type Vistas } from '../lib/vistas';
 import { CARROCERIAS, carroceriaDe, CATALOGO, COLORES, colorHex, normalizarPatente, patenteValida, verPatente } from '../lib/vehiculos';
 
 const PASOS = ['Padrón', 'Vehículo', 'Cliente', 'Trabajos'];
+
+interface EstadoIA { clave: string; fase: 'buscando' | 'creando' | 'listo' | 'error'; vistas: Vistas; error?: string; }
+/** Lo que define las fotos: si cambia, hay que crearlas de nuevo. */
+const claveIA = (x: Vehiculo) => [x.marca, x.modelo, x.anio, x.color].join('|').toLowerCase();
 
 export default function NuevoVehiculo() {
   const u = sesion()!;
@@ -24,7 +30,40 @@ export default function NuevoVehiculo() {
   const [recepcion, setRecepcion] = useState<Recepcion>({ km: null, combustible: 'Medio', observaciones: '' });
   const [leido, setLeido] = useState<string | null>(null);
   const [listo, setListo] = useState<Orden | null>(null);
-  const [imagen, setImagen] = useState<{ cargando: boolean; src?: string; error?: string }>({ cargando: false });
+  const [ia, setIa] = useState<EstadoIA | null>(null);
+  const [guardando, setGuardando] = useState(false);
+
+  /**
+   * Busca el modelo exacto en internet y crea sus tres fotos. Parte sola al confirmar el vehículo,
+   * mientras el maestro llena los datos del cliente. Cada resultado se descarta si el vehículo
+   * cambió entre medio (la clave ya no coincide).
+   */
+  const crearConIA = async (x: Vehiculo, otraVersion = false) => {
+    const clave = claveIA(x);
+    if (!claveGemini() || (!otraVersion && ia?.clave === clave && ia.fase !== 'error')) return;
+    setIa({ clave, fase: x.ficha ? 'creando' : 'buscando', vistas: {} });
+    const seguir = (f: (e: EstadoIA) => EstadoIA) => setIa(e => (e && e.clave === clave ? f(e) : e));
+    let ficha = x.ficha;
+    if (!ficha) {
+      try {
+        const r = await fichaModeloGemini(x);
+        ficha = r.ficha;
+        // El tipo que dice internet solo se usa si el catálogo no conoce el modelo.
+        const tipo = carroceriaDe(x.marca, x.modelo) ? undefined : r.carroceria;
+        const f = ficha;
+        setV(y => (claveIA(y) === clave ? { ...y, ficha: f, carroceria: tipo ?? y.carroceria } : y));
+      } catch {
+        ficha = { generacion: `${x.modelo} ${x.anio}`, rasgos: 'Respeta fielmente el diseño real de ese modelo y año.' };
+      }
+      seguir(e => ({ ...e, fase: 'creando' }));
+    }
+    try {
+      await generarVistasGemini(x, ficha, (vista, src) => seguir(e => ({ ...e, vistas: { ...e.vistas, [vista]: src } })));
+      seguir(e => ({ ...e, fase: 'listo' }));
+    } catch (err) {
+      seguir(e => ({ ...e, fase: 'error', error: (err as Error).message }));
+    }
+  };
 
   const aplicar = (d: DatosPadron) => {
     const marca = Object.keys(CATALOGO).find(k => k.toLowerCase() === (d.marca ?? '').toLowerCase()) ?? d.marca ?? '';
@@ -45,12 +84,17 @@ export default function NuevoVehiculo() {
     if (!previa) return;
     setV(x => ({ ...previa.vehiculo, patente: x.patente }));
     setCliente(previa.cliente);
+    // Sus fotos ya existen: no se gasta en crearlas de nuevo.
+    const vistas = vistasDe(previa);
+    if (vistas) setIa({ clave: claveIA(previa.vehiculo), fase: 'listo', vistas });
     setLeido('Este vehículo ya vino al taller. Se cargaron sus datos.');
   };
 
   const cambiarVehiculo = (c: Partial<Vehiculo>) => setV(x => {
     const n = { ...x, ...c };
     if (c.marca !== undefined || c.modelo !== undefined) n.carroceria = carroceriaDe(n.marca, n.modelo) ?? n.carroceria;
+    // Otro modelo u otro año: lo averiguado ya no aplica.
+    if (c.marca !== undefined || c.modelo !== undefined || c.anio !== undefined) delete n.ficha;
     return n;
   });
 
@@ -58,22 +102,22 @@ export default function NuevoVehiculo() {
   const clienteOk = cliente.nombre.trim().length > 2 && (pagador.tipo === 'particular' || (pagador.aseguradora && pagador.siniestro?.trim()));
   const hayTrabajos = items.some(i => i.trabajo !== 'general');
 
-  const finalizar = () => {
+  const finalizar = async () => {
+    if (guardando) return;
+    setGuardando(true);
+    const id = uid();
+    const fotosIA = ia && ia.clave === claveIA(v) && Object.keys(ia.vistas).length ? ia.vistas : undefined;
+    // Si IndexedDB falla, la orden se guarda igual, sin fotos: el 3D las reemplaza.
+    const vistas = fotosIA && await guardarVistas(id, fotosIA).catch(() => undefined);
     const o: Orden = conEvento(sincronizar({
-      id: uid(), numero: siguienteNumero(), codigo: codigoCliente(), creada: fechaLocal(), entrega: '', maestroId: u.id,
+      id, numero: siguienteNumero(), codigo: codigoCliente(), creada: fechaLocal(), entrega: '', maestroId: u.id,
       vehiculo: { ...v, patente: normalizarPatente(v.patente) }, cliente, pagador,
       // El maestro pudo corregir el vehículo después de agregar trabajos: el rango se recalcula con el dato final.
       items: items.map(i => (i.trabajo === 'general' ? i : { ...i, sugerido: sugerir(i.trabajo, i.pieza, i.severidad ?? 'medio', v) })),
-      notas: '', cobrada: false, imagenIA: imagen.src, aprobacion: 'pendiente', repuestos: [], fotos: [], historial: [], recepcion, entregadaEl: null,
+      notas: '', cobrada: false, vistas, aprobacion: 'pendiente', repuestos: [], fotos: [], historial: [], recepcion, entregadaEl: null,
     }), 'Vehículo ingresado al taller');
     guardarOrden(o);
     setListo(o);
-  };
-
-  const crearImagen = async () => {
-    setImagen({ cargando: true });
-    try { setImagen({ cargando: false, src: await generarImagenGemini(v) }); }
-    catch (e) { setImagen({ cargando: false, error: (e as Error).message }); }
   };
 
   if (listo) {
@@ -141,12 +185,13 @@ export default function NuevoVehiculo() {
             <label className="campo"><span>Kilometraje</span><input type="number" inputMode="numeric" min={0} value={recepcion.km ?? ''} onChange={e => setRecepcion({ ...recepcion, km: e.target.value ? Number(e.target.value) : null })} /></label>
             <label className="campo"><span>Daños previos u objetos de valor</span><input value={recepcion.observaciones} onChange={e => setRecepcion({ ...recepcion, observaciones: e.target.value })} autoComplete="off" /></label>
           </div>
-          <Navegar atras={() => setPaso(0)} siguiente={() => setPaso(2)} ok={!!vehiculoOk} ayuda="Completa marca, modelo, año y patente." />
+          <Navegar atras={() => setPaso(0)} siguiente={() => { setPaso(2); void crearConIA(v); }} ok={!!vehiculoOk} ayuda="Completa marca, modelo, año y patente." />
         </section>
       )}
 
       {paso === 2 && (
         <section className="formulario">
+          {ia && ia.fase !== 'listo' && ia.fase !== 'error' && <p className="aviso-ia" role="status"><Sparkle size={20} /> La IA está preparando las fotos del {v.marca} {v.modelo} mientras completas estos datos.</p>}
           <p className="etiqueta">¿Quién paga la reparación?</p>
           <div className="segmentos">
             <button aria-pressed={pagador.tipo === 'aseguradora'} className={pagador.tipo === 'aseguradora' ? 'on' : ''} onClick={() => setPagador({ ...pagador, tipo: 'aseguradora' })}>Aseguradora</button>
@@ -172,16 +217,10 @@ export default function NuevoVehiculo() {
 
       {paso === 3 && (
         <section>
-          {claveGemini() && (
-            <div className="caja-ia">
-              {imagen.src ? <img src={imagen.src} alt={`Imagen generada de ${v.marca} ${v.modelo}`} /> : (
-                <button className="btn secundario" disabled={imagen.cargando} onClick={crearImagen}><Sparkle size={22} /> {imagen.cargando ? 'Generando imagen…' : 'Generar imagen con Gemini'}</button>
-              )}
-              {imagen.error && <p className="error" role="alert">{imagen.error}</p>}
-            </div>
-          )}
+          {ia ? <EstudioIA ia={ia} v={v} onOtra={() => crearConIA(v, true)} />
+            : claveGemini() && <button className="btn secundario ancho crear-ia" onClick={() => crearConIA(v)}><Sparkle size={22} /> Crear fotos del modelo con IA</button>}
           <PiezaPicker vehiculo={v} items={items} onChange={setItems} />
-          <Navegar atras={() => setPaso(2)} siguiente={finalizar} ok={hayTrabajos} texto="Guardar vehículo" ayuda="Agrega al menos un trabajo." />
+          <Navegar atras={() => setPaso(2)} siguiente={finalizar} ok={hayTrabajos && !guardando} texto={guardando ? 'Guardando…' : 'Guardar vehículo'} ayuda="Agrega al menos un trabajo." />
         </section>
       )}
     </Pantalla>
@@ -269,6 +308,39 @@ function PasoPadron({ onDatos, onManual }: { onDatos: (d: DatosPadron) => void; 
           try { revisar(await reducirImagen(f)); } catch (err) { setError((err as Error).message); }
         }} />
       <button className="enlace" onClick={() => revisar(padronEjemplo())}>Probar con un padrón de ejemplo</button>
+    </section>
+  );
+}
+
+function EstudioIA({ ia, v, onOtra }: { ia: EstadoIA; v: Vehiculo; onOtra: () => void }) {
+  const n = Object.keys(ia.vistas).length, trabajando = ia.fase === 'buscando' || ia.fase === 'creando';
+  const estado = ia.fase === 'buscando' ? 'Buscando en internet el modelo exacto…'
+    : ia.fase === 'creando' ? `Creando las fotos: ${n} de 3`
+      : ia.fase === 'error' ? 'No se pudieron crear las fotos. Puedes seguir: el 3D funciona igual.'
+        : 'Imágenes referenciales creadas con IA para este modelo.';
+  const m = v.ficha?.medidas;
+  return (
+    <section className="estudio-ia" aria-busy={trabajando}>
+      <header>
+        <Sparkle size={26} weight="duotone" className={trabajando ? 'pulso' : ''} aria-hidden="true" />
+        <div><b>Fotos del modelo</b><small role="status">{estado}</small></div>
+        {!trabajando && <button className="enlace" onClick={onOtra}><ArrowsClockwise size={18} /> {ia.fase === 'error' ? 'Reintentar' : 'Otra versión'}</button>}
+      </header>
+      <div className="estudio-vistas">
+        {VISTAS.map(x => (
+          <figure key={x.id}>
+            {ia.vistas[x.id] ? <img src={ia.vistas[x.id]} alt={`${v.marca} ${v.modelo}, vista ${x.nombre.toLowerCase()}`} /> : <div className={trabajando ? 'esqueleto' : 'vacia'} />}
+            <figcaption>{x.nombre}</figcaption>
+          </figure>
+        ))}
+      </div>
+      {v.ficha && (
+        <p className="pista">
+          {v.ficha.generacion}{m ? ` · ${m.largo.toFixed(2)} × ${m.ancho.toFixed(2)} × ${m.alto.toFixed(2)} m: el 3D usa estas medidas` : ''}
+          {v.ficha.fuentes?.length ? <> · Fuentes: {v.ficha.fuentes.map((u, i) => <a key={u} href={u} target="_blank" rel="noreferrer noopener">{i + 1}</a>).reduce<React.ReactNode[]>((a, e, i) => (i ? [...a, ', ', e] : [e]), [])}</> : null}
+        </p>
+      )}
+      {ia.error && <p className="error" role="alert">{ia.error}</p>}
     </section>
   );
 }

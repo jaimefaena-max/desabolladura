@@ -31,10 +31,24 @@ export interface Item {
   adicional?: boolean;
 }
 
+/** Medidas exteriores reales, en metros. */
+export interface Medidas { largo: number; ancho: number; alto: number; entreEjes: number; }
+
+/** Lo que la IA averiguó del modelo exacto: alimenta el 3D y las fotos generadas. */
+export interface FichaModelo {
+  generacion: string;
+  rasgos: string;
+  medidas?: Medidas;
+  fuentes?: string[];
+}
+
+export type Vista = 'frente' | 'lado' | 'cola';
+
 export interface Vehiculo {
   marca: string; modelo: string; anio: number; patente: string;
   color: string; colorHex: string; carroceria: Carroceria;
   motor?: string; chasis?: string;
+  ficha?: FichaModelo;
 }
 
 export interface Usuario { id: string; nombre: string; rol: 'maestro' | 'admin'; cargo: string; }
@@ -56,7 +70,14 @@ export interface Orden {
   pagador: Pagador; items: Item[]; notas: string;
   aprobacion: Aprobacion; repuestos: Repuesto[]; fotos: FotoRef[]; historial: Evento[];
   recepcion: Recepcion; entregadaEl: string | null;
-  cobrada: boolean; imagenIA?: string;
+  cobrada: boolean;
+  /**
+   * Fotos generadas del modelo, por vista. Cada valor es una ruta de la demo (`autos/…`)
+   * o `idb:<id>` si vive en IndexedDB: en localStorage no caben.
+   */
+  vistas?: Partial<Record<Vista, string>>;
+  /** Formato anterior (una sola imagen en data URL): se sigue leyendo como vista frontal. */
+  imagenIA?: string;
 }
 
 export interface Empresa { id: string; nombre: string; logo?: string; acento: string; whatsapp: string; }

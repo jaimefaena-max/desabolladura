@@ -1,3 +1,5 @@
+import { leerFicha, medidasValidas, promptVista, slugAuto } from './fichaModelo';
+import { specDe } from '../three/carModel';
 import { describe, expect, it } from 'vitest';
 import { extraerJSON } from './gemini';
 import { interpretarPadron } from './padron';
@@ -50,6 +52,8 @@ describe('patente y catálogo', () => {
   it('deduce carrocería y color', () => {
     expect(carroceriaDe('FORD', 'F-150')).toBe('pickup');
     expect(carroceriaDe('Toyota', 'COROLLA XEI')).toBe('sedan');
+    expect(carroceriaDe('Toyota', 'Corolla')).toBe('sedan');
+    expect(carroceriaDe('Toyota', 'Corolla Cross')).toBe('suv');
     expect(carroceriaDe('Desconocida', 'X')).toBeNull();
     expect(carroceriaDe('Mazda', 'CX-30')).toBeNull();
     expect(carroceriaDe('Mazda', '3')).toBe('sedan');
@@ -185,5 +189,51 @@ describe('gemini', () => {
   it('extrae JSON aunque venga con texto alrededor', () => {
     expect(extraerJSON<{ min: number }>('Claro: ```json\n{"min": 5}\n```')).toEqual({ min: 5 });
     expect(() => extraerJSON('sin datos')).toThrow();
+  });
+});
+
+describe('ficha del modelo con IA', () => {
+  const corolla = { generacion: 'E210 (2019-2025)', carroceria: 'Sedan', rasgos: 'Focos delgados', largo_mm: 4630, ancho_mm: 1780, alto_mm: 1435, entre_ejes_mm: 2700 };
+  it('lee la ficha y pasa las medidas a metros', () => {
+    const { ficha, carroceria } = leerFicha(corolla, ['https://a', 'https://b', 'https://c', 'https://d']);
+    expect(carroceria).toBe('sedan');
+    expect(ficha.medidas).toEqual({ largo: 4.63, ancho: 1.78, alto: 1.435, entreEjes: 2.7 });
+    expect(ficha.fuentes).toHaveLength(3);
+  });
+  it('descarta medidas imposibles en vez de deformar el 3D', () => {
+    expect(medidasValidas({ ...corolla, largo_mm: 463 })).toBeUndefined();
+    expect(medidasValidas({ ...corolla, entre_ejes_mm: 5000 })).toBeUndefined();
+    expect(medidasValidas({ ...corolla, alto_mm: undefined })).toBeUndefined();
+  });
+  it('exige generación y rasgos', () => {
+    expect(() => leerFicha({ ...corolla, generacion: '' })).toThrow();
+  });
+  it('arma las vistas como el mismo auto', () => {
+    const v = { marca: 'Toyota', modelo: 'Corolla', anio: 2020, color: 'Plateado' };
+    const { ficha } = leerFicha(corolla);
+    expect(promptVista(v, ficha, 'frente')).toContain('Toyota Corolla 2020 (E210 (2019-2025))');
+    expect(promptVista(v, ficha, 'cola')).toContain('mismo auto de la imagen de referencia');
+    expect(slugAuto(v)).toBe('toyota-corolla-2020');
+  });
+});
+
+describe('3D con medidas reales', () => {
+  it('toma largo, ancho y distancia entre ejes del modelo', () => {
+    const s = specDe('sedan', { largo: 4.63, ancho: 1.78, alto: 1.435, entreEjes: 2.7 });
+    expect(s.L).toBeCloseTo(4.63);
+    expect(s.W).toBeCloseTo(1.78);
+    expect((s.axleR - s.axleF) * s.L).toBeCloseTo(2.7);
+    // Las puertas siguen dentro de la distancia entre ejes, en orden.
+    expect(s.doors[0]).toBeGreaterThan(s.axleF);
+    expect(s.doors[2]).toBeLessThan(s.axleR);
+    expect([...s.top.map(p => p[0])]).toEqual([...s.top.map(p => p[0])].sort((a, b) => a - b));
+  });
+  it('acota un dato exagerado', () => {
+    const s = specDe('hatchback', { largo: 9, ancho: 3, alto: 4, entreEjes: 2.5 });
+    expect(s.L).toBeCloseTo(4.0 * 1.2);
+    expect(s.W).toBeCloseTo(1.74 * 1.1);
+  });
+  it('sin medidas, queda igual que antes', () => {
+    expect(specDe('suv')).toBe(specDe('suv', undefined));
   });
 });

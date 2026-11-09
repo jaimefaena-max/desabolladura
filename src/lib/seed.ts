@@ -1,7 +1,9 @@
 import { conEvento, sincronizar } from './automatizacion';
 import { fechaLocal } from './piezas';
 import { sugerir } from './precios';
-import type { Aprobacion, Carroceria, EstadoItem, Item, Orden, Pagador, PiezaId, Severidad, Trabajo, Usuario, Vehiculo } from './types';
+import autosDemo from './autosDemo.json';
+import { slugAuto } from './fichaModelo';
+import type { Aprobacion, Carroceria, EstadoItem, FichaModelo, Item, Orden, Pagador, PiezaId, Severidad, Trabajo, Usuario, Vehiculo, Vista } from './types';
 
 /**
  * Datos ficticios hechos para no coincidir con nadie: los RUT tienen dígito verificador inválido
@@ -41,8 +43,11 @@ function items(v: Vehiculo, filas: Fila[], cierre: EstadoItem = 'pendiente'): It
   return [recepcion, ...trabajos, ...fin.map(i => ({ ...i, estado: cierre }))];
 }
 
+/** Ficha y fotos generadas por scripts/generar-autos-demo.ts. Si un modelo no tiene, queda con el 3D genérico. */
+const FOTOS = autosDemo as Record<string, { ficha: FichaModelo; vistas: Partial<Record<Vista, string>> } | undefined>;
+
 const auto = (marca: string, modelo: string, anio: number, n: number, color: string, colorHex: string, carroceria: Carroceria): Vehiculo =>
-  ({ marca, modelo, anio, patente: `DEMA${String(n).padStart(2, '0')}`, color, colorHex, carroceria });
+  ({ marca, modelo, anio, patente: `DEMA${String(n).padStart(2, '0')}`, color, colorHex, carroceria, ficha: FOTOS[slugAuto({ marca, modelo, anio })]?.ficha });
 
 interface Base {
   numero: number; codigo: string; v: Vehiculo; desde: number; pagador: Pagador; aprobacion: Aprobacion;
@@ -56,6 +61,7 @@ function orden(b: Base): Orden {
     pagador: b.pagador, items: items(b.v, b.filas, b.cierre), notas: b.notas ?? '', aprobacion: b.aprobacion,
     repuestos: [], fotos: [], historial: [], recepcion: { km: 40000 + b.numero * 37, combustible: 'Medio', observaciones: '' },
     entregadaEl: b.entregadaHace === undefined ? null : dias(-b.entregadaHace), cobrada: b.cobrada ?? false,
+    vistas: FOTOS[slugAuto(b.v)]?.vistas,
   });
   return conEvento(o, 'Vehículo ingresado al taller');
 }

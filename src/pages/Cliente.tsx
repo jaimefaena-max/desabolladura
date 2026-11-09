@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle, Circle, CircleHalf, Check } from '@phosphor-icons/react';
-import { Auto3D, Barra, Galeria, ir, Leyenda, Marca } from '../components/ui';
+import { Auto3D, Barra, forma, Galeria, GaleriaVistas, ir, Leyenda, Marca } from '../components/ui';
 import { conEvento, ETAPAS, etapaDe } from '../lib/automatizacion';
 import { clp, estadosPiezas, fecha, itemsCobrables, progreso, tituloItem, totales } from '../lib/piezas';
 import { actualizar, buscarPorAcceso, useOrdenes } from '../lib/store';
@@ -76,7 +76,7 @@ export function ClientePortal({ codigo }: { codigo: string }) {
       <main>
         <section className="portal-hero">
           <div className="portal-3d">
-            <Auto3D carroceria={v.carroceria} color={v.colorHex} estados={estadosPiezas(o.items)} autoRotate angulo={zaga ? 228 : 40} etiqueta={`Tu ${v.marca} ${v.modelo} en 3D, con las piezas según su avance`} />
+            <Auto3D {...forma(v)} estados={estadosPiezas(o.items)} autoRotate angulo={zaga ? 228 : 40} etiqueta={`Tu ${v.marca} ${v.modelo} en 3D, con las piezas según su avance`} />
           </div>
           <div className="portal-resumen">
             <p className="sub">{v.marca} {v.modelo} {v.anio}</p>
@@ -86,6 +86,7 @@ export function ClientePortal({ codigo }: { codigo: string }) {
             <Leyenda />
           </div>
         </section>
+        <div className="portal-galeria"><GaleriaVistas o={o} /></div>
         <ol className="linea-etapas" aria-label="Etapas de la reparación">
           {pasos.map((e, i) => <li key={e.id} className={i < actual ? 'hecha' : i === actual ? 'actual' : ''} aria-current={i === actual ? 'step' : undefined}>{e.nombre}</li>)}
         </ol>

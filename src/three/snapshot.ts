@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Carroceria, EstadoPieza, PiezaId } from '../lib/types';
+import type { Carroceria, EstadoPieza, Medidas, PiezaId } from '../lib/types';
 import { buildCar } from './carModel';
 import { makeEnv, makeFloor } from './studio';
 import { ACENTO_DANO, encuadre, PRIMER } from './Viewer3D';
@@ -24,19 +24,19 @@ function iniciar() {
 }
 
 interface Opciones {
-  carroceria: Carroceria; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>;
+  carroceria: Carroceria; medidas?: Medidas; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>;
   ancho?: number; alto?: number; angulo?: number;
 }
 
-export function foto({ carroceria, color, estados = {}, ancho = 720, alto = 405, angulo = 38 }: Opciones): string | null {
-  const key = JSON.stringify([carroceria, color, estados, ancho, alto, angulo]);
+export function foto({ carroceria, medidas, color, estados = {}, ancho = 720, alto = 405, angulo = 38 }: Opciones): string | null {
+  const key = JSON.stringify([carroceria, medidas, color, estados, ancho, alto, angulo]);
   const hecha = cache.get(key);
   if (hecha) return hecha;
   const b = iniciar();
   if (!b) return null;
   b.r.setPixelRatio(1);
   b.r.setSize(ancho, alto, false);
-  const auto = buildCar(carroceria, color);
+  const auto = buildCar(carroceria, color, medidas);
   auto.piezas.forEach((p, id) => {
     const e = estados[id];
     if (e === 'pendiente') { p.mat.color.set(ACENTO_DANO); p.mat.metalness = .05; p.mat.roughness = .5; p.mat.clearcoat = .3; p.mat.emissive.set(ACENTO_DANO).multiplyScalar(.28); }

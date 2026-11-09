@@ -1,5 +1,6 @@
+import { leerFicha, promptFicha, promptVista } from './fichaModelo';
 import type { DatosPadron } from './padron';
-import type { Sugerido, Vehiculo } from './types';
+import type { FichaModelo, Sugerido, Vehiculo, Vista } from './types';
 
 /**
  * Conexión opcional con Gemini desde el navegador.
@@ -73,15 +74,35 @@ export async function buscarPrecioGemini(descripcion: string, v: Vehiculo): Prom
   return { min, max, fuente: 'Búsqueda en internet con Gemini', enlaces };
 }
 
-export async function generarImagenGemini(v: Vehiculo): Promise<string> {
-  const r = await llamar(IMAGEN, {
-    contents: [{ parts: [{ text: `Fotografía de estudio de un ${v.marca} ${v.modelo} ${v.anio} color ${v.color}, vista tres cuartos frontal, fondo gris oscuro, iluminación suave de estudio, sin texto ni patente.` }] }],
-    generationConfig: { responseModalities: ['IMAGE'] },
-  });
+/** Paso 1: Gemini busca en internet la generación exacta, sus rasgos y sus medidas. */
+export async function fichaModeloGemini(v: Vehiculo): Promise<ReturnType<typeof leerFicha>> {
+  // La búsqueda en internet no admite respuesta JSON forzada: se extrae del texto.
+  const r = await llamar(TEXTO, { contents: [{ parts: [{ text: promptFicha(v) }] }], tools: [{ google_search: {} }] });
+  const enlaces = (r.candidates?.[0]?.groundingMetadata?.groundingChunks ?? []).flatMap(c => (c.web?.uri ? [c.web.uri] : []));
+  return leerFicha(extraerJSON(textoDe(r)), enlaces);
+}
+
+async function imagen(texto: string, referencia?: string): Promise<string> {
+  const parts: Parte[] = [{ text: texto }];
+  if (referencia) {
+    const [cab, data] = referencia.split(',');
+    parts.push({ inline_data: { mime_type: cab.match(/data:(.*?);/)?.[1] ?? 'image/jpeg', data } });
+  }
+  const r = await llamar(IMAGEN, { contents: [{ parts }], generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '16:9' } } });
   const p = r.candidates?.[0]?.content?.parts?.find(x => x.inlineData || x.inline_data);
   const d = p?.inlineData ?? (p?.inline_data && { mimeType: p.inline_data.mime_type, data: p.inline_data.data });
   if (!d) throw new Error('Gemini no devolvió imagen');
   return comprimir(`data:${d.mimeType};base64,${d.data}`);
+}
+
+/**
+ * Paso 2: tres fotos del mismo auto. El frente sale primero y sirve de referencia a las otras
+ * dos, que se piden en paralelo. Si una vista falla, se entregan las que sí salieron.
+ */
+export async function generarVistasGemini(v: Vehiculo, ficha: FichaModelo, avance: (vista: Vista, src: string) => void) {
+  const frente = await imagen(promptVista(v, ficha, 'frente'));
+  avance('frente', frente);
+  await Promise.allSettled((['lado', 'cola'] as const).map(async vista => avance(vista, await imagen(promptVista(v, ficha, vista), frente))));
 }
 
 /** El navegador guarda poco espacio: la imagen se reduce antes de almacenarla. */

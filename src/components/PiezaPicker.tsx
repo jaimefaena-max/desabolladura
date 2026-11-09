@@ -4,7 +4,7 @@ import { nombrePieza, PIEZAS, TRABAJOS, tituloItem } from '../lib/piezas';
 import { sugerir } from '../lib/precios';
 import { uid } from '../lib/store';
 import type { Item, PiezaId, Severidad, Trabajo, Vehiculo } from '../lib/types';
-import { Auto3D, Leyenda } from './ui';
+import { Auto3D, forma, Leyenda } from './ui';
 import { estadosPiezas } from '../lib/piezas';
 
 const SEVERIDADES: { id: Severidad; nombre: string; ayuda: string }[] = [
@@ -36,7 +36,7 @@ export default function PiezaPicker({ vehiculo, items, onChange }: { vehiculo: V
     <div className="picker">
       <div className="picker-3d">
         <div className="escena alto">
-          <Auto3D carroceria={vehiculo.carroceria} color={vehiculo.colorHex} estados={estadosPiezas(items)} seleccion={pieza} onPick={abrir} etiqueta={`Modelo 3D de ${vehiculo.marca} ${vehiculo.modelo}. Toca una pieza para agregar trabajo.`} />
+          <Auto3D {...forma(vehiculo)} estados={estadosPiezas(items)} seleccion={pieza} onPick={abrir} etiqueta={`Modelo 3D de ${vehiculo.marca} ${vehiculo.modelo}. Toca una pieza para agregar trabajo.`} />
         </div>
         <p className="ayuda-3d">Toca la pieza dañada. Arrastra con el dedo para girar el vehículo.</p>
         <Leyenda />
