@@ -1,7 +1,45 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { ArrowRight, Bell, Camera, ChatCircleDots, CurrencyCircleDollar, Kanban, Package, ShieldCheck } from '@phosphor-icons/react';
 import { Auto3D, FotoAuto, ir, Leyenda, Marca } from '../components/ui';
+import { useEmpresa } from '../lib/store';
 import type { EstadoPieza, PiezaId } from '../lib/types';
+import type { Fase } from '../three/HeroAuto';
+
+const HeroAuto = lazy(() => import('../three/HeroAuto'));
+
+const TEXTO_FASE: Record<Fase, string> = { reparado: 'Reparado y barnizado', pendiente: 'Capot: por reparar', proceso: 'Capot: en trabajo' };
+
+/** Conexión lenta o ahorro de datos: se queda con la foto, sin bajar el modelo 3D. */
+function conexionLenta() {
+  const c = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  // Solo 2G o ahorro de datos: en 3G la foto cubre la espera y el 3D aparece al terminar de bajar.
+  return !!c && (!!c.saveData || /(^|-)2g$/.test(c.effectiveType ?? ''));
+}
+
+/**
+ * Auto de la portada. La foto aparece al instante; el 3D (≈2,6 MB) se carga después y la reemplaza
+ * con un fundido. Con conexión lenta o sin WebGL queda la foto; con «reducir movimiento», el 3D quieto.
+ */
+function HeroMustang() {
+  const empresa = useEmpresa();
+  const [listo, setListo] = useState(false);
+  const [fallo, setFallo] = useState(false);
+  const [fase, setFase] = useState<Fase>('reparado');
+  const lento = useMemo(conexionLenta, []);
+  const quieto = useMemo(() => matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+  return (
+    <div className="hero-3d hero-auto">
+      <img className={`hero-poster ${listo ? 'oculto' : ''}`} src={`${import.meta.env.BASE_URL}portada/mustang-poster.webp`}
+        alt="Auto clásico gris grafito en un estudio oscuro" fetchPriority="high" decoding="async" />
+      {!lento && !fallo && (
+        <Suspense fallback={null}>
+          <HeroAuto acento={empresa.acento} quieto={quieto} onListo={() => setListo(true)} onFase={setFase} onError={() => setFallo(true)} />
+        </Suspense>
+      )}
+      {listo && <p className={`hero-fase ${fase}`} aria-live="polite"><i aria-hidden="true" />{TEXTO_FASE[fase]}</p>}
+    </div>
+  );
+}
 
 const ETAPAS: { hasta: number; texto: string; e: Partial<Record<PiezaId, EstadoPieza>> }[] = [
   { hasta: 24, texto: 'Recibido. La maletera y el parachoque esperan reparación.', e: { maletera: 'pendiente', parachoque_tras: 'pendiente' } },
@@ -43,9 +81,7 @@ export default function Landing() {
             <button className="btn secundario grande" onClick={() => ir('/cliente/COR7X2')}>Ver un seguimiento</button>
           </div>
         </div>
-        <div className="hero-3d">
-          <Auto3D carroceria="pickup" color="#a3121c" autoRotate angulo={52} etiqueta="Camioneta en 3D girando en un estudio oscuro" />
-        </div>
+        <HeroMustang />
       </section>
 
       <section className="demo">
