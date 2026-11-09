@@ -224,7 +224,7 @@ export default function Viewer3D({ carroceria, medidas, modelo, color, estados, 
     if (modelo) {
       setCargando(true);
       import('./modeloReal')
-        .then(({ cargarModeloReal }) => cargarModeloReal(modelo, carroceria, medidas))
+        .then(({ cargarModeloReal }) => cargarModeloReal(modelo, carroceria, medidas, color))
         .then(real => { if (vivo) montar(montarReal(real, reduce)); else real.dispose(); })
         .catch(() => { if (vivo) montar(parametrico()); })
         .finally(() => { if (vivo) setCargando(false); });

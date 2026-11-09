@@ -24,7 +24,7 @@ function zonasDe(tipo: Carroceria): Zona[] {
   const cintura = tipo === 'pickup' ? .6 : tipo === 'suv' ? .6 : .64;
   const comunes: Zona[] = [
     ...lados(l => `espejo_${l}`, [.26, .38], [.56, .8], [.7, 1.4]),
-    { id: 'parachoque_del', t: [-.05, .085], h: [0, .5], z: [-1.4, 1.4] },
+    { id: 'parachoque_del', t: [-.05, .085], h: [0, .38], z: [-1.4, 1.4] },
     { id: 'parachoque_tras', t: [.925, 1.05], h: [0, .46], z: [-1.4, 1.4] },
   ];
   if (tipo === 'pickup') {
@@ -42,7 +42,7 @@ function zonasDe(tipo: Carroceria): Zona[] {
   const portón = tipo === 'sedan' ? { t: [.8, 1.05] as [number, number], h: [.5, .85] as [number, number] } : { t: [.88, 1.05] as [number, number], h: [.32, .95] as [number, number] };
   return [
     ...comunes,
-    { id: 'capot', t: [0, .3], h: [.45, .68], z: [-.8, .8] },
+    { id: 'capot', t: [.045, .3], h: [.47, .68], z: [-.8, .8] },
     { id: 'maletera', ...portón, z: [-.9, .9] },
     { id: 'techo', t: [.42, tipo === 'sedan' ? .74 : .88], h: [.9, 1.05], z: [-.78, .78] },
     ...lados(l => `tapabarro_del_${l}`, [.03, .27], [.08, cintura], [.3, 1.4]),
@@ -72,18 +72,66 @@ uniform vec3 uZCol[NZ];
 uniform float uZMix[NZ];
 uniform float uZBrillo[NZ];
 uniform vec4 uRuedas; // x eje delantero, x eje trasero, radio, |z| desde donde hay rueda
+uniform vec3 uPintIA;    // color de carrocería que la IA puso en la textura
+uniform vec3 uPintGan;   // ganancia por canal que lo lleva al color real del auto
+uniform float uPintOn;
 varying vec3 vPosAuto;
-int zonaDe(vec3 p) {
+// Devuelve la zona que contiene p y, en "borde", cuánto la cubre (se desvanece en los últimos 2,5 cm).
+int zonaDe(vec3 p, out float borde) {
+  borde = 0.0;
   float dR = min(length(p.xy - vec2(uRuedas.x, uRuedas.z)), length(p.xy - vec2(uRuedas.y, uRuedas.z)));
-  if (dR < uRuedas.z * 1.06 && abs(p.z) > uRuedas.w) return -1; // neumático y llanta no se pintan
-  for (int i = 0; i < NZ; i++) if (all(greaterThanEqual(p, uZMin[i])) && all(lessThanEqual(p, uZMax[i]))) return i;
+  float fueraRueda = abs(p.z) > uRuedas.w ? smoothstep(uRuedas.z * 1.02, uRuedas.z * 1.1, dR) : 1.0;
+  for (int i = 0; i < NZ; i++) {
+    if (all(greaterThanEqual(p, uZMin[i])) && all(lessThanEqual(p, uZMax[i]))) {
+      vec3 d = min(p - uZMin[i], uZMax[i] - p);
+      borde = smoothstep(0.0, 0.025, min(min(d.x, d.y), d.z)) * fueraRueda; // neumático y llanta no se pintan
+      return i;
+    }
+  }
   return -1;
+}
+// La IA tiende a correr el tono (p. ej. gris azulado → morado): se repintan solo los pixeles
+// del tono de la carrocería; vidrios, neumáticos, cromados y focos quedan como están.
+vec3 repintar(vec3 c) {
+  if (uPintOn < 0.5) return c;
+  const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
+  float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
+  float rel = (mx - mn) / max(mx, 1e-4);
+  vec3 d = c - dot(c, LUM), dp = uPintIA - dot(uPintIA, LUM);
+  float w = smoothstep(0.55, 0.85, dot(normalize(d + 1e-6), normalize(dp))) * smoothstep(0.06, 0.16, rel);
+  return mix(c, c * uPintGan, w);
 }
 `;
 
 const cargador = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 
-export async function cargarModeloReal(modelo: Modelo3D, tipo: Carroceria, medidas?: Medidas): Promise<AutoReal> {
+/**
+ * Color de carrocería en la textura: el tono más frecuente entre los pixeles con color
+ * (el resto son vidrios, neumáticos y sombras, casi grises). Devuelve null si la textura es gris.
+ */
+function pinturaDeTextura(tex: THREE.Texture | null): THREE.Color | null {
+  const img = tex?.image as CanvasImageSource | undefined;
+  if (!img) return null;
+  const lado = 96, cv = document.createElement('canvas');
+  cv.width = cv.height = lado;
+  const cx = cv.getContext('2d', { willReadFrequently: true });
+  if (!cx) return null;
+  cx.drawImage(img, 0, 0, lado, lado);
+  const px = cx.getImageData(0, 0, lado, lado).data;
+  const bins = Array.from({ length: 12 }, () => ({ n: 0, peso: 0, r: 0, g: 0, b: 0 }));
+  for (let i = 0; i < px.length; i += 4) {
+    const r = px[i] / 255, g = px[i + 1] / 255, b = px[i + 2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    if (mx < .12 || (mx - mn) / mx < .15) continue;
+    const h = new THREE.Color(r, g, b).getHSL({ h: 0, s: 0, l: 0 }).h;
+    const bin = bins[Math.min(11, Math.floor(h * 12))], w = mx - mn;
+    bin.n++; bin.peso += w; bin.r += r * w; bin.g += g * w; bin.b += b * w;
+  }
+  const top = bins.reduce((a, b) => (b.peso > a.peso ? b : a));
+  if (top.n < lado * lado * .01) return null; // menos del 1 % con color: textura gris
+  return new THREE.Color().setRGB(top.r / top.peso, top.g / top.peso, top.b / top.peso, THREE.SRGBColorSpace);
+}
+
+export async function cargarModeloReal(modelo: Modelo3D, tipo: Carroceria, medidas?: Medidas, colorHex?: string): Promise<AutoReal> {
   const url = /^(https?:|data:|blob:)/.test(modelo.url) ? modelo.url : `${import.meta.env.BASE_URL}${modelo.url}`;
   const gltf = await cargador.loadAsync(url);
   const interno = gltf.scene;
@@ -125,7 +173,24 @@ export async function cargarModeloReal(modelo: Modelo3D, tipo: Carroceria, medid
     uZMix: { value: zonas.map(() => 0) },
     uZBrillo: { value: zonas.map(() => 0) },
     uRuedas: { value: ruedas },
+    uPintIA: { value: new THREE.Color() },
+    uPintGan: { value: new THREE.Vector3(1, 1, 1) },
+    uPintOn: { value: 0 },
   };
+  // Repintado hacia el color real del auto (el del 3D y las fotos).
+  let mapa: THREE.Texture | null = null;
+  interno.traverse(o => { if (!mapa && o instanceof THREE.Mesh) mapa = (o.material as THREE.MeshStandardMaterial).map; });
+  const ia = pinturaDeTextura(mapa);
+  if (ia && colorHex) {
+    // Tono y luz por separado: el tono se corrige completo; la luz, con tope, porque la IA suele
+    // hornear la pintura más oscura y aclararla de más lava los reflejos.
+    const real = new THREE.Color(colorHex), lum = (c: THREE.Color) => Math.max(.2126 * c.r + .7152 * c.g + .0722 * c.b, 1e-4);
+    const kLuz = THREE.MathUtils.clamp(lum(real) / lum(ia), .5, 2.5);
+    const tono = (a: number, b: number) => THREE.MathUtils.clamp((a / lum(real)) / Math.max(b / lum(ia), 1e-4), .3, 3);
+    uniforms.uPintIA.value.copy(ia);
+    uniforms.uPintGan.value.set(tono(real.r, ia.r) * kLuz, tono(real.g, ia.g) * kLuz, tono(real.b, ia.b) * kLuz);
+    uniforms.uPintOn.value = 1;
+  }
   // Los valores animados se leen por referencia en cada cuadro.
   Object.defineProperty(uniforms.uZMix, 'value', { get: () => zonas.map(z => z.mix.value) });
   Object.defineProperty(uniforms.uZBrillo, 'value', { get: () => zonas.map(z => z.brillo.value) });
@@ -146,10 +211,12 @@ export async function cargarModeloReal(modelo: Modelo3D, tipo: Carroceria, medid
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>\n${GLSL_ZONAS}`)
         .replace('#include <map_fragment>', `#include <map_fragment>
-          int zi = zonaDe(vPosAuto);
-          float zMix = zi >= 0 ? uZMix[zi] : 0.0;
+          diffuseColor.rgb = repintar(diffuseColor.rgb);
+          float zBorde;
+          int zi = zonaDe(vPosAuto, zBorde);
+          float zMix = zi >= 0 ? uZMix[zi] * zBorde : 0.0;
           vec3 zCol = zi >= 0 ? uZCol[zi] : vec3(0.0);
-          float zBrillo = zi >= 0 ? uZBrillo[zi] : 0.0;
+          float zBrillo = zi >= 0 ? uZBrillo[zi] * zBorde : 0.0;
           diffuseColor.rgb = mix(diffuseColor.rgb, zCol, zMix);`)
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.5, zMix);')
         .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.05, zMix);')
