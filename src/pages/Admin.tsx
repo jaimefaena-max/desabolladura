@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowsClockwise, Bell, Camera, Check, CheckCircle, CurrencyCircleDollar, FilePdf, Receipt, FolderOpen, Timer, Eye, HourglassMedium, MagnifyingGlass, PaperPlaneTilt, PencilSimple, Phone, Plus, Printer, Truck, WarningCircle, WhatsappLogo, XCircle } from '@phosphor-icons/react';
 import { Auto3D, Barra, forma, FotoGuardada, FotoOrden, Galeria, GaleriaVistas, ir, Logo, Pantalla } from '../components/ui';
 import { CotizacionDoc, imprimirDocumento } from '../components/Cotizacion';
+import FilaRepuesto from '../components/FilaRepuesto';
 import { ExpedienteDoc } from '../components/Expediente';
 import { cobradaSeguro, estadoFactura, nombreEstado, siguienteFactura, vencimiento } from '../lib/cobranza';
 import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
@@ -11,7 +12,7 @@ import { reducirImagen } from '../lib/padron';
 import { clp, estadosPiezas, fecha, fechaLocal, itemsCobrables, progreso, TRABAJOS, tituloItem, totales } from '../lib/piezas';
 import { USUARIOS } from '../lib/seed';
 import { actualizar, cambiarEmpresa, crearEmpresa, editarEmpresa, restablecerDemo, useEmpresa, useEmpresas, useOrden, useOrdenes } from '../lib/store';
-import type { Item, Orden, Repuesto } from '../lib/types';
+import type { Item, Orden } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';
 
 export function Tablero() {
@@ -90,41 +91,6 @@ export function Ordenes() {
           );
         })}
       </div>
-    </Pantalla>
-  );
-}
-
-const ESTADO_REPUESTO: { id: Repuesto['estado']; nombre: string }[] = [
-  { id: 'por_pedir', nombre: 'Por pedir' },
-  { id: 'pedido', nombre: 'Pedido' },
-  { id: 'recibido', nombre: 'Recibido' },
-];
-
-function cambiarRepuesto(ordenId: string, r: Repuesto, estado: Repuesto['estado']) {
-  actualizar(ordenId, x => conEvento(
-    { ...x, repuestos: x.repuestos.map(y => (y.id === r.id ? { ...y, estado } : y)) },
-    `Repuesto ${r.nombre.toLowerCase()}: ${ESTADO_REPUESTO.find(e => e.id === estado)!.nombre.toLowerCase()}`,
-  ));
-}
-
-function FilaRepuesto({ o, r, conVehiculo }: { o: Orden; r: Repuesto; conVehiculo?: boolean }) {
-  return (
-    <li className="repuesto">
-      <div><b>{r.nombre}</b>{conVehiculo && <small>{o.vehiculo.marca} {o.vehiculo.modelo} · {verPatente(o.vehiculo.patente)}</small>}</div>
-      <div className="segmentos tres" role="group" aria-label={`Estado de ${r.nombre}`}>
-        {ESTADO_REPUESTO.map(e => <button key={e.id} aria-pressed={r.estado === e.id} className={r.estado === e.id ? `on ${e.id === 'recibido' ? 'listo' : ''}` : ''} onClick={() => cambiarRepuesto(o.id, r, e.id)}>{e.nombre}</button>)}
-      </div>
-    </li>
-  );
-}
-
-export function Repuestos() {
-  const ordenes = useOrdenes().filter(o => !o.entregadaEl);
-  const pares = ordenes.flatMap(o => o.repuestos.map(r => ({ o, r })));
-  return (
-    <Pantalla titulo="Repuestos" sub="Cada cambio de pieza que anota el trabajador aparece aquí solo.">
-      {pares.length === 0 && <p className="vacio">No hay repuestos pendientes.</p>}
-      <ul className="repuestos">{pares.map(({ o, r }) => <FilaRepuesto key={r.id} o={o} r={r} conVehiculo />)}</ul>
     </Pantalla>
   );
 }

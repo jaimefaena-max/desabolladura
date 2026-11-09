@@ -1,4 +1,5 @@
 import { estadoFactura } from './cobranza';
+import { estadoRepuesto } from './repuestos';
 import { fechaLocal, nombrePieza, totales } from './piezas';
 import type { Empresa, EtapaId, Item, Orden, Repuesto, Severidad } from './types';
 
@@ -64,7 +65,15 @@ export function sincronizar(o: Orden): Orden {
       repuestos.push({ id: `r-${i.id}`, itemId: i.id, nombre: nombrePieza(i.pieza, o.vehiculo.carroceria), estado: 'por_pedir' });
     }
   }
-  const estimada = sumarHabiles(o.creada, diasTrabajo(o.items));
+  let estimada = sumarHabiles(o.creada, diasTrabajo(o.items));
+  // Un repuesto que llega después corre la entrega: desde su llegada (o desde hoy, si ya se atrasó)
+  // más los días de trabajo que aún faltan.
+  const hoy = fechaLocal(), faltan = diasTrabajo(o.items.filter(i => i.estado !== 'listo'));
+  for (const r of repuestos) {
+    if (r.estado !== 'pedido' || !r.prometido || o.entregadaEl) continue;
+    const llega = r.prometido < hoy ? hoy : r.prometido, porRepuesto = sumarHabiles(llega, faltan);
+    if (porRepuesto > estimada) estimada = porRepuesto;
+  }
   return { ...o, repuestos, entrega: !o.entrega || estimada > o.entrega ? estimada : o.entrega };
 }
 
@@ -94,6 +103,11 @@ export function alertas(ordenes: Orden[], hoy = fechaLocal()): Alerta[] {
     if (o.aprobacion === 'pendiente' && o.items.some(i => i.adicional)) add('adicional', 'trabajo adicional por aprobar', true);
     const pedir = o.repuestos.filter(r => r.estado === 'por_pedir');
     if (pedir.length) add('repuesto', `pedir ${pedir.map(r => r.nombre.toLowerCase()).join(', ')}`);
+    for (const r of o.repuestos) {
+      const e = estadoRepuesto(r, hoy);
+      if (e.estado === 'atrasado') add(`rep-${r.id}`, `${r.nombre.toLowerCase()} atrasado ${e.atraso} ${e.atraso === 1 ? 'día' : 'días'}${r.proveedor ? ` (${r.proveedor})` : ''}`, true);
+      else if (e.estado === 'llega_hoy') add(`rep-${r.id}`, `hoy llega ${r.nombre.toLowerCase()}${r.proveedor ? ` (${r.proveedor})` : ''}`);
+    }
     if (et === 'entrega') add('entrega', 'listo, avisa al cliente');
   }
   return out.sort((a, b) => Number(b.urgente) - Number(a.urgente));

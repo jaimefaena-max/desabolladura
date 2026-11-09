@@ -70,7 +70,18 @@ export interface Pagador {
 }
 
 export interface Evento { fecha: string; texto: string; }
-export interface Repuesto { id: string; itemId: string; nombre: string; estado: 'por_pedir' | 'pedido' | 'recibido'; }
+/**
+ * Repuesto de un cambio de pieza. Fechas AAAA-MM-DD: cuándo se pidió, qué día prometió el proveedor
+ * y cuándo llegó de verdad (para medir su cumplimiento).
+ */
+export interface Repuesto {
+  id: string; itemId: string; nombre: string; estado: 'por_pedir' | 'pedido' | 'recibido';
+  proveedor?: string; pedidoEl?: string; prometido?: string; recibidoEl?: string;
+  /** El proveedor movió la fecha a una posterior: hay que avisar al cliente. */
+  reprogramado?: boolean;
+  /** Primera fecha que prometió el proveedor: su cumplimiento se mide contra esta, aunque después la mueva. */
+  prometidoInicial?: string;
+}
 /** Factura a la compañía. Fechas AAAA-MM-DD; la ley cuenta el plazo desde que la compañía la recibe. */
 export interface Factura { numero: number; emitida: string; monto: number; pagadaEl?: string }
 

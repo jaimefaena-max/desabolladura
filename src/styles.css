@@ -86,7 +86,7 @@ img { display: block; max-width: 100%; }
 .buscar-fila .segmentos { flex: 0 1 340px; }
 .campo.buscar { flex: 1 1 300px; flex-direction: row; align-items: center; gap: .5rem; padding-left: 1rem; background: var(--fondo-2); border: 1.5px solid #4a525c; border-radius: 12px; color: var(--suave); }
 .campo.buscar input { border: 0 !important; background: none !important; padding-left: 0 !important; color: var(--texto); }
-.repuesto { display: grid; grid-template-columns: 1fr minmax(0, 360px); gap: .6rem 1.2rem; align-items: center; padding: .8rem 0; border-bottom: 1px solid var(--linea); }
+.repuesto { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem 1rem; align-items: center; padding: .9rem 0; border-bottom: 1px solid var(--linea); }
 .repuesto b { font-weight: 600; display: block; }
 .repuesto small { color: var(--suave); font-size: .98rem; }
 .dos-col .repuesto { grid-template-columns: minmax(0, 1fr); }
@@ -683,3 +683,26 @@ img { display: block; max-width: 100%; }
 .hero-auto-lienzo canvas { cursor: grab; }
 .hero-auto-lienzo canvas:active { cursor: grabbing; }
 .hero-girar { position: absolute; top: 8%; right: 4%; display: inline-flex; align-items: center; gap: .4rem; margin: 0; padding: .35rem .8rem; border-radius: 99px; background: rgba(13, 15, 18, .6); border: 1px solid var(--linea); color: var(--suave); font-size: .85rem; pointer-events: none; animation: aparecer .6s .8s ease-out both; }
+
+/* Mejora 4: control de repuestos con proveedor y fecha comprometida. */
+.rp-datos { display: flex; flex-direction: column; min-width: 0; }
+.rp-acciones { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.rp-acciones .btn { min-height: 46px; }
+.rp-form { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; padding: .9rem; border-radius: 12px; background: var(--fondo-2); border: 1px solid var(--linea); }
+.rp-form .campo input { min-height: 52px; }
+.rp-form .rp-acciones { grid-column: 1 / -1; }
+.chip.rp-por_pedir { background: color-mix(in srgb, var(--acento) 16%, transparent); color: var(--acento); }
+.chip.rp-en_camino { background: color-mix(in srgb, var(--texto) 10%, transparent); color: var(--texto); }
+.chip.rp-llega_hoy { background: rgba(255, 200, 97, .16); color: #ffc861; }
+.chip.rp-atrasado, .chip.rp-tarde { background: color-mix(in srgb, var(--error) 18%, transparent); color: var(--error); gap: .3rem; }
+.chip.rp-a_tiempo, .chip.rp-recibido { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.repuesto.atrasado { box-shadow: inset 4px 0 0 var(--error); padding-left: .9rem; }
+.rp-detenidos { margin-top: 1.6rem; }
+.rp-detenidos ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: .8rem; }
+.rp-detenidos button { display: grid; grid-template-columns: 120px minmax(0, 1fr); grid-template-rows: auto auto; gap: .3rem .9rem; width: 100%; padding: .8rem; text-align: left; background: var(--fondo-2); border: 1px solid var(--linea); border-radius: var(--r); }
+.rp-detenidos button:hover { border-color: var(--acento); }
+.rp-detenidos .foto, .rp-detenidos .foto-real { grid-row: span 2; width: 120px; border-radius: 10px; }
+.rp-detenidos span:not(.chip) { display: flex; flex-direction: column; min-width: 0; }
+.rp-detenidos small { color: var(--suave); font-size: .9rem; }
+.rp-detenidos .chip { justify-self: start; }
+@media (max-width: 620px) { .rp-form { grid-template-columns: 1fr; } .rp-detenidos button { grid-template-columns: 96px minmax(0, 1fr); } .rp-detenidos .foto, .rp-detenidos .foto-real { width: 96px; } }

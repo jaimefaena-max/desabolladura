@@ -8,6 +8,7 @@ import { clp, estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
 import { alertas, CMF_REPARACION, diasEnTaller, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, semaforoPlazo, sincronizar, sumarHabiles } from './automatizacion';
 import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
+import { diasEntre, estadoRepuesto, mensajeRepuesto, resumenRepuestos, textoEstado } from './repuestos';
 import { cobradaSeguro, COMISION_COBRANZA, correoRecordatorio, estadoFactura, resumenCobranza, vencimiento } from './cobranza';
 import type { Item, Orden } from './types';
 import { carroceriaDe, colorHex, patenteValida, verPatente } from './vehiculos';
@@ -163,7 +164,7 @@ describe('automatización', () => {
     const textos = alertas(ordenes, '2026-11-05').map(a => a.texto).join(' | ');
     expect(textos).toMatch(/factura N\.º \d+ vencida hace \d+ días/);
     expect(textos).toMatch(/factura N\.º \d+ vence en \d+ días/);
-    expect(textos).toContain('pedir espejo derecho');
+    expect(alertas(ordenes).map(a => a.texto).join(' | ')).toContain('espejo derecho atrasado 2 días (Concesionario de la marca)');
     expect(textos).toContain('listo, avisa al cliente');
     expect(alertas([con(1041, { entrega: '2020-01-01' })], '2026-11-05')[0]).toMatchObject({ urgente: true });
   });
@@ -371,6 +372,48 @@ describe('visitante que ya abrió la demo', () => {
     const o = ordenesDemo().find(x => x.numero === 1039)!;
     const propia = { ...o, factura: { ...o.factura!, pagadaEl: '2026-11-09' } };
     expect(conFotosDemo([propia])[0].factura?.pagadaEl).toBe('2026-11-09');
+  });
+});
+
+describe('control de repuestos', () => {
+  const buscar = (n: number) => ordenesDemo().find(o => o.numero === n)!;
+  const r = { id: 'r', itemId: 'i', nombre: 'Espejo derecho', estado: 'pedido' as const, proveedor: 'P', pedidoEl: '2026-11-01', prometido: '2026-11-05' };
+  it('sabe si viene en camino, llega hoy, se atrasó o llegó tarde', () => {
+    expect(estadoRepuesto(r, '2026-11-03')).toMatchObject({ estado: 'en_camino', faltan: 2 });
+    expect(estadoRepuesto(r, '2026-11-05').estado).toBe('llega_hoy');
+    expect(estadoRepuesto(r, '2026-11-08')).toMatchObject({ estado: 'atrasado', atraso: 3 });
+    expect(estadoRepuesto({ ...r, estado: 'recibido', recibidoEl: '2026-11-07' })).toMatchObject({ estado: 'tarde', atraso: 2 });
+    expect(estadoRepuesto({ ...r, estado: 'recibido', recibidoEl: '2026-11-04' }).estado).toBe('a_tiempo');
+    // Si el proveedor movió la fecha, se le mide contra su primera promesa.
+    expect(estadoRepuesto({ ...r, estado: 'recibido', prometido: '2026-11-12', prometidoInicial: '2026-11-05', recibidoEl: '2026-11-10' })).toMatchObject({ estado: 'tarde', atraso: 5 });
+    expect(textoEstado(r, '2026-11-08')).toBe('Atrasado 3 días');
+    expect(diasEntre('2026-11-01', '2026-11-05')).toBe(4);
+  });
+  it('un repuesto atrasado corre la fecha de entrega y nunca la adelanta', () => {
+    const o = buscar(1041), rep = o.repuestos.find(x => x.proveedor)!;
+    const lejos = sincronizar({ ...o, repuestos: o.repuestos.map(x => (x.id === rep.id ? { ...x, prometido: sumarHabiles(fechaLocal(), 15) } : x)) });
+    expect(lejos.entrega > o.entrega).toBe(true);
+    expect(sincronizar({ ...lejos, repuestos: o.repuestos }).entrega).toBe(lejos.entrega);
+  });
+  it('resume autos detenidos y el cumplimiento de cada proveedor', () => {
+    const r2 = resumenRepuestos(ordenesDemo());
+    expect(r2.atrasados).toBe(1);
+    expect(r2.detenidos[0].o.numero).toBe(1041);
+    expect(r2.filas[0].e.estado).toBe('atrasado');
+    const norte = r2.proveedores.find(p => p.nombre === 'Repuestos Norte')!;
+    expect(norte).toMatchObject({ pedidos: 3, cumplimiento: 67, atrasoPromedio: .3 });
+    expect(r2.proveedores.find(p => p.nombre === 'Autopartes Centro')!.cumplimiento).toBe(0);
+  });
+  it('el aviso al cliente explica el atraso y trae la nueva fecha y el link', () => {
+    globalThis.location = { origin: 'https://ejemplo.cl', pathname: '/desabolladura/' } as Location;
+    const o = buscar(1041), rep = o.repuestos.find(x => x.proveedor)!, m = mensajeRepuesto(o, rep, { nombre: 'Taller Demo' });
+    expect(m).toContain('*espejo derecho*');
+    // Atrasado sin fecha nueva: no promete una fecha ya pasada.
+    expect(m).toMatch(/Debía llegar el .+ y aún no lo recibimos/);
+    expect(m).not.toContain('Ahora llega');
+    const nueva = mensajeRepuesto(o, { ...rep, prometido: sumarHabiles(fechaLocal(), 4) }, { nombre: 'Taller Demo' });
+    expect(nueva).toMatch(/Ahora llega el .+ nueva fecha estimada de entrega/);
+    expect(m).toMatch(/https:\/\/ejemplo\.cl\/desabolladura\/#\/cliente\/F150RJ\//);
   });
 });
 
