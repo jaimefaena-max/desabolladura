@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { ArrowRight, Car, CheckCircle, Circle, CircleHalf, Check } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, Car, WhatsappLogo, CheckCircle, Circle, CircleHalf, Check } from '@phosphor-icons/react';
 import { Auto3D, Barra, forma, FotoGuardada, Galeria, GaleriaVistas, ir, Leyenda, Marca } from '../components/ui';
-import { conEvento, ETAPAS, etapaDe } from '../lib/automatizacion';
+import { conEvento, enlaceWhatsApp, ETAPAS, etapaDe } from '../lib/automatizacion';
 import { clp, estadosPiezas, fecha, itemsCobrables, progreso, tituloItem, totales } from '../lib/piezas';
-import { actualizar, buscarPorAcceso, useOrdenes } from '../lib/store';
+import { actualizar, buscarPorAcceso, sesion, useOrdenes } from '../lib/store';
 import { desempaquetar } from '../lib/seguimiento';
 import type { Item, Orden } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';
@@ -53,22 +53,44 @@ export function ClienteAcceso() {
   );
 }
 
-/** Aprobación digital: el dueño decide desde su portal, sin llamadas. Solo aplica a particulares. */
-function Presupuesto({ o }: { o: Orden }) {
+/**
+ * Aprobación digital: el dueño decide desde su portal, sin llamadas. Solo aplica a particulares.
+ * Desde el link de WhatsApp (sin servidor) el presupuesto se ve, pero se aprueba respondiendo el mensaje.
+ */
+function Presupuesto({ o, soloLectura, wspTaller, onRespuesta }: { o: Orden; soloLectura: boolean; wspTaller?: string; onRespuesta: (ok: boolean) => void }) {
   const t = totales(o);
-  const responder = (ok: boolean) => actualizar(o.id, x => conEvento(
-    { ...x, aprobacion: ok ? 'aprobada' : 'rechazada', items: ok ? x.items.map(i => ({ ...i, adicional: false })) : x.items },
-    ok ? 'El cliente aprobó el presupuesto' : 'El cliente rechazó el presupuesto',
-  ));
+  const [rechazando, setRechazando] = useState(false);
+  const responder = (ok: boolean) => {
+    actualizar(o.id, x => conEvento(
+      { ...x, aprobacion: ok ? 'aprobada' : 'rechazada', items: ok ? x.items.map(i => ({ ...i, adicional: false })) : x.items },
+      ok ? 'El cliente aprobó el presupuesto en su portal' : 'El cliente rechazó el presupuesto en su portal',
+    ));
+    onRespuesta(ok);
+  };
   return (
     <section className="presupuesto">
       <h2>Tu presupuesto</h2>
       <ul>{itemsCobrables(o).map(i => <li key={i.id}><span>{tituloItem(i, o.vehiculo.carroceria)}</span><b>{clp(i.monto ?? 0)}</b></li>)}</ul>
       <p className="presupuesto-total"><span>Total con IVA</span><b>{clp(t.total)}</b></p>
-      <div>
-        <button className="btn primario grande" onClick={() => responder(true)}><Check size={24} weight="bold" /> Aprobar</button>
-        <button className="btn secundario grande" onClick={() => responder(false)}>Rechazar</button>
-      </div>
+      {soloLectura ? (
+        <div className="presupuesto-wsp">
+          <p>Para aprobarlo, responde <b>«Apruebo»</b> al WhatsApp del taller.</p>
+          {wspTaller && <a className="btn primario grande" href={enlaceWhatsApp(wspTaller, `Apruebo el presupuesto de la orden ${o.numero} por ${clp(t.total)}.`)} target="_blank" rel="noreferrer noopener"><WhatsappLogo size={24} /> Responder «Apruebo»</a>}
+        </div>
+      ) : rechazando ? (
+        <div className="presupuesto-confirmar">
+          <p>¿Seguro que no quieres hacer el trabajo? El taller te contactará para conversarlo.</p>
+          <div>
+            <button className="btn secundario grande" onClick={() => responder(false)}>Sí, rechazar</button>
+            <button className="btn primario grande" onClick={() => setRechazando(false)}>Volver</button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <button className="btn primario grande" onClick={() => responder(true)}><Check size={24} weight="bold" /> Aprobar</button>
+          <button className="btn secundario grande" onClick={() => setRechazando(true)}>Rechazar</button>
+        </div>
+      )}
     </section>
   );
 }
@@ -117,6 +139,7 @@ export function ClientePortal({ codigo, instantanea }: { codigo: string; instant
   const delLink = useMemo(() => (instantanea ? desempaquetar(instantanea) : null), [instantanea]);
   const o = delLink ?? local;
   const soloLectura = !!delLink;
+  const [respuesta, setRespuesta] = useState<boolean | null>(null);
   if (!o) {
     return (
       <div className="login"><main className="login-caja angosta"><h1>No encontramos ese seguimiento</h1>
@@ -134,6 +157,10 @@ export function ClientePortal({ codigo, instantanea }: { codigo: string; instant
   return (
     <div className="portal">
       <header className="barra"><Marca /><span className="patente">{verPatente(v.patente)}</span></header>
+      {/* El administrador que entró con «Ver como cliente» vuelve a su orden con un toque. */}
+      {sesion()?.rol === 'admin' && !soloLectura && (
+        <p className="vista-cliente">Estás viendo lo que ve el cliente.<button className="enlace" onClick={() => ir(`/admin/ot/${o.id}`)}><ArrowLeft size={18} /> Volver a la orden</button></p>
+      )}
       <main>
         <section className="portal-hero">
           <div className="portal-3d">
@@ -153,7 +180,9 @@ export function ClientePortal({ codigo, instantanea }: { codigo: string; instant
           {pasos.map((e, i) => <li key={e.id} className={i < actual ? 'hecha' : i === actual ? 'actual' : ''} aria-current={i === actual ? 'step' : undefined}>{e.nombre}</li>)}
         </ol>
         <div className="portal-tareas">
-          {o.aprobacion === 'enviada' && o.pagador.tipo === 'particular' && !soloLectura && <Presupuesto o={o} />}
+          {respuesta === true && <p className="aviso-ok" role="status"><CheckCircle size={26} weight="fill" /> ¡Gracias! Aprobaste el presupuesto. El taller ya puede comenzar tu reparación.</p>}
+          {o.aprobacion === 'rechazada' && <p className="aviso-rechazo" role="status">Rechazaste el presupuesto. El taller te contactará para conversarlo.</p>}
+          {o.aprobacion === 'enviada' && o.pagador.tipo === 'particular' && <Presupuesto o={o} soloLectura={soloLectura} wspTaller={delLink?.wspTaller} onRespuesta={setRespuesta} />}
           <h2>Tareas para llegar al 100%</h2>
           <ul className="lista-tareas">
             {tareas.map(i => (

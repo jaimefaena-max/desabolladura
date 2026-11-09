@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
-import { ArrowsClockwise, Bell, CheckCircle, MagnifyingGlass, PaperPlaneTilt, Plus, Printer, Truck, WarningCircle, WhatsappLogo } from '@phosphor-icons/react';
+import { ArrowsClockwise, Bell, Check, CheckCircle, Eye, HourglassMedium, MagnifyingGlass, PaperPlaneTilt, PencilSimple, Phone, Plus, Printer, Truck, WarningCircle, WhatsappLogo, XCircle } from '@phosphor-icons/react';
 import { Auto3D, Barra, forma, FotoOrden, Galeria, GaleriaVistas, ir, Logo, Pantalla } from '../components/ui';
 import { CotizacionDoc, imprimirCotizacion } from '../components/Cotizacion';
-import { enlaceSeguimiento } from '../lib/seguimiento';
+import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
 import { alertas, conEvento, enlaceWhatsApp, ETAPAS, etapaDe, mensajeCliente, metricas, nombreEtapa } from '../lib/automatizacion';
 import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../lib/gemini';
 import { reducirImagen } from '../lib/padron';
@@ -199,22 +199,66 @@ function FilaItem({ o, i }: { o: Orden; i: Item }) {
   );
 }
 
+/**
+ * Presupuesto de un particular que espera respuesta. En la vida real el cliente aprueba en su
+ * portal, por teléfono, por WhatsApp o en el mesón: el taller necesita poder registrar cualquiera.
+ */
+function RespuestaCliente({ o, aprobar }: { o: Orden; aprobar: (como: string) => void }) {
+  const empresa = useEmpresa();
+  const [confirmando, setConfirmando] = useState(false);
+  const t = totales(o), tel = o.cliente.telefono, rechazo = o.aprobacion === 'rechazada';
+  const volverARevisar = () => actualizar(o.id, x => conEvento({ ...x, aprobacion: 'pendiente' }, 'Presupuesto en revisión para reenviar'));
+
+  return (
+    <section className={`espera-cliente ${rechazo ? 'rechazo' : ''}`} aria-live="polite">
+      <p className="ec-tit">{rechazo ? <XCircle size={26} weight="fill" /> : <HourglassMedium size={26} weight="fill" />}<b>{rechazo ? 'El cliente rechazó el presupuesto' : 'Esperando al cliente'}</b></p>
+      <p className="ec-sub">{rechazo ? 'Puedes ajustar los montos y reenviarlo, o registrar si después lo aprobó.' : `Presupuesto por ${clp(t.total)} enviado. El cliente puede aprobarlo de cualquiera de estas formas:`}</p>
+      {!rechazo && <button className="btn primario grande ancho" onClick={() => ir(`/cliente/${o.codigo}`)}><Eye size={24} /> Ver como cliente y aprobar</button>}
+      {rechazo && <button className="btn primario grande ancho" onClick={volverARevisar}><PencilSimple size={24} /> Ajustar montos y reenviar</button>}
+      {confirmando ? (
+        <div className="ec-confirmar" role="group" aria-label="Confirmar aprobación">
+          <p>¿El cliente aprobó {clp(t.total)}? Quedará registrado en el historial.</p>
+          <div>
+            <button className="btn primario" onClick={() => aprobar('por teléfono, WhatsApp o en persona (registrado por el taller)')}><Check size={22} weight="bold" /> Sí, aprobó</button>
+            <button className="btn secundario" onClick={() => setConfirmando(false)}>Cancelar</button>
+          </div>
+        </div>
+      ) : (
+        <button className="btn secundario grande ancho" onClick={() => setConfirmando(true)}><Phone size={24} /> {rechazo ? 'Después lo aprobó' : 'Aprobó por teléfono, WhatsApp o en persona'}</button>
+      )}
+      {tel && (
+        <a className="btn secundario grande ancho" target="_blank" rel="noreferrer noopener"
+          href={enlaceWhatsApp(tel, rechazo ? `${mensajeCliente(o, empresa)} ¿Podemos conversar el presupuesto de su ${o.vehiculo.marca} ${o.vehiculo.modelo}?` : mensajePresupuesto(o, empresa, true))}>
+          <WhatsappLogo size={26} /> {rechazo ? 'Conversar por WhatsApp' : 'Recordar por WhatsApp'}
+        </a>
+      )}
+    </section>
+  );
+}
+
 function Acciones({ o }: { o: Orden }) {
   const empresa = useEmpresa();
   const t = totales(o), et = etapaDe(o), seguro = o.pagador.tipo === 'aseguradora';
   const cambiar = (c: Partial<Orden>, texto: string) => actualizar(o.id, x => conEvento({ ...x, ...c }, texto));
-  const aprobar = () => cambiar({ aprobacion: 'aprobada', items: o.items.map(i => ({ ...i, adicional: false })) }, seguro ? 'Compañía autorizó el presupuesto' : 'Presupuesto aprobado');
+  const aprobar = (como = '') => cambiar({ aprobacion: 'aprobada', items: o.items.map(i => ({ ...i, adicional: false })) }, seguro ? 'Compañía autorizó el presupuesto' : `Presupuesto aprobado${como ? ` ${como}` : ''}`);
+  // Enviar = registrar el envío y abrir WhatsApp con el total y el link (el clic permite abrir la ventana).
+  const enviar = () => {
+    const nueva = conEvento({ ...o, aprobacion: 'enviada' as const }, 'Presupuesto enviado al cliente');
+    actualizar(o.id, () => nueva);
+    if (o.cliente.telefono) window.open(enlaceWhatsApp(o.cliente.telefono, mensajePresupuesto(nueva, empresa)), '_blank', 'noopener');
+  };
+  const esperando = !seguro && (o.aprobacion === 'enviada' || o.aprobacion === 'rechazada');
 
   return (
     <div className="acciones no-print">
-      {o.aprobacion === 'pendiente' && !seguro && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ aprobacion: 'enviada' }, 'Presupuesto enviado al cliente')}><PaperPlaneTilt size={24} /> Enviar presupuesto al cliente</button>}
-      {o.aprobacion === 'enviada' && <p className="pista">Esperando que el cliente apruebe en su portal.</p>}
-      {(o.aprobacion === 'pendiente' && seguro) && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={aprobar}><CheckCircle size={24} /> La compañía autorizó</button>}
+      {o.aprobacion === 'pendiente' && !seguro && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={enviar}><PaperPlaneTilt size={24} /> Enviar presupuesto al cliente</button>}
+      {esperando && <RespuestaCliente o={o} aprobar={aprobar} />}
+      {(o.aprobacion === 'pendiente' && seguro) && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={() => aprobar()}><CheckCircle size={24} /> La compañía autorizó</button>}
       {et === 'entrega' && <button className="btn primario grande ancho" onClick={() => cambiar({ entregadaEl: fechaLocal(), items: o.items.map(i => ({ ...i, estado: 'listo' as const })) }, 'Vehículo entregado')}><Truck size={24} /> Marcar como entregado</button>}
       {o.cobrada ? <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada</p> : (
         <button className="btn secundario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ cobrada: true }, 'Orden cobrada')}>Marcar como cobrada</button>
       )}
-      {o.cliente.telefono && <a className="btn secundario grande ancho" href={enlaceWhatsApp(o.cliente.telefono, `${mensajeCliente(o, empresa)}
+      {o.cliente.telefono && !esperando && <a className="btn secundario grande ancho" href={enlaceWhatsApp(o.cliente.telefono, `${mensajeCliente(o, empresa)}
 ${enlaceSeguimiento(o, empresa.nombre)}`)} target="_blank" rel="noreferrer noopener"><WhatsappLogo size={26} /> Avisar por WhatsApp</a>}
       {t.faltan > 0 && <p className="pista">Faltan {t.faltan} montos por definir.</p>}
     </div>

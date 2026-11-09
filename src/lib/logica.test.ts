@@ -1,10 +1,10 @@
 import { leerFicha, medidasValidas, promptVista, slugAuto } from './fichaModelo';
-import { desempaquetar, empaquetar, mensajeAvance } from './seguimiento';
+import { desempaquetar, empaquetar, mensajeAvance, mensajePresupuesto } from './seguimiento';
 import { specDe } from '../three/carModel';
 import { describe, expect, it } from 'vitest';
 import { extraerJSON } from './gemini';
 import { interpretarPadron } from './padron';
-import { estadosPiezas, fechaLocal, progreso, totales } from './piezas';
+import { clp, estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
 import { alertas, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, sincronizar, sumarHabiles } from './automatizacion';
 import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
@@ -273,10 +273,11 @@ describe('seguimiento por WhatsApp', () => {
     expect(d.items.map(i => [i.id, i.estado, i.nota])).toEqual(o.items.map(i => [i.id, i.estado, i.nota]));
     expect(progreso(d.items)).toBe(progreso(o.items));
   });
-  it('el link no lleva nombre, RUT, teléfono ni montos', () => {
+  it('el link no lleva nombre, RUT ni teléfono; sí los montos del presupuesto, sin precios sugeridos', () => {
     const o = base(), s = empaquetar(o, 'Taller Demo'), d = desempaquetar(s)!;
     expect(d.cliente).toEqual({ nombre: '', rut: '', telefono: '' });
-    expect(d.items.every(i => i.monto === null && !i.sugerido)).toBe(true);
+    expect(d.items.map(i => i.monto)).toEqual(o.items.map(i => i.monto));
+    expect(d.items.every(i => !i.sugerido)).toBe(true);
     expect(JSON.stringify(d)).not.toMatch(/Carlos|12\.345|1234 5678/);
     expect(s.length).toBeLessThan(2500);
   });
@@ -293,5 +294,15 @@ describe('seguimiento por WhatsApp', () => {
     expect(m).toContain(`de ${antes}% a ${progreso(nueva.items)}%`);
     expect(m).toContain('«Pieza nueva instalada y probada»');
     expect(m).toMatch(/https:\/\/ejemplo\.cl\/desabolladura\/#\/cliente\/COR7X2\/[\w-]+$/);
+  });
+  it('el presupuesto por WhatsApp trae total, link y cómo aprobar', () => {
+    globalThis.location = { origin: 'https://ejemplo.cl', pathname: '/desabolladura/' } as Location;
+    const o = base(), m = mensajePresupuesto(o, { nombre: 'Taller Demo', whatsapp: '+56 9 8765 4321' });
+    expect(m).toContain('Hola Carlos');
+    expect(m).toContain(`*${clp(totales(o).total)}*`);
+    expect(m).toContain('responda *Apruebo*');
+    const link = m.match(/https:\/\/\S+/)![0];
+    expect(desempaquetar(link.split('/').pop()!)!.wspTaller).toBe('+56 9 8765 4321');
+    expect(mensajePresupuesto(o, { nombre: 'T', whatsapp: '' }, true)).toContain('sigue esperando su respuesta');
   });
 });
