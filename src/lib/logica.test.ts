@@ -1,4 +1,5 @@
 import { leerFicha, medidasValidas, promptVista, slugAuto } from './fichaModelo';
+import { desempaquetar, empaquetar, mensajeAvance } from './seguimiento';
 import { specDe } from '../three/carModel';
 import { describe, expect, it } from 'vitest';
 import { extraerJSON } from './gemini';
@@ -257,5 +258,40 @@ describe('fotos de los autos demo', () => {
   it('no toca órdenes creadas por el visitante', () => {
     const propia = { ...ordenesDemo()[0], id: 'propia' };
     expect(conFotosDemo([propia])[0]).toBe(propia);
+  });
+});
+
+describe('seguimiento por WhatsApp', () => {
+  const base = () => {
+    const o = ordenesDemo().find(x => x.codigo === 'COR7X2')!;
+    return { ...o, cliente: { nombre: 'Carlos Morales', rut: '12.345.678-5', telefono: '+56 9 1234 5678' } };
+  };
+  it('el link lleva la orden y vuelve igual (tareas, notas y avance)', () => {
+    const o = base(), d = desempaquetar(empaquetar(o, 'Taller Demo'))!;
+    expect(d.codigo).toBe('COR7X2');
+    expect(d.taller).toBe('Taller Demo');
+    expect(d.items.map(i => [i.id, i.estado, i.nota])).toEqual(o.items.map(i => [i.id, i.estado, i.nota]));
+    expect(progreso(d.items)).toBe(progreso(o.items));
+  });
+  it('el link no lleva nombre, RUT, teléfono ni montos', () => {
+    const o = base(), s = empaquetar(o, 'Taller Demo'), d = desempaquetar(s)!;
+    expect(d.cliente).toEqual({ nombre: '', rut: '', telefono: '' });
+    expect(d.items.every(i => i.monto === null && !i.sugerido)).toBe(true);
+    expect(JSON.stringify(d)).not.toMatch(/Carlos|12\.345|1234 5678/);
+    expect(s.length).toBeLessThan(2500);
+  });
+  it('un link dañado no rompe el portal', () => {
+    expect(desempaquetar('no-es-un-link')).toBeNull();
+  });
+  it('el mensaje dice qué se terminó, cuánto avanzó y trae el link', () => {
+    globalThis.location = { origin: 'https://ejemplo.cl', pathname: '/desabolladura/' } as Location;
+    const o = base(), it = o.items.find(i => i.estado !== 'listo')!, antes = progreso(o.items);
+    const hecho = { ...it, estado: 'listo' as const, nota: 'Pieza nueva instalada y probada' };
+    const nueva = { ...o, items: o.items.map(i => (i.id === it.id ? hecho : i)) };
+    const m = mensajeAvance(nueva, hecho, antes, { nombre: 'Taller Demo' });
+    expect(m).toContain('Hola Carlos');
+    expect(m).toContain(`de ${antes}% a ${progreso(nueva.items)}%`);
+    expect(m).toContain('«Pieza nueva instalada y probada»');
+    expect(m).toMatch(/https:\/\/ejemplo\.cl\/desabolladura\/#\/cliente\/COR7X2\/[\w-]+$/);
   });
 });

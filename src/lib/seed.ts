@@ -35,10 +35,20 @@ function rutDemo(n: number) {
 
 type Fila = [Trabajo, PiezaId, Severidad, EstadoItem, number?];
 
+/** Notas del maestro en los trabajos ya terminados de la demo: el cliente las ve en «Últimos avances». */
+const NOTA_DEMO: Partial<Record<Item['trabajo'], string>> = {
+  desabolladura: 'Abolladura reparada, lata pareja y lista para pintura',
+  pintura: 'Pintura igualada al color original y barnizada',
+  cambio: 'Pieza nueva instalada y probada',
+  plastico: 'Plástico soldado y reforzado por dentro',
+  pulido: 'Rayas eliminadas, brillo recuperado',
+};
+
 function items(v: Vehiculo, filas: Fila[], cierre: EstadoItem = 'pendiente'): Item[] {
   const [recepcion, ...fin] = tareasGenerales();
   const trabajos = filas.map(([trabajo, pieza, severidad, estado, monto], i): Item => ({
     id: `i${i}`, trabajo, pieza, severidad, estado, monto: monto ?? null, sugerido: sugerir(trabajo, pieza, severidad, v),
+    ...(estado === 'listo' ? { nota: NOTA_DEMO[trabajo], terminadoEl: new Date(Date.now() - (filas.length - i) * 5 * 3600e3).toISOString() } : {}),
   }));
   return [recepcion, ...trabajos, ...fin.map(i => ({ ...i, estado: cierre }))];
 }

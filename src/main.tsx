@@ -35,7 +35,7 @@ function Rutas() {
   const p = ruta.split('/').filter(Boolean);
 
   if (p[0] === 'entrar') return <Login />;
-  if (p[0] === 'cliente') return p[1] ? <ClientePortal key={p[1]} codigo={p[1]} /> : <ClienteAcceso />;
+  if (p[0] === 'cliente') return p[1] ? <ClientePortal key={p[1]} codigo={p[1]} instantanea={p[2]} /> : <ClienteAcceso />;
   if (p[0] === 'maestro') {
     return (
       <Guardia rol="maestro">

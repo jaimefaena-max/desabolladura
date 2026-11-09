@@ -169,9 +169,12 @@ export function TarjetaOrden({ o, destino }: { o: Orden; destino: string }) {
   );
 }
 
-function Imagen({ id, alt }: { id: string; alt: string }) {
-  const [src, setSrc] = useState<string>();
-  useEffect(() => { let vivo = true; void leerFoto(id).then(s => { if (vivo) setSrc(s); }); return () => { vivo = false; }; }, [id]);
+/** Foto guardada en el equipo (IndexedDB). */
+export function FotoGuardada({ id, alt }: { id: string; alt: string }) {
+  const [src, setSrc] = useState<string | null>();
+  useEffect(() => { let vivo = true; leerFoto(id).then(s => { if (vivo) setSrc(s ?? null); }, () => { if (vivo) setSrc(null); }); return () => { vivo = false; }; }, [id]);
+  // null = la foto no está en este equipo (link abierto en otro teléfono): sin servidor no viaja.
+  if (src === null) return <div className="foto-taller" role="img" aria-label={alt}><Camera size={26} weight="light" /><span>Foto en el sistema del taller</span></div>;
   return src ? <img src={src} alt={alt} loading="lazy" /> : <div className="esqueleto" role="img" aria-label={alt} />;
 }
 
@@ -193,7 +196,7 @@ export function Galeria({ fotos, onAgregar }: { fotos: FotoRef[]; onAgregar?: (f
           <div key={g.id}>
             <p className="etiqueta">{g.nombre}</p>
             <div className="fotos">
-              {lista.map((f, i) => <Imagen key={f.id} id={f.id} alt={`Foto ${g.nombre.toLowerCase()} ${i + 1}`} />)}
+              {lista.map((f, i) => <FotoGuardada key={f.id} id={f.id} alt={`Foto ${g.nombre.toLowerCase()} ${i + 1}`} />)}
               {onAgregar && <button className="foto-mas" aria-label={`Agregar foto de ${g.nombre.toLowerCase()}`} onClick={() => abrir(g.id)}><Camera size={34} weight="light" /> Sacar foto</button>}
             </div>
           </div>

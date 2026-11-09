@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { ArrowsClockwise, Bell, CheckCircle, MagnifyingGlass, PaperPlaneTilt, Plus, Printer, Truck, WarningCircle, WhatsappLogo } from '@phosphor-icons/react';
 import { Auto3D, Barra, forma, FotoOrden, Galeria, GaleriaVistas, ir, Logo, Pantalla } from '../components/ui';
 import { CotizacionDoc, imprimirCotizacion } from '../components/Cotizacion';
+import { enlaceSeguimiento } from '../lib/seguimiento';
 import { alertas, conEvento, enlaceWhatsApp, ETAPAS, etapaDe, mensajeCliente, metricas, nombreEtapa } from '../lib/automatizacion';
 import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../lib/gemini';
 import { reducirImagen } from '../lib/padron';
@@ -213,7 +214,8 @@ function Acciones({ o }: { o: Orden }) {
       {o.cobrada ? <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada</p> : (
         <button className="btn secundario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ cobrada: true }, 'Orden cobrada')}>Marcar como cobrada</button>
       )}
-      {o.cliente.telefono && <a className="btn secundario grande ancho" href={enlaceWhatsApp(o.cliente.telefono, mensajeCliente(o, empresa))} target="_blank" rel="noreferrer noopener"><WhatsappLogo size={26} /> Avisar por WhatsApp</a>}
+      {o.cliente.telefono && <a className="btn secundario grande ancho" href={enlaceWhatsApp(o.cliente.telefono, `${mensajeCliente(o, empresa)}
+${enlaceSeguimiento(o, empresa.nombre)}`)} target="_blank" rel="noreferrer noopener"><WhatsappLogo size={26} /> Avisar por WhatsApp</a>}
       {t.faltan > 0 && <p className="pista">Faltan {t.faltan} montos por definir.</p>}
     </div>
   );

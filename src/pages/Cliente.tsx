@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowRight, Car, CheckCircle, Circle, CircleHalf, Check } from '@phosphor-icons/react';
-import { Auto3D, Barra, forma, Galeria, GaleriaVistas, ir, Leyenda, Marca } from '../components/ui';
+import { Auto3D, Barra, forma, FotoGuardada, Galeria, GaleriaVistas, ir, Leyenda, Marca } from '../components/ui';
 import { conEvento, ETAPAS, etapaDe } from '../lib/automatizacion';
 import { clp, estadosPiezas, fecha, itemsCobrables, progreso, tituloItem, totales } from '../lib/piezas';
 import { actualizar, buscarPorAcceso, useOrdenes } from '../lib/store';
-import type { Orden } from '../lib/types';
+import { desempaquetar } from '../lib/seguimiento';
+import type { Item, Orden } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';
 
 /** Seguimiento de muestra: el visitante entra sin escribir nada. Si esa orden se borró, sirve cualquiera. */
@@ -72,9 +73,50 @@ function Presupuesto({ o }: { o: Orden }) {
   );
 }
 
-export function ClientePortal({ codigo }: { codigo: string }) {
+const hora = (iso: string) => {
+  const d = new Date(iso), hoy = new Date();
+  const dia = d.toDateString() === hoy.toDateString() ? 'Hoy' : d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short' });
+  return `${dia}, ${d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+/** Lo último que terminó el taller: nota del maestro y fotos de antes y después. */
+function Avances({ o }: { o: Orden }) {
+  const hechos = o.items.filter((i): i is Item & { terminadoEl: string } => i.estado === 'listo' && !!i.terminadoEl)
+    .sort((a, b) => b.terminadoEl.localeCompare(a.terminadoEl));
+  if (!hechos.length) return null;
+  const foto = (id: string | undefined, nombre: string) => !id ? null : (
+    <figure>
+      <FotoGuardada id={id} alt={`Foto ${nombre}`} />
+      <figcaption>{nombre}</figcaption>
+    </figure>
+  );
+  return (
+    <section className="avances">
+      <h2>Últimos avances</h2>
+      <ol>
+        {hechos.map(i => (
+          <li key={i.id}>
+            <CheckCircle size={28} weight="fill" aria-hidden="true" />
+            <div>
+              <p className="av-tit"><b>{tituloItem(i, o.vehiculo.carroceria)}</b><time>{hora(i.terminadoEl)}</time></p>
+              {i.nota && <p className="av-nota">«{i.nota}»</p>}
+              {(i.fotoAntes || i.fotoDespues) && <div className="av-fotos">{foto(i.fotoAntes, 'Antes')}{foto(i.fotoDespues, 'Después')}</div>}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+export function ClientePortal({ codigo, instantanea }: { codigo: string; instantanea?: string }) {
   const ordenes = useOrdenes();
-  const o = codigo === 'demo' ? ordenDemo(ordenes) : ordenes.find(x => x.codigo === codigo);
+  const local = codigo === 'demo' ? ordenDemo(ordenes) : ordenes.find(x => x.codigo === codigo);
+  // Abierto desde el link de WhatsApp: manda lo que trae el link (el avance al momento del aviso).
+  // En otro teléfono la demo tiene sus propios autos de ejemplo, que no saben de este avance.
+  const delLink = useMemo(() => (instantanea ? desempaquetar(instantanea) : null), [instantanea]);
+  const o = delLink ?? local;
+  const soloLectura = !!delLink;
   if (!o) {
     return (
       <div className="login"><main className="login-caja angosta"><h1>No encontramos ese seguimiento</h1>
@@ -106,11 +148,12 @@ export function ClientePortal({ codigo }: { codigo: string }) {
           </div>
         </section>
         <div className="portal-galeria"><GaleriaVistas o={o} /></div>
+        <Avances o={o} />
         <ol className="linea-etapas" aria-label="Etapas de la reparación">
           {pasos.map((e, i) => <li key={e.id} className={i < actual ? 'hecha' : i === actual ? 'actual' : ''} aria-current={i === actual ? 'step' : undefined}>{e.nombre}</li>)}
         </ol>
         <div className="portal-tareas">
-          {o.aprobacion === 'enviada' && o.pagador.tipo === 'particular' && <Presupuesto o={o} />}
+          {o.aprobacion === 'enviada' && o.pagador.tipo === 'particular' && !soloLectura && <Presupuesto o={o} />}
           <h2>Tareas para llegar al 100%</h2>
           <ul className="lista-tareas">
             {tareas.map(i => (

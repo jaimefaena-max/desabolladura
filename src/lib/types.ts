@@ -29,6 +29,13 @@ export interface Item {
   sugerido?: Sugerido;
   /** Trabajo descubierto después de aprobar: vuelve a pedir autorización. */
   adicional?: boolean;
+  /** Lo que el maestro deja al terminar: lo ve el cliente en su portal. */
+  nota?: string;
+  /** Fotos de esta tarea (identificadores en IndexedDB). */
+  fotoAntes?: string;
+  fotoDespues?: string;
+  /** Fecha y hora (ISO) en que se marcó como lista. */
+  terminadoEl?: string;
 }
 
 /** Medidas exteriores reales, en metros. */

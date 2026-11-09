@@ -535,3 +535,31 @@ img { display: block; max-width: 100%; }
   .dc-firmas small { color: #8a919b; font-weight: 400; }
   .dc-pie { display: flex; justify-content: space-between; margin-top: 1.6rem; padding-top: .5rem; border-top: 1px solid #e3e6ea; color: #8a919b; font-size: 7.5pt; }
 }
+
+/* Terminar trabajo (maestro) y «Últimos avances» (cliente). */
+.oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .6rem; }
+.chips button { min-height: 44px; padding: .4rem .9rem; border: 1.5px solid var(--linea); border-radius: 999px; background: var(--fondo); font-size: .95rem; }
+.chips button.on { border-color: var(--acento); background: color-mix(in srgb, var(--acento) 16%, var(--fondo)); }
+.campo textarea { width: 100%; padding: .8rem 1rem; background: var(--fondo); border: 1.5px solid #4a525c; border-radius: 12px; color: var(--texto); font: inherit; font-size: 1.05rem; resize: vertical; }
+.campo textarea:focus { outline: none; border-color: var(--acento); }
+.fotos-trabajo { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+.foto-trabajo { display: flex; flex-direction: column; gap: .35rem; padding: 0; background: none; text-align: left; }
+.foto-trabajo > span, .foto-trabajo img, .foto-trabajo .esqueleto { display: grid; place-items: center; gap: .3rem; width: 100%; aspect-ratio: 4 / 3; border: 1.5px dashed #4a525c; border-radius: 12px; color: var(--suave); font-size: .95rem; object-fit: cover; }
+.foto-trabajo img { border-style: solid; border-color: var(--acento); }
+.foto-trabajo b { font-size: .95rem; }
+.burbuja-wsp { margin: 0; padding: .8rem 1rem; border-radius: 4px 14px 14px 14px; background: #103a2e; color: #e6f4ee; font-size: .92rem; line-height: 1.4; white-space: pre-line; overflow-wrap: anywhere; max-height: 9.5rem; overflow: auto; }
+.hoja.terminar > .btn + .btn { margin-top: .6rem; }
+.tarea-nota { display: block; margin-top: -.2rem; color: var(--suave); font-size: .9rem; }
+.avances { margin: 1.4rem 0; }
+.avances ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .8rem; }
+.avances li { display: grid; grid-template-columns: auto 1fr; gap: .8rem; padding: 1rem; background: var(--fondo-2); border: 1px solid var(--linea); border-radius: var(--r); animation: aparecer .3s ease-out; }
+.avances li > svg { color: var(--acento); }
+.av-tit { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .3rem 1rem; margin: 0; }
+.av-tit time { color: var(--suave); font-size: .9rem; }
+.av-nota { margin: .3rem 0 0; color: var(--suave); font-style: italic; }
+.av-fotos { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-top: .7rem; }
+.av-fotos figure { margin: 0; }
+.av-fotos img, .av-fotos .esqueleto, .foto-taller { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; }
+.av-fotos figcaption { margin-top: .25rem; color: var(--suave); font-size: .85rem; }
+.foto-taller { display: grid; place-items: center; align-content: center; gap: .3rem; background: var(--fondo); border: 1px dashed var(--linea); color: var(--suave); font-size: .8rem; text-align: center; padding: .5rem; }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CheckCircle, Plus, Wrench } from '@phosphor-icons/react';
 import PiezaPicker from '../components/PiezaPicker';
+import TerminarTrabajo from '../components/TerminarTrabajo';
 import { Auto3D, Barra, forma, Galeria, ir, Leyenda, Pantalla, TarjetaOrden } from '../components/ui';
 import { conEvento, etapaDe, nombreEtapa, sincronizar } from '../lib/automatizacion';
 import { estadosPiezas, fecha, progreso, tituloItem } from '../lib/piezas';
@@ -38,13 +39,24 @@ const ESTADOS: { id: EstadoItem; nombre: string; verbo: string }[] = [
 export function MaestroOrden({ id }: { id: string }) {
   const o = useOrden(id);
   const [agregando, setAgregando] = useState(false);
+  const [terminando, setTerminando] = useState<Item | null>(null);
   if (!o) return <Pantalla volver="/maestro" titulo="Orden no encontrada" />;
   const v = o.vehiculo, pct = progreso(o.items);
 
-  const cambiar = (it: Item, estado: EstadoItem) => actualizar(id, x => conEvento(
-    { ...x, items: x.items.map(i => (i.id === it.id ? { ...i, estado } : i)) },
-    `${ESTADOS.find(e => e.id === estado)!.verbo}: ${tituloItem(it, v.carroceria).toLowerCase()}`,
-  ));
+  const aplicar = (it: Item, cambio: Partial<Item>) => {
+    const estado = cambio.estado ?? it.estado;
+    const nueva = conEvento(
+      { ...o, items: o.items.map(i => (i.id === it.id ? { ...i, ...cambio } : i)) },
+      `${ESTADOS.find(e => e.id === estado)!.verbo}: ${tituloItem(it, v.carroceria).toLowerCase()}${cambio.nota ? ` («${cambio.nota}»)` : ''}`,
+    );
+    actualizar(id, () => nueva);
+    return nueva;
+  };
+  // «Listo» abre la hoja para dejar nota, fotos y avisar al cliente; volver atrás es directo.
+  const cambiar = (it: Item, estado: EstadoItem) => {
+    if (estado === 'listo' && it.estado !== 'listo') setTerminando(it);
+    else aplicar(it, estado === 'listo' ? { estado } : { estado, terminadoEl: undefined });
+  };
 
   // Un trabajo descubierto después de aprobar vuelve a pedir autorización.
   const cambiarItems = (items: Item[]) => actualizar(id, x => {
@@ -82,6 +94,7 @@ export function MaestroOrden({ id }: { id: string }) {
             {o.items.map(i => (
               <li key={i.id} className={i.estado}>
                 <p>{tituloItem(i, v.carroceria)}{i.adicional && <span className="sello">Adicional</span>}</p>
+                {i.nota && <small className="tarea-nota">«{i.nota}»</small>}
                 <div className="segmentos tres" role="group" aria-label={`Estado de ${tituloItem(i, v.carroceria)}`}>
                   {ESTADOS.map(e => <button key={e.id} aria-pressed={i.estado === e.id} className={i.estado === e.id ? `on ${e.id}` : ''} onClick={() => cambiar(i, e.id)}>{e.nombre}</button>)}
                 </div>
@@ -90,6 +103,7 @@ export function MaestroOrden({ id }: { id: string }) {
           </ul>
         </div>
       </div>
+      {terminando && <TerminarTrabajo o={o} item={terminando} onGuardar={c => aplicar(terminando, c)} onCerrar={() => setTerminando(null)} />}
     </Pantalla>
   );
 }
