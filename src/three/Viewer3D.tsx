@@ -9,6 +9,15 @@ import { makeEnv, makeFloor } from './studio';
 export const ACENTO_DANO = '#e8501f';
 export const PRIMER = '#6b7078';
 
+/**
+ * Colores de las piezas intervenidas: los del taller (Ajustes → color de marca).
+ * «En trabajo» es el mismo color mezclado con imprimación gris: se distingue y sigue siendo del taller.
+ */
+export function coloresTrabajo(acento = ACENTO_DANO) {
+  const dano = new THREE.Color(acento);
+  return { dano, proceso: dano.clone().lerp(new THREE.Color(PRIMER), .72) };
+}
+
 type Estados = Partial<Record<PiezaId, EstadoPieza>>;
 
 interface Props {
@@ -17,6 +26,8 @@ interface Props {
   /** Auto realista creado con IA. Si no carga, se muestra el modelo paramétrico. */
   modelo?: Modelo3D;
   color: string;
+  /** Color del taller: pinta las piezas por reparar y en trabajo. */
+  acento?: string;
   estados?: Estados;
   seleccion?: PiezaId | null;
   onPick?: (p: PiezaId) => void;
@@ -28,16 +39,17 @@ interface Props {
 
 interface Meta { color: THREE.Color; metalness: number; roughness: number; clearcoat: number; emissive: THREE.Color; }
 
-function metaPara(estado: EstadoPieza | undefined, color: string): Meta {
-  const p = paintFor(color), negro = new THREE.Color(0);
-  if (estado === 'pendiente') return { color: new THREE.Color(ACENTO_DANO), metalness: .05, roughness: .5, clearcoat: .3, emissive: new THREE.Color(ACENTO_DANO).multiplyScalar(.28) };
-  if (estado === 'proceso') return { color: new THREE.Color(PRIMER), metalness: 0, roughness: .8, clearcoat: 0, emissive: negro };
+function metaPara(estado: EstadoPieza | undefined, color: string, acento?: string): Meta {
+  const p = paintFor(color), negro = new THREE.Color(0), c = coloresTrabajo(acento);
+  if (estado === 'pendiente') return { color: c.dano, metalness: .05, roughness: .5, clearcoat: .3, emissive: c.dano.clone().multiplyScalar(.28) };
+  if (estado === 'proceso') return { color: c.proceso, metalness: 0, roughness: .8, clearcoat: 0, emissive: negro };
   return { color: p.color, metalness: p.metalness, roughness: p.roughness, clearcoat: p.clearcoat, emissive: negro };
 }
 
 /** Tinte de una zona del auto realista: cuánto se cubre la textura y con qué color. */
-function tintePara(estado: EstadoPieza | undefined, sel: boolean) {
-  const col = new THREE.Color(estado === 'pendiente' ? ACENTO_DANO : estado === 'proceso' ? PRIMER : '#ffb199');
+function tintePara(estado: EstadoPieza | undefined, sel: boolean, acento?: string) {
+  const c = coloresTrabajo(acento);
+  const col = estado === 'pendiente' ? c.dano : estado === 'proceso' ? c.proceso : new THREE.Color('#ffb199');
   const mix = estado === 'pendiente' ? .86 : estado === 'proceso' ? .8 : sel ? .42 : 0;
   const brillo = (estado === 'pendiente' ? .26 : 0) + (sel ? .22 : 0);
   return { col, mix, brillo };
@@ -62,7 +74,7 @@ interface Montado {
   dispose(): void;
 }
 
-function montarParametrico(auto: Auto, color: string, reduce: boolean): Montado {
+function montarParametrico(auto: Auto, color: string, acento: string | undefined, reduce: boolean): Montado {
   const objetivos = new Map<PiezaId, Meta>();
   let quedan = 0;
   const fijar = () => auto.piezas.forEach((p, id) => {
@@ -74,7 +86,7 @@ function montarParametrico(auto: Auto, color: string, reduce: boolean): Montado 
     group: auto.group, largo: auto.largo, alto: auto.alto,
     aplicar(e, sel, animar) {
       auto.piezas.forEach((_, id) => {
-        const m = metaPara(e[id], color);
+        const m = metaPara(e[id], color, acento);
         if (sel === id) m.emissive = new THREE.Color('#ffb199').multiplyScalar(.34);
         objetivos.set(id, m);
       });
@@ -98,15 +110,15 @@ function montarParametrico(auto: Auto, color: string, reduce: boolean): Montado 
   };
 }
 
-function montarReal(auto: AutoReal, reduce: boolean): Montado {
-  const objetivos = auto.zonas.map(() => tintePara(undefined, false));
+function montarReal(auto: AutoReal, acento: string | undefined, reduce: boolean): Montado {
+  const objetivos = auto.zonas.map(() => tintePara(undefined, false, acento));
   let quedan = 0;
   const fijar = () => auto.zonas.forEach((z, i) => { z.col.copy(objetivos[i].col); z.mix.value = objetivos[i].mix; z.brillo.value = objetivos[i].brillo; });
   return {
     group: auto.group, largo: auto.largo, alto: auto.alto,
     aplicar(e, sel, animar) {
       auto.zonas.forEach((z, i) => {
-        const t = tintePara(e[z.id], sel === z.id);
+        const t = tintePara(e[z.id], sel === z.id, acento);
         // Al aparecer, el color parte del destino: solo se anima cuánto cubre.
         if (z.mix.value < .01) z.col.copy(t.col);
         objetivos[i] = t;
@@ -129,7 +141,7 @@ function montarReal(auto: AutoReal, reduce: boolean): Montado {
   };
 }
 
-export default function Viewer3D({ carroceria, medidas, modelo, color, estados, seleccion, onPick, autoRotate = false, angulo = 38, etiqueta }: Props) {
+export default function Viewer3D({ carroceria, medidas, modelo, color, acento, estados, seleccion, onPick, autoRotate = false, angulo = 38, etiqueta }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const api = useRef<{ aplicar(e: Estados, sel: PiezaId | null | undefined, animar: boolean): void } | null>(null);
   const pickRef = useRef(onPick);
@@ -219,13 +231,13 @@ export default function Viewer3D({ carroceria, medidas, modelo, color, estados, 
       m.aplicar(estadoRef.current.estados ?? {}, estadoRef.current.seleccion, false);
       pedir();
     };
-    const parametrico = () => montarParametrico(buildCar(carroceria, color, medidas), color, reduce);
+    const parametrico = () => montarParametrico(buildCar(carroceria, color, medidas), color, acento, reduce);
 
     if (modelo) {
       setCargando(true);
       import('./modeloReal')
         .then(({ cargarModeloReal }) => cargarModeloReal(modelo, carroceria, medidas, color))
-        .then(real => { if (vivo) montar(montarReal(real, reduce)); else real.dispose(); })
+        .then(real => { if (vivo) montar(montarReal(real, acento, reduce)); else real.dispose(); })
         .catch(() => { if (vivo) montar(parametrico()); })
         .finally(() => { if (vivo) setCargando(false); });
     } else {
@@ -266,7 +278,7 @@ export default function Viewer3D({ carroceria, medidas, modelo, color, estados, 
     // El modelo se reconstruye solo si cambia carrocería, color, medidas o el modelo realista.
     // Las medidas y el modelo llegan como objetos nuevos en cada render: se comparan por valor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carroceria, color, JSON.stringify(medidas ?? null), JSON.stringify(modelo ?? null)]);
+  }, [carroceria, color, acento, JSON.stringify(medidas ?? null), JSON.stringify(modelo ?? null)]);
 
   const primera = useRef(true);
   useEffect(() => {

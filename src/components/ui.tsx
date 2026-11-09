@@ -80,8 +80,8 @@ export function Barra({ valor }: { valor: number }) {
 export function Leyenda() {
   return (
     <ul className="leyenda" aria-label="Significado de los colores">
-      <li><i style={{ background: 'var(--dano)' }} /> Por reparar</li>
-      <li><i style={{ background: '#6b7078' }} /> En trabajo</li>
+      <li><i style={{ background: 'var(--acento)' }} /> Por reparar</li>
+      <li><i style={{ background: 'color-mix(in srgb, var(--acento) 28%, #6b7078)' }} /> En trabajo</li>
       <li><i className="pintado" /> Terminada</li>
     </ul>
   );
@@ -90,10 +90,10 @@ export function Leyenda() {
 /** Lo que el 3D necesita de un vehículo: su tipo, sus medidas reales si se conocen y su color. */
 export const forma = (v: Vehiculo) => ({ carroceria: v.carroceria, medidas: v.ficha?.medidas, modelo: v.ficha?.modelo3d, color: v.colorHex });
 
-export function Auto3D(p: { carroceria: Carroceria; medidas?: Medidas; modelo?: Modelo3D; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; seleccion?: PiezaId | null; onPick?: (id: PiezaId) => void; autoRotate?: boolean; angulo?: number; etiqueta: string }) {
+export function Auto3D(p: { acento?: string; carroceria: Carroceria; medidas?: Medidas; modelo?: Modelo3D; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; seleccion?: PiezaId | null; onPick?: (id: PiezaId) => void; autoRotate?: boolean; angulo?: number; etiqueta: string }) {
   return (
     <Suspense fallback={<div className="viewer esqueleto" />}>
-      <Viewer3D {...p} />
+      <Viewer3D acento={useEmpresa().acento} {...p} />
     </Suspense>
   );
 }
@@ -140,12 +140,13 @@ function Miniatura({ ref_, nombre, on, onClick }: { ref_: string; nombre: string
 
 export function FotoAuto({ carroceria, medidas, color, estados, angulo, alt, ancho, alto }: { carroceria: Carroceria; medidas?: Medidas; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; angulo?: number; alt: string; ancho?: number; alto?: number }) {
   const [src, setSrc] = useState<string | null>(null);
-  const clave = JSON.stringify([carroceria, medidas, color, estados, angulo]);
+  const acento = useEmpresa().acento;
+  const clave = JSON.stringify([carroceria, medidas, color, acento, estados, angulo]);
   useEffect(() => {
     let vivo = true;
     const t = setTimeout(async () => {
       const { foto } = await import('../three/snapshot');
-      const url = foto({ carroceria, medidas, color, estados, angulo, ancho, alto });
+      const url = foto({ carroceria, medidas, color, acento, estados, angulo, ancho, alto });
       if (vivo) setSrc(url);
     }, 30);
     return () => { vivo = false; clearTimeout(t); };
