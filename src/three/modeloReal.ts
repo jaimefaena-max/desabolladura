@@ -92,18 +92,55 @@ int zonaDe(vec3 p, out float borde) {
 }
 // La IA tiende a correr el tono (p. ej. gris azulado → morado): se repintan solo los pixeles
 // del tono de la carrocería; vidrios, neumáticos, cromados y focos quedan como están.
-vec3 repintar(vec3 c) {
+vec3 repintar(vec3 c, out float w) {
+  w = 0.0;
   if (uPintOn < 0.5) return c;
   const vec3 LUM = vec3(0.2126, 0.7152, 0.0722);
   float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
   float rel = (mx - mn) / max(mx, 1e-4);
   vec3 d = c - dot(c, LUM), dp = uPintIA - dot(uPintIA, LUM);
-  float w = smoothstep(0.55, 0.85, dot(normalize(d + 1e-6), normalize(dp))) * smoothstep(0.06, 0.16, rel);
+  w = smoothstep(0.55, 0.85, dot(normalize(d + 1e-6), normalize(dp))) * smoothstep(0.06, 0.16, rel);
   return mix(c, c * uPintGan, w);
 }
 `;
 
 const cargador = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+
+/**
+ * La malla que crea la IA tiene pequeños bultos: con barniz, los reflejos salen manchados.
+ * Se suavizan las normales (no la forma): cada vértice promedia su dirección con la de sus
+ * vecinos unas cuantas veces. Los vértices duplicados en las costuras de la textura se tratan
+ * como uno solo, así no aparecen líneas.
+ */
+function suavizarNormales(g: THREE.BufferGeometry, vueltas = 4) {
+  const pos = g.getAttribute('position'), nor = g.getAttribute('normal'), idx = g.getIndex();
+  if (!pos || !nor || !idx) return;
+  const n = pos.count, clave = new Map<string, number>(), soldado = new Uint32Array(n);
+  for (let i = 0; i < n; i++) {
+    const k = `${Math.round(pos.getX(i) * 1e4)},${Math.round(pos.getY(i) * 1e4)},${Math.round(pos.getZ(i) * 1e4)}`;
+    let id = clave.get(k);
+    if (id === undefined) { id = clave.size; clave.set(k, id); }
+    soldado[i] = id;
+  }
+  const m = clave.size;
+  let a = new Float32Array(m * 3);
+  for (let i = 0; i < n; i++) { const s = soldado[i] * 3; a[s] += nor.getX(i); a[s + 1] += nor.getY(i); a[s + 2] += nor.getZ(i); }
+  const normalizar = (v: Float32Array) => { for (let i = 0; i < v.length; i += 3) { const l = Math.hypot(v[i], v[i + 1], v[i + 2]) || 1; v[i] /= l; v[i + 1] /= l; v[i + 2] /= l; } };
+  normalizar(a);
+  const ix = idx.array;
+  for (let r = 0; r < vueltas; r++) {
+    const b = a.slice();
+    for (let t = 0; t < ix.length; t += 3) {
+      const p = soldado[ix[t]] * 3, q = soldado[ix[t + 1]] * 3, u = soldado[ix[t + 2]] * 3;
+      for (let k = 0; k < 3; k++) { b[p + k] += a[q + k] + a[u + k]; b[q + k] += a[p + k] + a[u + k]; b[u + k] += a[p + k] + a[q + k]; }
+    }
+    normalizar(b);
+    a = b;
+  }
+  const out = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) out.set(a.subarray(soldado[i] * 3, soldado[i] * 3 + 3), i * 3);
+  g.setAttribute('normal', new THREE.BufferAttribute(out, 3));
+}
 
 /**
  * Color de carrocería en la textura: el tono más frecuente entre los pixeles con color
@@ -198,11 +235,18 @@ export async function cargarModeloReal(modelo: Modelo3D, tipo: Carroceria, medid
   const materiales: THREE.Material[] = [];
   interno.traverse(o => {
     if (!(o instanceof THREE.Mesh)) return;
-    const m = o.material as THREE.MeshStandardMaterial;
-    // La IA hornea luces y reflejos en la textura: menos metal evita el tono morado y los parches oscuros.
-    m.metalness = Math.min(m.metalness, .35);
-    m.roughness = Math.max(m.roughness, .45);
-    m.envMapIntensity = 1.1;
+    suavizarNormales(o.geometry);
+    const orig = o.material as THREE.MeshStandardMaterial;
+    // Pintura de auto = base + barniz (clearcoat). El barniz va solo en los pixeles de pintura
+    // (wPint en el shader): vidrios, neumáticos y focos quedan sin él.
+    // La IA hornea luces y reflejos en la textura: poco metal evita parches oscuros.
+    const m = new THREE.MeshPhysicalMaterial({
+      map: orig.map, metalnessMap: orig.metalnessMap, roughnessMap: orig.roughnessMap, normalMap: orig.normalMap,
+      metalness: Math.min(orig.metalness, .3), roughness: orig.roughness,
+      clearcoat: 1, clearcoatRoughness: .14,
+    });
+    orig.dispose();
+    o.material = m;
     m.onBeforeCompile = sh => {
       Object.assign(sh.uniforms, uniforms);
       sh.vertexShader = sh.vertexShader
@@ -211,7 +255,8 @@ export async function cargarModeloReal(modelo: Modelo3D, tipo: Carroceria, medid
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>\n${GLSL_ZONAS}`)
         .replace('#include <map_fragment>', `#include <map_fragment>
-          diffuseColor.rgb = repintar(diffuseColor.rgb);
+          float wPint;
+          diffuseColor.rgb = repintar(diffuseColor.rgb, wPint);
           float zBorde;
           int zi = zonaDe(vPosAuto, zBorde);
           float zMix = zi >= 0 ? uZMix[zi] * zBorde : 0.0;
@@ -220,7 +265,9 @@ export async function cargarModeloReal(modelo: Modelo3D, tipo: Carroceria, medid
           diffuseColor.rgb = mix(diffuseColor.rgb, zCol, zMix);`)
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.5, zMix);')
         .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.05, zMix);')
-        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += zCol * zBrillo;');
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += zCol * zBrillo;')
+        // Barniz solo en la pintura; la imprimación («en trabajo») queda mate.
+        .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n#ifdef USE_CLEARCOAT\nmaterial.clearcoat *= wPint * (1.0 - 0.7 * zMix);\n#endif');
     };
     m.customProgramCacheKey = () => 'zonas-auto';
     m.needsUpdate = true;
