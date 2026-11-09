@@ -680,3 +680,6 @@ img { display: block; max-width: 100%; }
 .hero-fase.pendiente i { background: var(--acento); }
 .hero-fase.proceso i { background: color-mix(in srgb, var(--acento) 28%, #6b7078); }
 @media (max-width: 620px) { .hero-fase { bottom: 8%; font-size: .88rem; } }
+.hero-auto-lienzo canvas { cursor: grab; }
+.hero-auto-lienzo canvas:active { cursor: grabbing; }
+.hero-girar { position: absolute; top: 8%; right: 4%; display: inline-flex; align-items: center; gap: .4rem; margin: 0; padding: .35rem .8rem; border-radius: 99px; background: rgba(13, 15, 18, .6); border: 1px solid var(--linea); color: var(--suave); font-size: .85rem; pointer-events: none; animation: aparecer .6s .8s ease-out both; }

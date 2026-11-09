@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { ArrowRight, Bell, Camera, ChatCircleDots, CurrencyCircleDollar, Kanban, Package, ShieldCheck } from '@phosphor-icons/react';
+import { ArrowRight, ArrowsHorizontal, Bell, Camera, ChatCircleDots, CurrencyCircleDollar, Kanban, Package, ShieldCheck } from '@phosphor-icons/react';
 import { Auto3D, FotoAuto, ir, Leyenda, Marca } from '../components/ui';
 import { useEmpresa } from '../lib/store';
 import type { EstadoPieza, PiezaId } from '../lib/types';
@@ -25,17 +25,19 @@ function HeroMustang() {
   const [listo, setListo] = useState(false);
   const [fallo, setFallo] = useState(false);
   const [fase, setFase] = useState<Fase>('reparado');
+  const [girado, setGirado] = useState(false);
   const lento = useMemo(conexionLenta, []);
   const quieto = useMemo(() => matchMedia('(prefers-reduced-motion: reduce)').matches, []);
   return (
     <div className="hero-3d hero-auto">
       <img className={`hero-poster ${listo ? 'oculto' : ''}`} src={`${import.meta.env.BASE_URL}portada/mustang-poster.webp`}
-        alt="Auto clásico gris grafito en un estudio oscuro" fetchPriority="high" decoding="async" />
+        alt="Auto clásico amarillo con franjas negras en un estudio oscuro" fetchPriority="high" decoding="async" />
       {!lento && !fallo && (
         <Suspense fallback={null}>
-          <HeroAuto acento={empresa.acento} quieto={quieto} onListo={() => setListo(true)} onFase={setFase} onError={() => setFallo(true)} />
+          <HeroAuto acento={empresa.acento} quieto={quieto} onListo={() => setListo(true)} onFase={setFase} onError={() => setFallo(true)} onGirar={() => setGirado(true)} />
         </Suspense>
       )}
+      {listo && !girado && <p className="hero-girar" aria-hidden="true"><ArrowsHorizontal size={18} weight="bold" /> Arrastra para girar</p>}
       {listo && <p className={`hero-fase ${fase}`} aria-live="polite"><i aria-hidden="true" />{TEXTO_FASE[fase]}</p>}
     </div>
   );

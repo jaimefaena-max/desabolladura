@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { makeEnv, makeFloor } from './studio';
 import { PRIMER } from './Viewer3D';
 
@@ -9,8 +10,10 @@ import { PRIMER } from './Viewer3D';
  * El capot pasa por «por reparar» (color del taller), «en trabajo» (el mismo color atenuado)
  * y «reparado» (pintura con barniz), igual que las piezas dentro de la app.
  *
+ * Se gira con el dedo o el mouse; solo, gira despacio.
+ *
  * Modelo: «Boss 302 1969» de NoodleGames (CGTrader, Royalty Free License), convertido con
- * scripts/obj-a-glb-portada.ts: sin logos ni insignias, aligerado de 47 MB a ≈2,6 MB.
+ * scripts/obj-a-glb-portada.ts: sin logos ni insignias, con sus franjas, aligerado de 47 MB a ≈2,9 MB.
  */
 
 export type Fase = 'reparado' | 'pendiente' | 'proceso';
@@ -25,7 +28,9 @@ interface Props {
   onListo: () => void;
   onFase: (f: Fase) => void;
   onError: () => void;
-  /** Sin giro (opción «reducir movimiento»): el capot igual cambia de color, que no es movimiento. */
+  /** El visitante tomó el auto con el dedo o el mouse (para ocultar la indicación). */
+  onGirar?: () => void;
+  /** Sin giro solo (opción «reducir movimiento»): se gira con la mano y el capot igual cambia de color. */
   quieto?: boolean;
   /** Ángulo fijo de cámara (grados) cuando está quieto o para la foto del póster. */
   angulo?: number;
@@ -40,10 +45,10 @@ float enZona(vec3 p) {
 }
 `;
 
-export default function HeroAuto({ acento, onListo, onFase, onError, quieto = false, angulo = 38 }: Props) {
+export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, quieto = false, angulo = 38 }: Props) {
   const host = useRef<HTMLDivElement>(null);
-  const cb = useRef({ onListo, onFase, onError });
-  cb.current = { onListo, onFase, onError };
+  const cb = useRef({ onListo, onFase, onError, onGirar });
+  cb.current = { onListo, onFase, onError, onGirar };
 
   useEffect(() => {
     const el = host.current!;
@@ -56,12 +61,20 @@ export default function HeroAuto({ acento, onListo, onFase, onError, quieto = fa
     renderer.toneMappingExposure = 1.1;
     el.appendChild(renderer.domElement);
     renderer.domElement.setAttribute('role', 'img');
-    renderer.domElement.setAttribute('aria-label', 'Auto clásico en un estudio oscuro: el capot se marca por reparar, pasa a trabajo y queda reparado');
+    renderer.domElement.setAttribute('aria-label', 'Auto clásico amarillo con franjas negras en un estudio oscuro; se puede girar. El capot se marca por reparar, pasa a trabajo y queda reparado');
 
     const scene = new THREE.Scene();
     const env = makeEnv(renderer);
     scene.environment = env.texture;
     const cam = new THREE.PerspectiveCamera(26, 1, .1, 80);
+    // Girar con el dedo o el mouse. Sin zoom ni arrastre lateral: la rueda y el dedo siguen haciendo scroll.
+    const controles = new OrbitControls(cam, renderer.domElement);
+    controles.enableZoom = false; controles.enablePan = false; controles.enableDamping = true; controles.dampingFactor = .08;
+    controles.minPolarAngle = Math.PI * .3; controles.maxPolarAngle = Math.PI * .49;
+    controles.autoRotate = !quieto; controles.autoRotateSpeed = 1.4;
+    controles.addEventListener('start', () => cb.current.onGirar?.());
+    // En el celular, deslizar vertical sigue bajando la página; horizontal gira el auto.
+    renderer.domElement.style.touchAction = 'pan-y';
     const grupo = new THREE.Group();
     scene.add(grupo);
 
@@ -75,14 +88,18 @@ export default function HeroAuto({ acento, onListo, onFase, onError, quieto = fa
       cam.aspect = w / h;
       // Encuadre: el largo del auto cabe completo, con aire alrededor.
       const t = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
-      const d = Math.max((largo * .54) / (t * cam.aspect), (alto * 1.15) / t);
-      cam.userData.d = d;
+      const d = Math.max((largo * .6) / (t * cam.aspect), (alto * 1.15) / t);
       cam.updateProjectionMatrix();
+      // Conserva el ángulo actual y solo ajusta la distancia.
+      const objetivo = controles.target, dir = cam.position.clone().sub(objetivo);
+      if (dir.lengthSq() > 0) cam.position.copy(objetivo).add(dir.setLength(d));
+      cam.userData.d = d;
     };
     const camara = (grados: number) => {
       const a = THREE.MathUtils.degToRad(grados), d = cam.userData.d as number;
+      controles.target.set(0, alto * .42, 0);
       cam.position.set(Math.sin(a) * d, alto * .55 + d * .16, Math.cos(a) * d);
-      cam.lookAt(0, alto * .42, 0);
+      controles.update();
     };
 
     new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}portada/mustang.glb`).then(gltf => {
@@ -110,9 +127,10 @@ export default function HeroAuto({ acento, onListo, onFase, onError, quieto = fa
         if (!(o instanceof THREE.Mesh)) return;
         geos.push(o.geometry);
         const m = o.material as THREE.MeshStandardMaterial;
-        if (m.name !== 'pintura') { mats.push(m); return; }
-        // Pintura de auto: base metalizada grafito + barniz; el capot se tiñe según la fase.
-        const p = new THREE.MeshPhysicalMaterial({ color: '#2a2e35', metalness: .6, roughness: .3, clearcoat: 1, clearcoatRoughness: .06 });
+        if (m.name !== 'pintura' && m.name !== 'pintura2') { mats.push(m); return; }
+        // Pintura amarilla con las franjas negras del modelo (textura: blanco = pintura, negro = franja)
+        // y barniz; el capot se tiñe según la fase.
+        const p = new THREE.MeshPhysicalMaterial({ color: '#e3a41c', map: m.map, metalness: .2, roughness: .38, clearcoat: .8, clearcoatRoughness: .14 });
         p.onBeforeCompile = sh => {
           Object.assign(sh.uniforms, zona);
           sh.vertexShader = sh.vertexShader
@@ -130,6 +148,7 @@ export default function HeroAuto({ acento, onListo, onFase, onError, quieto = fa
         p.customProgramCacheKey = () => 'portada-pintura';
         o.material = p;
         m.dispose();
+        if (p.map) mats.push({ dispose: () => p.map!.dispose() } as THREE.Material);
         mats.push(p);
       });
       const piso = makeFloor(largo);
@@ -156,7 +175,7 @@ export default function HeroAuto({ acento, onListo, onFase, onError, quieto = fa
       raf = 0;
       if (!vivo) return;
       const s = (ahora - t0) / 1000;
-      if (!quieto) camara(angulo + s * 9);
+      controles.update();
       const f = fase(s);
       if (f !== faseActual) { faseActual = f; cb.current.onFase(f); }
       // Sin movimiento, el color cambia de una vez; con movimiento, se funde.
@@ -165,11 +184,11 @@ export default function HeroAuto({ acento, onListo, onFase, onError, quieto = fa
       zona.uZCol.value.lerp(f === 'proceso' ? procesoCol : acentoCol, k);
       renderer.render(scene, cam);
       if (primera) { primera = false; cb.current.onListo(); }
-      if (visible) raf = quieto ? window.setTimeout(() => cuadro(performance.now()), 250) as unknown as number : requestAnimationFrame(cuadro);
+      if (visible) raf = requestAnimationFrame(cuadro);
     }
     function pedir() { if (!raf && visible && grupo.children.length) raf = requestAnimationFrame(cuadro); }
 
-    const ro = new ResizeObserver(() => { ajustar(); if (grupo.children.length) { camara(angulo); pedir(); } });
+    const ro = new ResizeObserver(() => { ajustar(); if (grupo.children.length) pedir(); });
     ro.observe(el);
     // Fuera de pantalla no se dibuja: ahorra batería en el celular.
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) pedir(); });
@@ -177,7 +196,7 @@ export default function HeroAuto({ acento, onListo, onFase, onError, quieto = fa
 
     return () => {
       vivo = false;
-      cancelAnimationFrame(raf); clearTimeout(raf); ro.disconnect(); io.disconnect();
+      cancelAnimationFrame(raf); controles.dispose(); ro.disconnect(); io.disconnect();
       geos.forEach(g => g.dispose()); mats.forEach(m => m.dispose()); env.dispose();
       renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove();
     };
