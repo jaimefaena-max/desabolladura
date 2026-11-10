@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { liberarPiso, makeEnv, makeFloor, opcionesRender } from './studio';
 import { PRIMER } from './Viewer3D';
@@ -14,6 +15,8 @@ import { PRIMER } from './Viewer3D';
  *
  * Modelo: «Boss 302 1969» de NoodleGames (CGTrader, Royalty Free License), convertido con
  * scripts/obj-a-glb-portada.ts: sin logos ni insignias, con sus franjas, aligerado de 47 MB a ≈2,9 MB.
+ * Después, comprimido con gltfpack (`-cc -km`: meshopt, conserva los materiales con nombre) a ≈0,86 MB
+ * (≈630 kB transferidos). La geometría no se simplificó.
  */
 
 export type Fase = 'reparado' | 'pendiente' | 'proceso';
@@ -106,7 +109,7 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
       controles.update();
     };
 
-    new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}portada/mustang.glb`).then(gltf => {
+    new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${import.meta.env.BASE_URL}portada/mustang.glb`).then(gltf => {
       if (!vivo) return;
       const auto = gltf.scene;
       // El modelo ya viene con el largo en X y el frente (focos) hacia +X, como el resto de la app.

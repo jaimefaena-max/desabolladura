@@ -17,7 +17,7 @@ function conexionLenta() {
 }
 
 /**
- * Auto de la portada. La foto aparece al instante; el 3D (≈2,6 MB) se carga después y la reemplaza
+ * Auto de la portada. La foto aparece al instante; el 3D (≈0,6 MB) se carga después y la reemplaza
  * con un fundido. Con conexión lenta o sin WebGL queda la foto; con «reducir movimiento», el 3D quieto.
  */
 function HeroMustang() {
