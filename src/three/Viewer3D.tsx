@@ -188,7 +188,7 @@ export default function Viewer3D({ carroceria, medidas, modelo, color, acento, e
     let lentos = 0, previo = 0;
     function medir() {
       const ahora = performance.now();
-      if (previo && ahora - previo < 1000 && ahora - previo > 90) lentos++;
+      if (previo && ahora - previo > 90 && (ahora - previo < 1000 || !document.hidden)) lentos++;
       previo = ahora;
       if (lentos > 8 && controls.autoRotate) { controls.autoRotate = false; densidadFija = 1; resize(); }
     }
@@ -199,7 +199,8 @@ export default function Viewer3D({ carroceria, medidas, modelo, color, acento, e
       animando = auto.paso();
       const movido = controls.update();
       if (sucio || movido || animando) { renderer.render(scene, cam); sucio = false; }
-      if (visible && (controls.autoRotate || animando || movido)) raf = requestAnimationFrame(tick);
+      // Un solo cuadro agendado: controls.update() ya pudo pedir uno vía «change».
+      if (!raf && visible && (controls.autoRotate || animando || movido)) raf = requestAnimationFrame(tick);
     }
     controls.addEventListener('change', pedir);
     const io = new IntersectionObserver(([en]) => { visible = en.isIntersecting; if (visible) pedir(); });

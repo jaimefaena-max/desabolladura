@@ -187,7 +187,7 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
     function medir(ahora: number) {
       const dt = ahora - previo;
       previo = ahora;
-      if (dt > 45 && dt < 1000) lentos++;
+      if (dt > 45 && (dt < 1000 || !document.hidden)) lentos++;
       if (lentos > 12 && controles.autoRotate) { controles.autoRotate = false; densidadFija = 1; ajustar(); sucio = true; }
     }
     const proximoCambio = (s: number) => {
@@ -214,6 +214,8 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
       if (sucio || movido || fundiendo) { renderer.render(scene, cam); sucio = false; }
       if (primera) { primera = false; cb.current.onListo(); }
       if (!visible) return;
+      // Un solo cuadro agendado: controles.update() ya pudo pedir uno vía «change» (si no, se duplicaban hasta congelar la página).
+      if (raf) return;
       if (controles.autoRotate || movido || fundiendo) raf = requestAnimationFrame(cuadro);
       // En reposo solo falta el próximo cambio de fase: se despierta justo en ese momento.
       else espera = window.setTimeout(pedir, Math.max(50, proximoCambio(s) * 1000));
