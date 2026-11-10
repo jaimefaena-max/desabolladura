@@ -6,9 +6,17 @@
     <meta name="theme-color" content="#0d0f12" />
     <meta name="description" content="Gestión de taller de desabolladura y pintura: ingreso de vehículos, cotización para aseguradoras y seguimiento 3D para el cliente." />
     <title>Desabolladura Premium</title>
+    <script src="/rescate.js"></script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="rescate" hidden style="max-width:32rem;margin:18vh auto 0;padding:1.5rem;border-radius:16px;background:#14171b;font:1.1rem/1.5 system-ui,sans-serif;color:#f1f3f5;text-align:center">
+        <h1 style="font-size:1.6rem;margin:0 0 .6rem">La demostración no pudo cargar</h1>
+        <p style="margin:0 0 1.2rem;color:#b9c0c8">Revisa tu conexión y vuelve a intentar.</p>
+        <p style="margin:0 0 .8rem"><a href="./" style="display:inline-block;padding:.8rem 1.4rem;border-radius:12px;background:#ff7a2f;color:#14100c;font-weight:700;text-decoration:none">Recargar</a></p>
+        <p style="margin:0"><a href="./?restablecer=1" style="color:#ffd9bf">Si sigue fallando, restablecer la demostración</a></p>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

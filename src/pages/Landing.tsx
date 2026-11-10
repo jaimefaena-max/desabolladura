@@ -80,7 +80,7 @@ export default function Landing() {
           <p>Recibe, cotiza y repara cada vehículo en una sola app. Tu cliente sigue el avance en 3D.</p>
           <div className="hero-cta">
             <button className="btn primario grande" onClick={() => ir('/entrar')}>Entrar <ArrowRight size={24} weight="bold" /></button>
-            <button className="btn secundario grande" onClick={() => ir('/cliente/COR7X2')}>Ver un seguimiento</button>
+            <button className="btn secundario grande" onClick={() => ir('/cliente/demo')}>Ver un seguimiento</button>
           </div>
         </div>
         <HeroMustang />

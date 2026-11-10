@@ -1,7 +1,7 @@
 import { leerFicha, medidasValidas, promptVista, slugAuto } from './fichaModelo';
 import { desempaquetar, empaquetar, mensajeAvance, mensajePresupuesto } from './seguimiento';
 import { specDe } from '../three/carModel';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { extraerJSON } from './gemini';
 import { interpretarPadron } from './padron';
 import { clp, estadosPiezas, fechaLocal, progreso, totales } from './piezas';
@@ -13,6 +13,15 @@ import { diasEntre, estadoRepuesto, mensajeRepuesto, resumenRepuestos, textoEsta
 import { cobradaSeguro, COMISION_COBRANZA, correoRecordatorio, estadoFactura, resumenCobranza, vencimiento } from './cobranza';
 import type { Item, Orden } from './types';
 import { carroceriaDe, colorHex, patenteValida, verPatente } from './vehiculos';
+
+/*
+ * Reloj fijo: los datos de ejemplo se fechan respecto de «hoy». Con el reloj real, una prueba que
+ * fija su propio «hoy» deja de calzar al pasar los días y bloquea el despliegue (pasó el 10-nov-2026).
+ */
+const HOY = new Date(2026, 10, 5, 12);
+vi.useFakeTimers({ toFake: ['Date'] });
+vi.setSystemTime(HOY);
+afterAll(() => { vi.useRealTimers(); });
 
 const item = (c: Partial<Item>): Item => ({ id: 'x', trabajo: 'pintura', pieza: 'maletera', estado: 'pendiente', monto: null, ...c });
 
@@ -306,7 +315,7 @@ describe('seguimiento por WhatsApp', () => {
     expect(m).toContain(`*${clp(totales(o).total)}*`);
     expect(m).toContain('responda *Apruebo*');
     const link = m.match(/https:\/\/\S+/)![0];
-    expect(desempaquetar(link.split('/').pop()!)!.wspTaller).toBe('+56 9 8765 4321');
+    expect(desempaquetar(link.split('/').pop()!)!.wspTaller).toBe('56987654321');
     expect(mensajePresupuesto(o, { nombre: 'T', whatsapp: '' }, true)).toContain('sigue esperando su respuesta');
   });
 });
@@ -452,3 +461,20 @@ describe('rentabilidad por orden', () => {
   });
 });
 
+describe('los datos de ejemplo no dependen del día en que se abren', () => {
+  afterAll(() => { vi.setSystemTime(HOY); });
+  // Fin de febrero, cambio de año, fin de semana, madrugada y noche (cuando UTC ya cambió de día).
+  const fechas = [new Date(2026, 10, 10, 9), new Date(2027, 1, 28, 23, 30), new Date(2028, 1, 29, 0, 30), new Date(2026, 11, 31, 22), new Date(2027, 0, 1, 1), new Date(2027, 3, 4, 12), new Date(2027, 8, 5, 12)];
+  it.each(fechas)('cobranza, repuestos y alertas el %s', dia => {
+    vi.setSystemTime(dia);
+    const ordenes = ordenesDemo();
+    const c = resumenCobranza(ordenes);
+    expect(c.abiertas).toHaveLength(3);
+    expect(c.nVencidas).toBe(1);
+    const textos = alertas(ordenes).map(a => a.texto).join(' | ');
+    expect(textos).toMatch(/factura N\.º 2204 vencida hace 14 días/);
+    expect(textos).toMatch(/factura N\.º 2205 vence en 3 días/);
+    expect(textos).toContain('espejo derecho atrasado 2 días');
+    expect(textos).not.toMatch(/NaN|Invalid|undefined/);
+  });
+});

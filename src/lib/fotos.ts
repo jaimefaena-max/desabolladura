@@ -29,3 +29,15 @@ export async function leerFoto(id: string) {
   db.close();
   return data;
 }
+
+export async function borrarFotos(ids: string[]) {
+  if (!ids.length || typeof indexedDB === 'undefined') return;
+  const db = await abrir();
+  await new Promise<void>((ok, mal) => {
+    const t = db.transaction('fotos', 'readwrite');
+    ids.forEach(id => t.objectStore('fotos').delete(id));
+    t.oncomplete = () => ok();
+    t.onerror = () => mal(t.error);
+  });
+  db.close();
+}

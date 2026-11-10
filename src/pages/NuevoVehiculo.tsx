@@ -105,19 +105,24 @@ export default function NuevoVehiculo() {
   const finalizar = async () => {
     if (guardando) return;
     setGuardando(true);
-    const id = uid();
-    const fotosIA = ia && ia.clave === claveIA(v) && Object.keys(ia.vistas).length ? ia.vistas : undefined;
-    // Si IndexedDB falla, la orden se guarda igual, sin fotos: el 3D las reemplaza.
-    const vistas = fotosIA && await guardarVistas(id, fotosIA).catch(() => undefined);
-    const o: Orden = conEvento(sincronizar({
-      id, numero: siguienteNumero(), codigo: codigoCliente(), creada: fechaLocal(), entrega: '', maestroId: u.id,
-      vehiculo: { ...v, patente: normalizarPatente(v.patente) }, cliente, pagador,
-      // El maestro pudo corregir el vehículo después de agregar trabajos: el rango se recalcula con el dato final.
-      items: items.map(i => (i.trabajo === 'general' ? i : { ...i, sugerido: sugerir(i.trabajo, i.pieza, i.severidad ?? 'medio', v) })),
-      notas: '', cobrada: false, vistas, aprobacion: 'pendiente', repuestos: [], fotos: [], historial: [], recepcion, entregadaEl: null,
-    }), 'Vehículo ingresado al taller');
-    guardarOrden(o);
+      try {
+      const id = uid();
+      const fotosIA = ia && ia.clave === claveIA(v) && Object.keys(ia.vistas).length ? ia.vistas : undefined;
+      // Si IndexedDB falla, la orden se guarda igual, sin fotos: el 3D las reemplaza.
+      const vistas = fotosIA && await guardarVistas(id, fotosIA).catch(() => undefined);
+      const o: Orden = conEvento(sincronizar({
+        id, numero: siguienteNumero(), codigo: codigoCliente(), creada: fechaLocal(), entrega: '', maestroId: u.id,
+        vehiculo: { ...v, patente: normalizarPatente(v.patente) }, cliente, pagador,
+        // El maestro pudo corregir el vehículo después de agregar trabajos: el rango se recalcula con el dato final.
+        items: items.map(i => (i.trabajo === 'general' ? i : { ...i, sugerido: sugerir(i.trabajo, i.pieza, i.severidad ?? 'medio', v) })),
+        notas: '', cobrada: false, vistas, aprobacion: 'pendiente', repuestos: [], fotos: [], historial: [], recepcion, entregadaEl: null,
+      }), 'Vehículo ingresado al taller');
+      guardarOrden(o);
     setListo(o);
+    } finally {
+      // Si algo falla al armar la orden, el botón vuelve a quedar disponible.
+      setGuardando(false);
+    }
   };
 
   if (listo) {

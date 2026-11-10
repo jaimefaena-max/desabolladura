@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CaretLeft, Camera, ChartBar, CurrencyCircleDollar, Gear, Kanban, ListChecks, Package, SignOut } from '@phosphor-icons/react';
+import { Barrera } from './Errores';
 import { etapaDe, nombreEtapa } from '../lib/automatizacion';
 import { guardarFoto, leerFoto } from '../lib/fotos';
 import { reducirImagen } from '../lib/padron';
@@ -93,9 +94,11 @@ export const forma = (v: Vehiculo) => ({ carroceria: v.carroceria, medidas: v.fi
 
 export function Auto3D(p: { acento?: string; carroceria: Carroceria; medidas?: Medidas; modelo?: Modelo3D; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; seleccion?: PiezaId | null; onPick?: (id: PiezaId) => void; autoRotate?: boolean; angulo?: number; etiqueta: string }) {
   return (
-    <Suspense fallback={<div className="viewer esqueleto" />}>
-      <Viewer3D acento={useEmpresa().acento} {...p} />
-    </Suspense>
+    <Barrera alternativa={<div className="viewer viewer-fallo"><p>No se pudo cargar el modelo 3D. Recarga la página para verlo.</p></div>}>
+      <Suspense fallback={<div className="viewer esqueleto" />}>
+        <Viewer3D acento={useEmpresa().acento} {...p} />
+      </Suspense>
+    </Barrera>
   );
 }
 

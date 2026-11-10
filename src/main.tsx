@@ -2,6 +2,7 @@ import { useEffect, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/outfit';
 import './styles.css';
+import { AvisoSinGuardar, Barrera } from './components/Errores';
 import { ir } from './components/ui';
 import { aplicarMarca, sesion, useEmpresa } from './lib/store';
 import { AdminOrden, Ajustes, Ordenes, Reportes, Tablero } from './pages/Admin';
@@ -26,7 +27,7 @@ function Guardia({ rol, children }: { rol: 'maestro' | 'admin'; children: React.
 }
 
 function Franja() {
-  return <p className="demo-franja">Demostración: no ingreses datos reales. Todo queda solo en este navegador.</p>;
+  return <p className="demo-franja">Demostración: no ingreses datos reales. Los datos se guardan en este navegador.</p>;
 }
 
 function Rutas() {
@@ -55,4 +56,9 @@ function Rutas() {
   return <Landing />;
 }
 
-createRoot(document.getElementById('root')!).render(<><Franja /><Rutas /></>);
+function App() {
+  const ruta = useRuta();
+  return <><Franja /><AvisoSinGuardar /><Barrera clave={ruta}><Rutas /></Barrera></>;
+}
+
+createRoot(document.getElementById('root')!).render(<App />);

@@ -12,8 +12,9 @@ const API = 'https://generativelanguage.googleapis.com/v1beta/models/';
 const TEXTO = 'gemini-2.5-flash';
 const IMAGEN = 'gemini-3.1-flash-image-preview';
 
-export const claveGemini = () => localStorage.getItem(CLAVE) ?? '';
-export const guardarClave = (k: string) => (k ? localStorage.setItem(CLAVE, k.trim()) : localStorage.removeItem(CLAVE));
+/* El navegador puede bloquear el almacenamiento (modo privado): sin clave guardada, Gemini queda desconectado. */
+export const claveGemini = () => { try { return localStorage.getItem(CLAVE) ?? ''; } catch { return ''; } };
+export const guardarClave = (k: string) => { try { if (k) localStorage.setItem(CLAVE, k.trim()); else localStorage.removeItem(CLAVE); } catch { /* no se pudo guardar */ } };
 
 interface Parte { text?: string; inlineData?: { mimeType: string; data: string }; inline_data?: { mime_type: string; data: string }; }
 interface Respuesta {
@@ -28,7 +29,9 @@ async function llamar(modelo: string, cuerpo: unknown): Promise<Respuesta> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': k },
     body: JSON.stringify(cuerpo),
-  });
+    // Sin tope de tiempo, una red colgada deja la pantalla en «Leyendo…» para siempre.
+    signal: AbortSignal.timeout(modelo === IMAGEN ? 90_000 : 30_000),
+  }).catch(() => { throw new Error('No hay conexión con Gemini. Revisa internet e intenta otra vez.'); });
   const j = (await r.json().catch(() => ({}))) as Respuesta;
   if (!r.ok) throw new Error(r.status === 401 || r.status === 403 || /api key/i.test(j.error?.message ?? '') ? 'Gemini rechazó la clave' : j.error?.message ?? `Gemini respondió ${r.status}`);
   return j;

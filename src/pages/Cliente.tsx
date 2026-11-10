@@ -133,7 +133,7 @@ function Avances({ o }: { o: Orden }) {
 
 export function ClientePortal({ codigo, instantanea }: { codigo: string; instantanea?: string }) {
   const ordenes = useOrdenes();
-  const local = codigo === 'demo' ? ordenDemo(ordenes) : ordenes.find(x => x.codigo === codigo);
+  const local = codigo === 'demo' ? ordenDemo(ordenes) : ordenes.find(x => x.codigo === codigo.toUpperCase());
   // Abierto desde el link de WhatsApp: manda lo que trae el link (el avance al momento del aviso).
   // En otro teléfono la demo tiene sus propios autos de ejemplo, que no saben de este avance.
   const delLink = useMemo(() => (instantanea ? desempaquetar(instantanea) : null), [instantanea]);
@@ -161,6 +161,8 @@ export function ClientePortal({ codigo, instantanea }: { codigo: string; instant
       {sesion()?.rol === 'admin' && !soloLectura && (
         <p className="vista-cliente">Estás viendo lo que ve el cliente.<button className="enlace" onClick={() => ir(`/admin/ot/${o.id}`)}><ArrowLeft size={18} /> Volver a la orden</button></p>
       )}
+      {/* El link lo arma quien lo envía: el cliente debe confirmar con su taller antes de responder o pagar. */}
+      {delLink && <p className="vista-cliente">Copia del avance que envió {delLink.taller}. Antes de responder o pagar, confirma que el número sea el de tu taller.</p>}
       <main>
         <section className="portal-hero">
           <div className="portal-3d">
