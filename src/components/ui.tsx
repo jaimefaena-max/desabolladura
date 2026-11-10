@@ -223,3 +223,19 @@ export function Galeria({ fotos, onAgregar }: { fotos: FotoRef[]; onAgregar?: (f
     </section>
   );
 }
+
+/**
+ * Monta su contenido recién cuando está por entrar en pantalla. La portada tiene tres autos 3D:
+ * abrir los tres contextos gráficos al cargar compite con el auto principal y traba el primer segundo.
+ */
+export function CuandoSeVea({ children, className, alto }: { children: ReactNode; className?: string; alto?: string }) {
+  const caja = useRef<HTMLDivElement>(null);
+  const [ver, setVer] = useState(typeof IntersectionObserver === 'undefined');
+  useEffect(() => {
+    if (ver || !caja.current) return;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVer(true); io.disconnect(); } }, { rootMargin: '200px' });
+    io.observe(caja.current);
+    return () => io.disconnect();
+  }, [ver]);
+  return <div ref={caja} className={className} style={ver ? undefined : { minHeight: alto }}>{ver ? children : null}</div>;
+}

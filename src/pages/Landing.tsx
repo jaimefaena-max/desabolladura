@@ -1,6 +1,6 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ArrowsHorizontal, Bell, Camera, ChatCircleDots, CurrencyCircleDollar, Kanban, Package, ShieldCheck } from '@phosphor-icons/react';
-import { Auto3D, FotoAuto, ir, Leyenda, Marca } from '../components/ui';
+import { Auto3D, CuandoSeVea, FotoAuto, ir, Leyenda, Marca } from '../components/ui';
 import { useEmpresa } from '../lib/store';
 import type { EstadoPieza, PiezaId } from '../lib/types';
 import type { Fase } from '../three/HeroAuto';
@@ -28,11 +28,22 @@ function HeroMustang() {
   const [girado, setGirado] = useState(false);
   const lento = useMemo(conexionLenta, []);
   const quieto = useMemo(() => matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+  // El modelo pesa: se empieza a bajar cuando la página ya cargó y el navegador está libre,
+  // para no competir con el texto, la foto y los botones del primer vistazo.
+  const [arrancar, setArrancar] = useState(false);
+  useEffect(() => {
+    let id = 0, t = 0;
+    const ya = () => setArrancar(true);
+    const libre = () => { id = typeof requestIdleCallback === 'function' ? requestIdleCallback(ya, { timeout: 1500 }) : setTimeout(ya, 300) as unknown as number; };
+    if (document.readyState === 'complete') libre(); else addEventListener('load', libre, { once: true });
+    t = window.setTimeout(ya, 4000);
+    return () => { removeEventListener('load', libre); clearTimeout(t); if (typeof cancelIdleCallback === 'function') cancelIdleCallback(id); clearTimeout(id); };
+  }, []);
   return (
     <div className="hero-3d hero-auto">
       <img className={`hero-poster ${listo ? 'oculto' : ''}`} src={`${import.meta.env.BASE_URL}portada/mustang-poster.webp`}
         alt="Auto clásico amarillo con franjas negras en un estudio oscuro" fetchPriority="high" decoding="async" />
-      {!lento && !fallo && (
+      {arrancar && !lento && !fallo && (
         <Suspense fallback={null}>
           <HeroAuto acento={empresa.acento} quieto={quieto} onListo={() => setListo(true)} onFase={setFase} onError={() => setFallo(true)} onGirar={() => setGirado(true)} />
         </Suspense>
@@ -50,6 +61,8 @@ const ETAPAS: { hasta: number; texto: string; e: Partial<Record<PiezaId, EstadoP
   { hasta: 99, texto: 'Todas las piezas pintadas. Falta control de calidad.', e: { maletera: 'listo', parachoque_tras: 'listo' } },
   { hasta: 100, texto: 'Listo para retirar.', e: { maletera: 'listo', parachoque_tras: 'listo' } },
 ];
+
+const ESTADOS_SUV: Partial<Record<PiezaId, EstadoPieza>> = { capot: 'pendiente', parachoque_del: 'pendiente' };
 
 const FUNCIONES = [
   { Icono: Kanban, t: 'Tablero que se mueve solo', d: 'Cada vehículo cambia de etapa cuando el trabajador marca su avance.' },
@@ -74,6 +87,7 @@ export default function Landing() {
         </nav>
       </header>
 
+      <main>
       <section className="hero">
         <div className="hero-texto">
           <h1>Tu taller, en piloto automático.</h1>
@@ -87,9 +101,9 @@ export default function Landing() {
       </section>
 
       <section className="demo">
-        <div className="demo-3d revelar">
+        <CuandoSeVea className="demo-3d revelar">
           <Auto3D carroceria="sedan" color="#a9aeb4" estados={etapa.e} angulo={232} etiqueta="Sedán visto desde atrás, con su maletera y parachoque según el avance" />
-        </div>
+        </CuandoSeVea>
         <div className="demo-panel revelar">
           <h2>El cliente ve su auto, no un estado en texto</h2>
           <p className="pct-grande" aria-live="polite">{pct}%</p>
@@ -106,7 +120,7 @@ export default function Landing() {
         <h2>Una app, tres miradas</h2>
         <div className="bento-grid">
           <article className="celda maestro revelar">
-            <FotoAuto carroceria="suv" color="#1d3f72" estados={{ capot: 'pendiente', parachoque_del: 'pendiente' }} angulo={58} ancho={1100} alto={560} alt="SUV con capot y parachoque marcados por reparar" />
+            <CuandoSeVea className="celda-foto" alto="340px"><FotoAuto carroceria="suv" color="#1d3f72" estados={ESTADOS_SUV} angulo={58} ancho={1100} alto={560} alt="SUV con capot y parachoque marcados por reparar" /></CuandoSeVea>
             <div>
               <h3>El trabajador</h3>
               <p>Saca una foto al padrón, toca la pieza dañada y anota el trabajo. Texto grande y botones claros.</p>
@@ -118,7 +132,7 @@ export default function Landing() {
             <p>Ve el taller completo, fija cada monto y cobra separando deducible y compañía.</p>
           </article>
           <article className="celda cliente revelar">
-            <FotoAuto carroceria="hatchback" color="#e4e6e8" angulo={320} ancho={760} alto={420} alt="Hatchback blanco terminado" />
+            <CuandoSeVea className="celda-foto" alto="300px"><FotoAuto carroceria="hatchback" color="#e4e6e8" angulo={320} ancho={760} alto={420} alt="Hatchback blanco terminado" /></CuandoSeVea>
             <div>
               <h3>El cliente</h3>
               <p>Entra con su patente y un código. Ve avance, fotos y aprueba su presupuesto.</p>
@@ -143,6 +157,8 @@ export default function Landing() {
           <p>Cada empresa entra con su logo, su color y sus datos separados.</p>
         </div>
       </section>
+
+      </main>
 
       <footer className="pie">
         <h2>Pruébala con datos de ejemplo</h2>

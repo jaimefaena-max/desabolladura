@@ -45,3 +45,18 @@ export function makeFloor(largo: number) {
   m.rotation.x = -Math.PI / 2; m.position.y = .002;
   return m;
 }
+
+/** Libera el piso entero: geometría, material y su textura (≈1 MB de GPU cada uno). */
+export function liberarPiso(m: THREE.Mesh) {
+  const mat = m.material as THREE.MeshBasicMaterial;
+  m.geometry.dispose(); mat.map?.dispose(); mat.dispose();
+}
+
+/**
+ * Antialias solo en pantallas de densidad normal: en las de alta densidad no se nota y cuesta caro.
+ * El tope de densidad baja en equipos con pocos núcleos (celulares de gama baja).
+ */
+export function opcionesRender() {
+  const dpr = window.devicePixelRatio || 1, nucleos = navigator.hardwareConcurrency || 4;
+  return { antialias: dpr < 2, dpr: Math.min(dpr, nucleos <= 4 ? 1.5 : 1.75) };
+}

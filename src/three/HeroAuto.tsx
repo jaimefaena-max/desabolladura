@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { makeEnv, makeFloor } from './studio';
+import { liberarPiso, makeEnv, makeFloor, opcionesRender } from './studio';
 import { PRIMER } from './Viewer3D';
 
 /**
@@ -52,11 +52,15 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
 
   useEffect(() => {
     const el = host.current!;
+    let vivo = true;
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
+      renderer = new THREE.WebGLRenderer({ antialias: opcionesRender().antialias, alpha: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
     } catch { cb.current.onError(); return; }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    renderer.setPixelRatio(opcionesRender().dpr);
+    // iOS y Android sueltan el contexto 3D con poca memoria: se vuelve a la foto en vez de quedar en negro.
+    const perdido = (e: Event) => { e.preventDefault(); if (vivo) cb.current.onError(); };
+    renderer.domElement.addEventListener('webglcontextlost', perdido);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
     el.appendChild(renderer.domElement);
@@ -79,7 +83,7 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
     scene.add(grupo);
 
     const zona = { uZMin: { value: new THREE.Vector3() }, uZMax: { value: new THREE.Vector3() }, uZCol: { value: new THREE.Color(acento) }, uZMix: { value: 0 } };
-    let vivo = true, raf = 0, visible = true, t0 = performance.now(), primera = true, largo = 4.7, alto = 1.3;
+    let raf = 0, visible = true, t0 = performance.now(), primera = true, largo = 4.7, alto = 1.3;
     const geos: THREE.BufferGeometry[] = [], mats: THREE.Material[] = [];
 
     const ajustar = () => {
@@ -153,8 +157,7 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
       });
       const piso = makeFloor(largo);
       scene.add(piso);
-      geos.push(piso.geometry);
-      mats.push(piso.material as THREE.Material);
+      mats.push({ dispose: () => liberarPiso(piso) } as THREE.Material);
       ajustar();
       camara(angulo);
       t0 = performance.now();
@@ -171,24 +174,47 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
       return 'reparado' as Fase;
     };
 
+    // Equipos lentos: si los cuadros tardan, se apaga el giro solo y se baja la resolución
+    // antes de que la página se trabe (el auto se sigue girando con el dedo).
+    let lentos = 0, previo = 0, sucio = true, espera = 0;
+    function medir(ahora: number) {
+      const dt = ahora - previo;
+      previo = ahora;
+      if (dt > 45 && dt < 1000) lentos++;
+      if (lentos > 12 && controles.autoRotate) { controles.autoRotate = false; renderer.setPixelRatio(1); ajustar(); sucio = true; }
+    }
+    const proximoCambio = (s: number) => {
+      let r = s % total;
+      for (const g of GUION) { if (r < g.s) return g.s - r + .01; r -= g.s; }
+      return .1;
+    };
+
     function cuadro(ahora: number) {
       raf = 0;
       if (!vivo) return;
+      medir(ahora);
       const s = (ahora - t0) / 1000;
-      controles.update();
+      const movido = controles.update();
       const f = fase(s);
-      if (f !== faseActual) { faseActual = f; cb.current.onFase(f); }
+      if (f !== faseActual) { faseActual = f; cb.current.onFase(f); sucio = true; }
       // Sin movimiento, el color cambia de una vez; con movimiento, se funde.
       const k = quieto ? 1 : .08, mixMeta = f === 'reparado' ? 0 : .9;
+      const colMeta = f === 'proceso' ? procesoCol : acentoCol, col = zona.uZCol.value;
+      const fundiendo = Math.abs(mixMeta - zona.uZMix.value) > .002 || Math.abs(colMeta.r - col.r) + Math.abs(colMeta.g - col.g) + Math.abs(colMeta.b - col.b) > .003;
       zona.uZMix.value += (mixMeta - zona.uZMix.value) * k;
-      zona.uZCol.value.lerp(f === 'proceso' ? procesoCol : acentoCol, k);
-      renderer.render(scene, cam);
+      col.lerp(colMeta, k);
+      // Solo se dibuja si algo cambió: auto quieto y color estable = GPU en reposo.
+      if (sucio || movido || fundiendo) { renderer.render(scene, cam); sucio = false; }
       if (primera) { primera = false; cb.current.onListo(); }
-      if (visible) raf = requestAnimationFrame(cuadro);
+      if (!visible) return;
+      if (controles.autoRotate || movido || fundiendo) raf = requestAnimationFrame(cuadro);
+      // En reposo solo falta el próximo cambio de fase: se despierta justo en ese momento.
+      else espera = window.setTimeout(pedir, Math.max(50, proximoCambio(s) * 1000));
     }
-    function pedir() { if (!raf && visible && grupo.children.length) raf = requestAnimationFrame(cuadro); }
+    function pedir() { clearTimeout(espera); if (!raf && visible && grupo.children.length) raf = requestAnimationFrame(cuadro); }
+    controles.addEventListener('change', () => { sucio = true; pedir(); });
 
-    const ro = new ResizeObserver(() => { ajustar(); if (grupo.children.length) pedir(); });
+    const ro = new ResizeObserver(() => { ajustar(); sucio = true; if (grupo.children.length) pedir(); });
     ro.observe(el);
     // Fuera de pantalla no se dibuja: ahorra batería en el celular.
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) pedir(); });
@@ -196,7 +222,8 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
 
     return () => {
       vivo = false;
-      cancelAnimationFrame(raf); controles.dispose(); ro.disconnect(); io.disconnect();
+      cancelAnimationFrame(raf); clearTimeout(espera); controles.dispose(); ro.disconnect(); io.disconnect();
+      renderer.domElement.removeEventListener('webglcontextlost', perdido);
       geos.forEach(g => g.dispose()); mats.forEach(m => m.dispose()); env.dispose();
       renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove();
     };

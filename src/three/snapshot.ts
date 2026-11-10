@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import type { Carroceria, EstadoPieza, Medidas, PiezaId } from '../lib/types';
 import { buildCar } from './carModel';
-import { makeEnv, makeFloor } from './studio';
+import { liberarPiso, makeEnv, makeFloor } from './studio';
 import { coloresTrabajo, encuadre } from './Viewer3D';
 
 /** Un solo renderizador oculto entrega las fotos de las tarjetas: evita abrir un contexto WebGL por vehículo. */
 let base: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null | undefined;
+/** Últimas fotos hechas (las más antiguas salen primero): una lista larga no hace crecer la memoria sin fin. */
 const cache = new Map<string, string>();
+const MAX_CACHE = 40;
 
 function iniciar() {
   if (base !== undefined) return base;
@@ -31,7 +33,7 @@ interface Opciones {
 export function foto({ carroceria, medidas, color, acento, estados = {}, ancho = 720, alto = 405, angulo = 38 }: Opciones): string | null {
   const key = JSON.stringify([carroceria, medidas, color, acento, estados, ancho, alto, angulo]);
   const hecha = cache.get(key);
-  if (hecha) return hecha;
+  if (hecha) { cache.delete(key); cache.set(key, hecha); return hecha; }
   const b = iniciar();
   if (!b) return null;
   b.r.setPixelRatio(1);
@@ -52,7 +54,8 @@ export function foto({ carroceria, medidas, color, acento, estados = {}, ancho =
   const url = b.r.domElement.toDataURL('image/webp', .86);
   b.scene.remove(auto.group, piso);
   auto.dispose();
-  piso.geometry.dispose();
+  liberarPiso(piso);
   cache.set(key, url);
+  if (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value!);
   return url;
 }

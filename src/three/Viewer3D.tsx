@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Carroceria, EstadoPieza, Medidas, Modelo3D, PiezaId } from '../lib/types';
 import { buildCar, paintFor, type Auto } from './carModel';
 import type { AutoReal } from './modeloReal';
-import { makeEnv, makeFloor } from './studio';
+import { liberarPiso, makeEnv, makeFloor, opcionesRender } from './studio';
 
 export const ACENTO_DANO = '#e8501f';
 export const PRIMER = '#6b7078';
@@ -153,14 +153,18 @@ export default function Viewer3D({ carroceria, medidas, modelo, color, acento, e
 
   useEffect(() => {
     const el = host.current!;
+    let vivo = true;
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer = new THREE.WebGLRenderer({ antialias: opcionesRender().antialias, alpha: true, powerPreference: 'high-performance' });
     } catch {
       setFallo(true);
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(opcionesRender().dpr);
+    // Contexto 3D perdido (poca memoria, app en segundo plano): mensaje en vez de un cuadro negro.
+    const perdido = (e: Event) => { e.preventDefault(); if (vivo) setFallo(true); };
+    renderer.domElement.addEventListener('webglcontextlost', perdido);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
     el.appendChild(renderer.domElement);
@@ -190,7 +194,6 @@ export default function Viewer3D({ carroceria, medidas, modelo, color, acento, e
 
     let auto: Montado | null = null;
     let floor: THREE.Mesh | null = null;
-    let vivo = true;
     let animando = false;
 
     // Render a demanda: sin giro ni animación, la GPU queda en reposo.
@@ -271,7 +274,8 @@ export default function Viewer3D({ carroceria, medidas, modelo, color, acento, e
       cancelAnimationFrame(raf); ro.disconnect(); io.disconnect();
       dom.removeEventListener('pointerdown', onDown); dom.removeEventListener('pointerup', onUp);
       controls.dispose(); auto?.dispose(); env.dispose();
-      floor?.geometry.dispose();
+      if (floor) liberarPiso(floor);
+      dom.removeEventListener('webglcontextlost', perdido);
       renderer.dispose(); renderer.forceContextLoss();
       dom.remove(); api.current = null;
     };
@@ -280,11 +284,14 @@ export default function Viewer3D({ carroceria, medidas, modelo, color, acento, e
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carroceria, color, acento, JSON.stringify(medidas ?? null), JSON.stringify(modelo ?? null)]);
 
+  // Los estados llegan como un objeto nuevo en cada render de la página: se comparan por valor;
+  // si no, cualquier tecla o cambio del taller relanza la animación de todas las piezas.
+  const claveEstados = JSON.stringify(estados ?? {});
   const primera = useRef(true);
   useEffect(() => {
     if (primera.current) { primera.current = false; return; }
-    api.current?.aplicar(estados ?? {}, seleccion, true);
-  }, [estados, seleccion]);
+    api.current?.aplicar(estadoRef.current.estados ?? {}, estadoRef.current.seleccion, true);
+  }, [claveEstados, seleccion]);
 
   if (fallo) return <div className="viewer viewer-fallo"><p>Este equipo no puede mostrar el modelo 3D.</p></div>;
   return <div ref={host} className={cargando ? 'viewer cargando-3d' : 'viewer'} aria-busy={cargando || undefined} />;

@@ -1,18 +1,44 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/outfit';
 import './styles.css';
 import { AvisoSinGuardar, Barrera } from './components/Errores';
 import { ir } from './components/ui';
 import { aplicarMarca, sesion, useEmpresa } from './lib/store';
-import { AdminOrden, Ajustes, Ordenes, Reportes, Tablero } from './pages/Admin';
-import { Repuestos } from './pages/Repuestos';
-import { Cobranza } from './pages/Cobranza';
-import { ClienteAcceso, ClientePortal } from './pages/Cliente';
 import Landing from './pages/Landing';
-import Login from './pages/Login';
-import { MaestroInicio, MaestroOrden } from './pages/Maestro';
-import NuevoVehiculo from './pages/NuevoVehiculo';
+
+/*
+ * Cada perfil baja solo sus pantallas: la portada no carga el código del administrador ni del
+ * trabajador. Si el archivo no llega (versión nueva publicada con la pestaña abierta), se reintenta
+ * una vez recargando la página; si vuelve a fallar, lo toma la barrera de errores.
+ */
+const cargar = <T,>(f: () => Promise<T>) => () => f().catch(e => {
+  const clave = 'dp.recarga', ahora = Date.now();
+  let previa = 0;
+  try { previa = Number(sessionStorage.getItem(clave)); sessionStorage.setItem(clave, String(ahora)); } catch { /* sin almacenamiento */ }
+  if (ahora - previa > 30_000) { location.reload(); return new Promise<T>(() => {}); }
+  throw e;
+});
+const admin = cargar(() => import('./pages/Admin'));
+const maestro = cargar(() => import('./pages/Maestro'));
+const cliente = cargar(() => import('./pages/Cliente'));
+const Tablero = lazy(() => admin().then(m => ({ default: m.Tablero })));
+const Ordenes = lazy(() => admin().then(m => ({ default: m.Ordenes })));
+const Reportes = lazy(() => admin().then(m => ({ default: m.Reportes })));
+const Ajustes = lazy(() => admin().then(m => ({ default: m.Ajustes })));
+const AdminOrden = lazy(() => admin().then(m => ({ default: m.AdminOrden })));
+const Repuestos = lazy(() => cargar(() => import('./pages/Repuestos'))().then(m => ({ default: m.Repuestos })));
+const Cobranza = lazy(() => cargar(() => import('./pages/Cobranza'))().then(m => ({ default: m.Cobranza })));
+const ClienteAcceso = lazy(() => cliente().then(m => ({ default: m.ClienteAcceso })));
+const ClientePortal = lazy(() => cliente().then(m => ({ default: m.ClientePortal })));
+const Login = lazy(cargar(() => import('./pages/Login')));
+const MaestroInicio = lazy(() => maestro().then(m => ({ default: m.MaestroInicio })));
+const MaestroOrden = lazy(() => maestro().then(m => ({ default: m.MaestroOrden })));
+const NuevoVehiculo = lazy(cargar(() => import('./pages/NuevoVehiculo')));
+
+function Cargando() {
+  return <div className="cargando-pantalla" role="status" aria-label="Cargando"><span className="esqueleto" /></div>;
+}
 
 const useRuta = () => useSyncExternalStore(
   f => { addEventListener('hashchange', f); return () => removeEventListener('hashchange', f); },
@@ -58,7 +84,7 @@ function Rutas() {
 
 function App() {
   const ruta = useRuta();
-  return <><Franja /><AvisoSinGuardar /><Barrera clave={ruta}><Rutas /></Barrera></>;
+  return <><Franja /><AvisoSinGuardar /><Barrera clave={ruta}><Suspense fallback={<Cargando />}><Rutas /></Suspense></Barrera></>;
 }
 
 createRoot(document.getElementById('root')!).render(<App />);
