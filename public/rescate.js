@@ -4,11 +4,17 @@
  * dejar la página en blanco. Cuando la app arranca, reemplaza el contenido de #root y esto no actúa.
  */
 (function () {
+  // Modo día o noche antes del primer dibujo: la elección guardada o, si no hay, la del equipo.
+  try {
+    var tema = localStorage.getItem('dp.tema');
+    if (tema !== 'claro' && tema !== 'oscuro') tema = matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'oscuro';
+    document.documentElement.setAttribute('data-tema', tema);
+  } catch (e) { /* almacenamiento bloqueado: queda el modo noche */ }
   var restablecer = /[?&]restablecer=1/.test(location.search);
   if (restablecer) {
     try {
       Object.keys(localStorage).forEach(function (k) {
-        if (/^dp\./.test(k) && k !== 'dp.gemini') localStorage.removeItem(k);
+        if (/^dp\./.test(k) && k !== 'dp.gemini' && k !== 'dp.tema') localStorage.removeItem(k);
       });
     } catch (e) { /* almacenamiento bloqueado: no hay nada que borrar */ }
     history.replaceState(null, '', location.pathname);

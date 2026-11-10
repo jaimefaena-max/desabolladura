@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
-import { CaretLeft, Camera, ChartBar, CurrencyCircleDollar, Gear, Kanban, ListChecks, Package, SignOut } from '@phosphor-icons/react';
+import { CaretLeft, Camera, ChartBar, CurrencyCircleDollar, Gear, Kanban, ListChecks, Moon, Package, SignOut, Sun } from '@phosphor-icons/react';
+import { alternarTema, useTema } from '../lib/tema';
 import { Barrera } from './Errores';
 import { etapaDe, nombreEtapa } from '../lib/automatizacion';
 import { guardarFoto, leerFoto } from '../lib/fotos';
@@ -19,6 +20,18 @@ export const ir = (ruta: string) => { location.hash = ruta; };
 export function Logo() {
   const e = useEmpresa();
   return e.logo ? <img className="logo-img" src={e.logo} alt={`Logo de ${e.nombre}`} /> : <span className="logo-vacio">TU LOGO<br />AQUÍ</span>;
+}
+
+/** Interruptor de modo día y noche: un solo botón que muestra el modo activo. */
+export function InterruptorTema() {
+  const tema = useTema(), claro = tema === 'claro';
+  return (
+    <button type="button" className="interruptor-tema" role="switch" aria-checked={claro} onClick={alternarTema}
+      aria-label={claro ? 'Modo día activado. Cambiar a modo noche' : 'Modo noche activado. Cambiar a modo día'}>
+      <span className={claro ? '' : 'on'}><Moon size={18} weight={claro ? 'regular' : 'fill'} /></span>
+      <span className={claro ? 'on' : ''}><Sun size={18} weight={claro ? 'fill' : 'regular'} /></span>
+    </button>
+  );
 }
 
 export function Marca({ onClick }: { onClick?: () => void }) {
@@ -54,8 +67,10 @@ export function Pantalla({ children, volver, titulo, sub, accion }: { children?:
             ))}
           </nav>
         )}
+        {!u && <InterruptorTema />}
         {u && (
           <div className="barra-usuario">
+            <InterruptorTema />
             <span className="barra-nombre"><b>{u.nombre}</b><small>{u.cargo}</small></span>
             <button className="icono" aria-label="Cerrar sesión" onClick={() => { cerrarSesion(); ir('/entrar'); }}><SignOut size={26} /></button>
           </div>

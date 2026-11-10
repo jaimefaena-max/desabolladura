@@ -68,7 +68,7 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
     renderer.toneMappingExposure = 1.1;
     el.appendChild(renderer.domElement);
     renderer.domElement.setAttribute('role', 'img');
-    renderer.domElement.setAttribute('aria-label', 'Auto clásico amarillo con franjas negras en un estudio oscuro; se puede girar. El capot se marca por reparar, pasa a trabajo y queda reparado');
+    renderer.domElement.setAttribute('aria-label', 'Auto clásico amarillo con franjas negras; se puede girar. El capot se marca por reparar, pasa a trabajo y queda reparado');
 
     const scene = new THREE.Scene();
     const env = makeEnv(renderer);

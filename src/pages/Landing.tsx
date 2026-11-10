@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ArrowsHorizontal, Bell, Camera, ChatCircleDots, CurrencyCircleDollar, Kanban, Package, ShieldCheck } from '@phosphor-icons/react';
-import { Auto3D, CuandoSeVea, FotoAuto, ir, Leyenda, Marca } from '../components/ui';
+import { ArrowRight, ArrowsHorizontal, Bell, Camera, ChatCircleDots, CurrencyCircleDollar, Kanban, Package, Scales, ShieldCheck, Storefront, UsersThree, WhatsappLogo } from '@phosphor-icons/react';
+import { Auto3D, Barra, CuandoSeVea, FotoAuto, InterruptorTema, ir, Leyenda, Marca } from '../components/ui';
 import { useEmpresa } from '../lib/store';
 import type { EstadoPieza, PiezaId } from '../lib/types';
 import type { Fase } from '../three/HeroAuto';
@@ -8,6 +8,41 @@ import type { Fase } from '../three/HeroAuto';
 const HeroAuto = lazy(() => import('../three/HeroAuto'));
 
 const TEXTO_FASE: Record<Fase, string> = { reparado: 'Reparado y barnizado', pendiente: 'Capot: por reparar', proceso: 'Capot: en trabajo' };
+
+/*
+ * Lo que la app hace mientras el auto gira, en el mismo compás que el capot: la orden avanza y el
+ * aviso al cliente se escribe solo. En escritorio flota alrededor del auto; en celular no se muestra.
+ */
+const VIVO: Record<Fase, { pct: number; etapa: string; aviso: string }> = {
+  pendiente: { pct: 15, etapa: 'Esperando aprobación', aviso: 'Recibimos su auto. El presupuesto ya está en su portal.' },
+  proceso: { pct: 60, etapa: 'En pintura', aviso: 'Su auto avanzó a 60 %: el capot está en pintura.' },
+  reparado: { pct: 100, etapa: 'Listo para entregar', aviso: 'Su auto está listo: reparado y barnizado. Véalo en 3D.' },
+};
+
+function EnVivo({ fase }: { fase: Fase }) {
+  const v = VIVO[fase];
+  return (
+    <>
+      <div className="vivo vivo-orden" aria-hidden="true">
+        <p className="vivo-tit"><b>Orden 1045</b><span>Auto clásico 1969</span></p>
+        <Barra valor={v.pct} />
+        <p className="vivo-pie"><b>{v.pct} %</b> · {v.etapa}</p>
+      </div>
+      <div className="vivo vivo-wsp" aria-hidden="true" key={fase}>
+        <p className="vivo-tit"><WhatsappLogo size={20} weight="fill" /><b>Aviso al cliente</b><span>se escribió solo</span></p>
+        <p className="vivo-msj">{v.aviso}</p>
+      </div>
+    </>
+  );
+}
+
+/** Lo esencial a la vista sin hacer scroll: hechos del producto, no promesas. */
+const CONFIANZA = [
+  { Icono: UsersThree, t: 'Tres perfiles conectados', d: 'Trabajador, administrador y cliente' },
+  { Icono: Scales, t: 'Plazo legal bajo control', d: 'Facturas a compañías a 30 días' },
+  { Icono: WhatsappLogo, t: 'Avisos que se escriben solos', d: 'Cada etapa, lista para enviar' },
+  { Icono: Storefront, t: 'Tu marca, tus datos', d: 'Logo, color y datos separados' },
+];
 
 /** Conexión lenta o ahorro de datos: se queda con la foto, sin bajar el modelo 3D. */
 function conexionLenta() {
@@ -42,7 +77,7 @@ function HeroMustang() {
   return (
     <div className="hero-3d hero-auto">
       <img className={`hero-poster ${listo ? 'oculto' : ''}`} src={`${import.meta.env.BASE_URL}portada/mustang-poster.webp`}
-        alt="Auto clásico amarillo con franjas negras en un estudio oscuro" fetchPriority="high" decoding="async" />
+        alt="Auto clásico amarillo con franjas negras" fetchPriority="high" decoding="async" />
       {arrancar && !lento && !fallo && (
         <Suspense fallback={null}>
           <HeroAuto acento={empresa.acento} quieto={quieto} onListo={() => setListo(true)} onFase={setFase} onError={() => setFallo(true)} onGirar={() => setGirado(true)} />
@@ -50,6 +85,7 @@ function HeroMustang() {
       )}
       {listo && !girado && <p className="hero-girar" aria-hidden="true"><ArrowsHorizontal size={18} weight="bold" /> Arrastra para girar</p>}
       {listo && <p className={`hero-fase ${fase}`} aria-live="polite"><i aria-hidden="true" />{TEXTO_FASE[fase]}</p>}
+      {listo && <EnVivo fase={fase} />}
     </div>
   );
 }
@@ -82,7 +118,9 @@ export default function Landing() {
       <header className="nav">
         <Marca />
         <nav>
+          <button className="nav-link solo-escritorio" onClick={() => document.getElementById('funciones')?.scrollIntoView({ behavior: 'smooth' })}>Funciones</button>
           <button className="nav-link" onClick={() => ir('/cliente')}>Seguimiento</button>
+          <InterruptorTema />
           <button className="btn primario" onClick={() => ir('/entrar')}>Entrar</button>
         </nav>
       </header>
@@ -93,11 +131,16 @@ export default function Landing() {
           <h1>Tu taller, en piloto automático.</h1>
           <p>Recibe, cotiza y repara cada vehículo en una sola app. Tu cliente sigue el avance en 3D.</p>
           <div className="hero-cta">
-            <button className="btn primario grande" onClick={() => ir('/entrar')}>Entrar <ArrowRight size={24} weight="bold" /></button>
+            <button className="btn primario grande" onClick={() => ir('/entrar')}>Probar la demo <ArrowRight size={24} weight="bold" /></button>
             <button className="btn secundario grande" onClick={() => ir('/cliente/demo')}>Ver un seguimiento</button>
           </div>
         </div>
         <HeroMustang />
+      </section>
+      <section className="confianza" aria-label="Lo principal">
+        {CONFIANZA.map(({ Icono, t, d }) => (
+          <div key={t}><Icono size={28} weight="duotone" aria-hidden="true" /><p><b>{t}</b><span>{d}</span></p></div>
+        ))}
       </section>
 
       <section className="demo">
@@ -141,7 +184,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="funciones">
+      <section className="funciones" id="funciones">
         <h2>Lo que antes dependía de la memoria, ahora pasa solo</h2>
         <div className="funciones-grid">
           {FUNCIONES.map(({ Icono, t, d }) => (

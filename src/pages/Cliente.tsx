@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Car, WhatsappLogo, CheckCircle, Circle, CircleHalf, Check } from '@phosphor-icons/react';
-import { Auto3D, Barra, forma, FotoGuardada, Galeria, GaleriaVistas, ir, Leyenda, Marca } from '../components/ui';
+import { Auto3D, Barra, forma, FotoGuardada, Galeria, GaleriaVistas, InterruptorTema, ir, Leyenda, Marca } from '../components/ui';
 import { conEvento, enlaceWhatsApp, ETAPAS, etapaDe } from '../lib/automatizacion';
 import { clp, estadosPiezas, fecha, itemsCobrables, progreso, tituloItem, totales } from '../lib/piezas';
 import { actualizar, buscarPorAcceso, sesion, useOrdenes } from '../lib/store';
@@ -25,7 +25,7 @@ export function ClienteAcceso() {
   };
   return (
     <div className="login">
-      <header className="login-top"><Marca /></header>
+      <header className="login-top"><Marca /><InterruptorTema /></header>
       <main className="login-caja angosta">
         <h1>¿Cómo va mi auto?</h1>
         <p className="sub">Mira el seguimiento de un auto de prueba. No necesitas escribir nada.</p>
@@ -156,7 +156,7 @@ export function ClientePortal({ codigo, instantanea }: { codigo: string; instant
 
   return (
     <div className="portal">
-      <header className="barra"><Marca /><span className="patente">{verPatente(v.patente)}</span></header>
+      <header className="barra"><Marca /><span className="barra-usuario"><span className="patente">{verPatente(v.patente)}</span><InterruptorTema /></span></header>
       {/* El administrador que entró con «Ver como cliente» vuelve a su orden con un toque. */}
       {sesion()?.rol === 'admin' && !soloLectura && (
         <p className="vista-cliente">Estás viendo lo que ve el cliente.<button className="enlace" onClick={() => ir(`/admin/ot/${o.id}`)}><ArrowLeft size={18} /> Volver a la orden</button></p>

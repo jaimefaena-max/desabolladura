@@ -1,5 +1,5 @@
 import { ArrowRight, Briefcase, Car, Wrench } from '@phosphor-icons/react';
-import { ir, Marca } from '../components/ui';
+import { ir, Marca, InterruptorTema } from '../components/ui';
 import { entrarDemo } from '../lib/store';
 import type { Usuario } from '../lib/types';
 
@@ -13,7 +13,7 @@ const PERFILES: { rol?: Usuario['rol']; titulo: string; detalle: string; destino
 export default function Login() {
   return (
     <div className="login">
-      <header className="login-top"><Marca onClick={() => ir('/')} /></header>
+      <header className="login-top"><Marca onClick={() => ir('/')} /><InterruptorTema /></header>
       <main className="login-caja">
         <h1>Entrar a la demo</h1>
         <p className="sub">Elige un perfil. No necesitas usuario ni clave.</p>
