@@ -454,7 +454,8 @@ export function Ajustes() {
   };
   return (
     <Pantalla titulo="Ajustes">
-      <section className="formulario angosto">
+      <div className="ajustes-grid">
+      <section className="ajuste-tarjeta">
         <h2>Marca del taller</h2>
         <p className="sub">Cada empresa usa la app con su nombre, logo y color.</p>
         <div className="logo-editor">
@@ -471,15 +472,19 @@ export function Ajustes() {
           <label className="campo"><span>Nombre del taller</span><input value={empresa.nombre} onChange={e => editarEmpresa({ nombre: e.target.value })} autoComplete="off" /></label>
           <label className="campo"><span>Color de la marca</span><input type="color" value={empresa.acento} onChange={e => editarEmpresa({ acento: e.target.value })} /></label>
         </div>
+      </section>
 
-        <h2 className="seccion">Costos del taller</h2>
+      <section className="ajuste-tarjeta">
+        <h2>Costos del taller</h2>
         <p className="sub">Se usan para calcular cuánto ganas en cada orden.</p>
         <label className="campo"><span>Costo de una hora de taller (maestro + arriendo, luz, cabina y herramientas)</span>
           <input inputMode="numeric" value={(empresa.costoHora ?? COSTO_HORA_DEFECTO).toLocaleString('es-CL')}
             onChange={e => { const n = Number(e.target.value.replace(/\D/g, '')); editarEmpresa({ costoHora: n || undefined }); }} />
         </label>
+      </section>
 
-        <h2 className="seccion">Empresas</h2>
+      <section className="ajuste-tarjeta">
+        <h2>Empresas</h2>
         <p className="sub">Cada empresa tiene sus datos separados.</p>
         <div className="empresas">
           {empresas.map(e => <button key={e.id} aria-pressed={e.id === empresa.id} className={e.id === empresa.id ? 'on' : ''} onClick={() => cambiarEmpresa(e.id)}>{e.nombre || 'Sin nombre'}</button>)}
@@ -488,18 +493,25 @@ export function Ajustes() {
           <label className="campo"><span>Agregar empresa</span><input value={nueva} onChange={e => setNueva(e.target.value)} autoComplete="off" /></label>
           <button className="btn primario" disabled={!nueva.trim()}><Plus size={22} /> Agregar</button>
         </form>
+      </section>
 
-        <h2 className="seccion">Conectar Gemini</h2>
-        <p className="sub">Activa la lectura de padrón con IA, la búsqueda de precios en internet y las imágenes generadas. Sin clave, la foto se procesa en este equipo (el motor de lectura se descarga de internet) y los precios salen de una tabla orientativa.</p>
+      <section className="ajuste-tarjeta">
+        <h2>Conectar Gemini</h2>
+        <p className="sub">Activa la lectura de padrón con IA, la búsqueda de precios en internet y las imágenes generadas. Sin clave, la foto se procesa en este equipo (solo el diccionario de español se descarga de internet) y los precios salen de una tabla orientativa.</p>
         <label className="campo"><span>Clave de API de Gemini</span>
           <input type="password" value={k} onChange={e => setK(e.target.value)} autoComplete="off" spellCheck={false} />
         </label>
         <p className="pista">La clave queda solo en este navegador. Con Gemini conectado, las fotos de padrón se envían a Google y pueden incluir nombre y RUT del dueño: usa solo el padrón de ejemplo.</p>
         <button className="btn primario grande" disabled={probando} onClick={guardar}>{probando ? 'Probando…' : 'Guardar y probar'}</button>
         {msg && <p className={msg.ok ? 'aviso-ok' : 'error'} role="status">{msg.t}</p>}
-        <h2 className="seccion">Datos de ejemplo</h2>
+      </section>
+
+      <section className="ajuste-tarjeta">
+        <h2>Datos de ejemplo</h2>
+        <p className="sub">Vuelve la demostración a como venía: órdenes, cobros y repuestos de ejemplo.</p>
         <button className="btn secundario grande" onClick={() => { if (confirm('Se borrarán los cambios de esta empresa. ¿Continuar?')) restablecerDemo(); }}><ArrowsClockwise size={24} /> Restablecer datos</button>
       </section>
+      </div>
     </Pantalla>
   );
 }

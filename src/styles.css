@@ -831,14 +831,17 @@ body, .barra, .nav, .celda, .tarjeta-orden, .demo, .pie, .marca-blanca { transit
 @keyframes llegar { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
 .solo-escritorio { display: none; }
 @media (min-width: 1100px) {
-  .nav, .hero { max-width: 1920px; padding-left: clamp(1rem, 4vw, 5rem); padding-right: clamp(1rem, 4vw, 5rem); }
+  .nav, .hero { max-width: none; padding-left: clamp(1.2rem, 2.2vw, 3.2rem); padding-right: clamp(1.2rem, 2.2vw, 3.2rem); }
   .hero { grid-template-columns: minmax(0, .62fr) minmax(0, 1.38fr); gap: 2rem; min-height: calc(100dvh - 76px - 2.2rem - 5.6rem); padding-bottom: 0; }
   .hero-3d { height: min(76dvh, 900px); }
   .vivo { display: block; }
   .hero-fase { bottom: 7%; }
   .solo-escritorio { display: inline-flex; }
-  .bento, .funciones, .marca-blanca > div { max-width: 1600px; }
-  .demo { padding-left: max(clamp(1rem, 4vw, 5rem), calc((100% - 1600px) / 2)); padding-right: max(clamp(1rem, 4vw, 5rem), calc((100% - 1600px) / 2)); }
+  .bento, .funciones, .marca-blanca > div, .confianza { max-width: none; }
+  .bento, .funciones, .marca-blanca, .demo, .confianza { padding-left: clamp(1.2rem, 2.2vw, 3.2rem); padding-right: clamp(1.2rem, 2.2vw, 3.2rem); }
+  .demo { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+  .demo-panel { max-width: 640px; }
+  .funciones-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.8rem 3rem; }
   .demo-3d { height: clamp(420px, 34vw, 640px); }
 }
 @media (max-width: 960px) { .confianza { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -864,7 +867,26 @@ html { font-size: clamp(16px, calc(.3125vw + 12px), 20px); }
   .contenido { max-width: none; padding: clamp(1.2rem, 1.8vw, 2.6rem) clamp(1.2rem, 2.2vw, 3.2rem) 4rem; }
   /* Las 7 etapas del tablero caben a lo ancho, sin barra de desplazamiento. */
   .kanban { grid-auto-columns: minmax(min(240px, 14vw), 1fr); }
-  .portal main, .linea-etapas { max-width: min(1760px, 94vw); }
-  .portal-tareas { max-width: 960px; }
+  .portal main, .linea-etapas { max-width: none; }
+  .portal-hero, .linea-etapas, .portal-galeria, .portal-tareas { padding-left: clamp(1.2rem, 2.2vw, 3.2rem); padding-right: clamp(1.2rem, 2.2vw, 3.2rem); }
+  .portal-galeria { width: auto; }
+  .portal-galeria .galeria { max-width: 1100px; margin: 0 auto; }
+  .portal-tareas { max-width: none; }
+  .portal-tareas .lista-tareas, .avances ol { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: .8rem; }
+  .avances { padding: 0 clamp(1.2rem, 2.2vw, 3.2rem); }
+  /* Entrada a la demo: los tres perfiles lado a lado. */
+  .login-caja, .login-caja.angosta { width: 100%; padding-left: clamp(1.2rem, 2.2vw, 3.2rem); padding-right: clamp(1.2rem, 2.2vw, 3.2rem); }
+  .login-caja h1 { font-size: clamp(2.6rem, 1.6rem + 2vw, 3.6rem); }
+  .perfiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 1.2rem; }
+  .perfil { min-height: 150px; padding: 1.4rem; }
+  .login-caja.angosta .perfiles { grid-template-columns: minmax(0, 1fr); }
+  .login-caja.angosta .formulario { display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end; max-width: none; }
+  .login-caja.angosta .formulario .error { grid-column: 1 / -1; }
+  /* Formularios: los campos se reparten el ancho en vez de quedar en una columna angosta. */
+  .formulario { max-width: none; }
+  .ajustes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 1.2rem; align-items: start; }
   .barra { padding-left: clamp(1.2rem, 2.2vw, 3.2rem); padding-right: clamp(1.2rem, 2.2vw, 3.2rem); }
 }
+.ajustes-grid { display: grid; gap: 1.2rem; }
+.ajuste-tarjeta { display: grid; gap: .7rem; align-content: start; padding: 1.4rem; background: var(--fondo-2); border: 1px solid var(--linea); border-radius: var(--r); }
+.ajuste-tarjeta > .btn { justify-self: start; }
