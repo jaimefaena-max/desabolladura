@@ -81,7 +81,7 @@ export function ExpedienteDoc({ o, soloAdicionales = false }: { o: Orden; soloAd
           <h3>Plazo en taller</h3>
           <p className="dc-fuerte">Día {dias} de ≈{Math.round(CMF_REPARACION.enTaller)}</p>
           <p>Ingreso: {fechaLarga(new Date(`${o.creada}T12:00:00`))}</p>
-          <p className="de-fuente">Promedio nacional en taller, CMF {CMF_REPARACION.periodo}</p>
+          <p className="de-fuente">Referencia en taller: estimación con datos CMF, {CMF_REPARACION.periodo}</p>
         </div>
       </section>
 
@@ -110,7 +110,7 @@ export function ExpedienteDoc({ o, soloAdicionales = false }: { o: Orden; soloAd
           <ul>
             {soloAdicionales
               ? <li>Daños ocultos detectados al desarmar el vehículo, posteriores a la autorización inicial. Se adjunta foto de cada uno.</li>
-              : <li>Valores netos por pieza; el total incluye IVA. El deducible lo paga el asegurado al retirar.</li>}
+              : <li>Valores netos por pieza; el total incluye IVA. Según la póliza, el deducible lo paga el asegurado al retirar.</li>}
             {!soloAdicionales && adicionales.length > 0 && <li>Incluye {adicionales.length} adicional(es) por {clp(montoAdicionales)} neto, pendientes de autorización.</li>}
             <li>Fotografías tomadas en el taller con fecha y hora de registro en el sistema.</li>
           </ul>

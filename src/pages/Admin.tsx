@@ -327,12 +327,12 @@ ${enlaceSeguimiento(o, empresa.nombre)}`)} target="_blank" rel="noreferrer noope
 /** Días en el taller frente al promedio nacional de la CMF: el argumento del taller rápido ante la compañía. */
 function PlazoCMF({ o }: { o: Orden }) {
   const dias = diasEnTaller(o), meta = CMF_REPARACION.enTaller, s = semaforoPlazo(dias);
-  const texto = { ok: 'Bajo el promedio nacional', atento: 'Cerca del promedio nacional', atrasado: 'Sobre el promedio nacional' }[s];
+  const texto = { ok: 'Bajo la referencia CMF', atento: 'Cerca de la referencia CMF', atrasado: 'Sobre la referencia CMF' }[s];
   return (
     <section className={`plazo-cmf ${s}`} aria-label="Plazo en el taller">
       <p><Timer size={22} weight="fill" /><b>Día {dias} en el taller</b><span>{texto}</span></p>
       <div className="plazo-barra"><i style={{ width: `${Math.min(100, (dias / meta) * 100)}%` }} /></div>
-      <small>Promedio nacional dentro del taller: ≈{Math.round(meta)} días (CMF, {CMF_REPARACION.periodo}).</small>
+      <small>Referencia dentro del taller: ≈{Math.round(meta)} días (estimación propia con datos de la CMF, {CMF_REPARACION.periodo}).</small>
     </section>
   );
 }

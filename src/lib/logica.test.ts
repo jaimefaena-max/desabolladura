@@ -34,13 +34,13 @@ MARCA: TOYOTA
 MODELO: HILUX
 AÑO: 2021
 COLOR: PLATEADO
-MOTOR: 2GD4471823
-CHASIS: MR0KA3CD201234567`;
+MOTOR: DEMO000001
+CHASIS: DEMO0000000000001`;
 
   it('rescata los datos del vehículo y del dueño', () => {
     expect(interpretarPadron(texto)).toEqual({
       patente: 'DEMA55', marca: 'TOYOTA', modelo: 'HILUX', anio: 2021, color: 'PLATEADO',
-      motor: '2GD4471823', chasis: 'MR0KA3CD201234567', nombre: 'CLIENTE DEMO CINCO', rut: '10.000.005-1',
+      motor: 'DEMO000001', chasis: 'DEMO0000000000001', nombre: 'CLIENTE DEMO CINCO', rut: '10.000.005-1',
     });
   });
   it('acepta el valor en la línea siguiente a la etiqueta', () => {
@@ -410,9 +410,9 @@ describe('control de repuestos', () => {
     expect(r2.atrasados).toBe(1);
     expect(r2.detenidos[0].o.numero).toBe(1041);
     expect(r2.filas[0].e.estado).toBe('atrasado');
-    const norte = r2.proveedores.find(p => p.nombre === 'Repuestos Norte')!;
+    const norte = r2.proveedores.find(p => p.nombre === 'Repuestos Demo Norte')!;
     expect(norte).toMatchObject({ pedidos: 3, cumplimiento: 67, atrasoPromedio: .3 });
-    expect(r2.proveedores.find(p => p.nombre === 'Autopartes Centro')!.cumplimiento).toBe(0);
+    expect(r2.proveedores.find(p => p.nombre === 'Autopartes Demo Centro')!.cumplimiento).toBe(0);
   });
   it('el aviso al cliente explica el atraso y trae la nueva fecha y el link', () => {
     globalThis.location = { origin: 'https://ejemplo.cl', pathname: '/desabolladura/' } as Location;

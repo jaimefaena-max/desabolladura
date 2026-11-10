@@ -5,9 +5,10 @@ import type { Factura, Orden } from './types';
  * Cobranza a compañías de seguros.
  *
  * Ley 19.983 (modificada por la Ley 21.131, «pago a 30 días»): la factura se paga dentro de 30 días
- * corridos desde su recepción; un plazo mayor (hasta 60) solo vale con acuerdo escrito inscrito en el
- * registro del Ministerio de Economía. Si se paga tarde, el saldo devenga interés por mora y una
- * comisión de cobranza de 1 % del saldo. La demo asume recepción el mismo día de emisión.
+ * corridos desde su recepción; plazos mayores solo en los casos excepcionales que permite la ley, con
+ * acuerdo escrito (revisar el texto vigente en bcn.cl antes de usarlo con un taller real). Si se paga
+ * tarde, el saldo devenga interés por mora y una comisión de cobranza de 1 % del saldo.
+ * La demo cuenta desde la emisión (asume recepción el mismo día): los textos lo dicen.
  */
 export const PLAZO_LEGAL_DIAS = 30;
 export const COMISION_COBRANZA = .01;
@@ -96,8 +97,8 @@ export function correoRecordatorio(x: FilaCobranza, taller: string) {
     '',
     `Les recordamos la factura N.º ${f.numero}, emitida el ${legible(f.emitida)} por $${f.monto.toLocaleString('es-CL')}, correspondiente a la reparación del siniestro ${p.siniestro} (${o.vehiculo.marca} ${o.vehiculo.modelo}, patente ${o.vehiculo.patente}).`,
     e.estado === 'vencida'
-      ? `Su vencimiento fue el ${legible(vencimiento(f))} y registra ${-e.dias} días de atraso. Conforme a la Ley 19.983 (modificada por la Ley 21.131), el saldo devenga interés por mora y una comisión de cobranza de 1 % ($${e.comision.toLocaleString('es-CL')}).`
-      : `Vence el ${legible(vencimiento(f))} (plazo de 30 días de la Ley 19.983, modificada por la Ley 21.131).`,
+      ? `Según nuestro registro, contado desde la emisión, su vencimiento fue el ${legible(vencimiento(f))} y registra ${-e.dias} días de atraso (si la recepción fue posterior, el plazo corre desde esa fecha). Conforme a la Ley 19.983 (modificada por la Ley 21.131), el saldo devenga interés por mora y una comisión de cobranza de 1 % ($${e.comision.toLocaleString('es-CL')}).`
+      : `Según nuestro registro, contado desde la emisión, vence el ${legible(vencimiento(f))} (plazo de 30 días desde la recepción, Ley 19.983, modificada por la Ley 21.131).`,
     '',
     'Quedamos atentos a la confirmación de pago.',
     taller,

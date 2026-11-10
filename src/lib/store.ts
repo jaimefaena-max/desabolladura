@@ -123,11 +123,11 @@ function publicar(nuevas: Orden[]) {
 }
 
 const suscribir = (f: () => void) => { oyentes.add(f); return () => { oyentes.delete(f); }; };
-export const useOrdenes = () => useSyncExternalStore(suscribir, () => ordenes);
+export const useOrdenes = () => useSyncExternalStore(suscribir, () => ordenes, () => ordenes);
 export const useOrden = (id: string) => useOrdenes().find(o => o.id === id);
-export const useEmpresa = () => useSyncExternalStore(suscribir, () => actual);
-export const useEmpresas = () => useSyncExternalStore(suscribir, () => empresas);
-export const useSinGuardar = () => useSyncExternalStore(suscribir, () => sinGuardar);
+export const useEmpresa = () => useSyncExternalStore(suscribir, () => actual, () => actual);
+export const useEmpresas = () => useSyncExternalStore(suscribir, () => empresas, () => empresas);
+export const useSinGuardar = () => useSyncExternalStore(suscribir, () => sinGuardar, () => sinGuardar);
 
 /* Dos pestañas (administrador y trabajador) comparten los datos: lo que guarda una lo ve la otra. */
 if (typeof addEventListener === 'function') {

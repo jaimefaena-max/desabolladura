@@ -155,7 +155,7 @@ export function metricas(ordenes: Orden[], hoy = new Date()) {
 /**
  * Tiempos de reparación de vehículos asegurados que publica la CMF (Circular 2236), 1.er semestre 2026:
  * 51,6 días desde la denuncia hasta el retiro; 29,8 de ellos antes de entrar al taller.
- * Dentro del taller quedan ≈ 21,8 días: es la vara con que se compara cada orden con seguro.
+ * Dentro del taller quedan ≈ 21,8 días: es una resta propia (no un dato publicado), y así se rotula.
  */
 export const CMF_REPARACION = { total: 51.6, antesDelTaller: 29.8, enTaller: 21.8, periodo: '1.er semestre de 2026' };
 

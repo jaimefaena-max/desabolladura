@@ -142,8 +142,8 @@ function historico(): Orden[] {
   ];
   // Historial de repuestos para medir a cada proveedor: [proveedor, pedido, prometido, recibido] en días atrás.
   const partes: Record<number, [string, number, number, number, number]> = {
-    1034: ['Repuestos Norte', 149, 146, 146, 26000], 1036: ['Autopartes Centro', 91, 89, 86, 24000], 1037: ['Concesionario de la marca', 60, 57, 57, 38000],
-    1038: ['Autopartes Centro', 32, 30, 26, 24000], 1039: ['Repuestos Norte', 17, 15, 16, 26000], 1032: ['Repuestos Norte', 51, 48, 47, 26000],
+    1034: ['Repuestos Demo Norte', 149, 146, 146, 26000], 1036: ['Autopartes Demo Centro', 91, 89, 86, 24000], 1037: ['Concesionario de la marca', 60, 57, 57, 38000],
+    1038: ['Autopartes Demo Centro', 32, 30, 26, 24000], 1039: ['Repuestos Demo Norte', 17, 15, 16, 26000], 1032: ['Repuestos Demo Norte', 51, 48, 47, 26000],
   };
   // Cobranza de ejemplo: pagadas a tiempo, una pagada con atraso, una al día, una por vencer y una vencida.
   type Fac = Base['factura'];

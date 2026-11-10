@@ -99,7 +99,7 @@ export function Cobranza() {
                 ))}
               </tbody>
             </table>
-            <p className="pista">«Paga en»: días promedio entre la factura y el pago. Sobre 30, la compañía paga fuera del plazo legal.</p>
+            <p className="pista">«Paga en»: días promedio entre la factura y el pago. Sobre 30, la compañía paga fuera del plazo legal, salvo un acuerdo excepcional vigente.</p>
           </section>
 
           {r.deducibles.length > 0 && (
@@ -116,11 +116,11 @@ export function Cobranza() {
           <section className="cb-bloque cb-ley">
             <h2><Scales size={22} /> Lo que dice la ley</h2>
             <ul>
-              <li>La factura se paga dentro de <b>30 días corridos</b> desde que la compañía la recibe (Ley 19.983, modificada por la Ley 21.131).</li>
-              <li>Un plazo mayor, hasta 60 días, solo vale con <b>acuerdo escrito inscrito</b> en el registro del Ministerio de Economía.</li>
+              <li>La factura se paga dentro de <b>30 días corridos</b> desde que la compañía la recibe (Ley 19.983, modificada por la Ley 21.131). Aquí se cuenta desde la emisión: si la recibió después, corre desde esa fecha.</li>
+              <li>Plazos mayores solo valen en los <b>casos excepcionales</b> que permite la ley, con acuerdo escrito.</li>
               <li>Si paga tarde, el saldo devenga <b>interés por mora</b> y una <b>comisión de cobranza de 1 %</b>.</li>
             </ul>
-            <p className="pista">Información general, no es asesoría legal.</p>
+            <p className="pista">Información general, no es asesoría legal. Revisa el correo antes de enviarlo.</p>
           </section>
         </aside>
       </div>

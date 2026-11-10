@@ -7,7 +7,7 @@ import type { Empresa, Orden, Repuesto } from './types';
  * Es la causa más común de autos detenidos en el taller (la CMF la cita entre los motivos de demora).
  */
 
-export const PROVEEDORES_SUGERIDOS = ['Concesionario de la marca', 'Repuestos Norte', 'Autopartes Centro', 'Desarmaduría'];
+export const PROVEEDORES_SUGERIDOS = ['Concesionario de la marca', 'Repuestos Demo Norte', 'Autopartes Demo Centro', 'Desarmaduría'];
 
 const dia = (f: string) => Date.parse(`${f}T12:00:00`);
 export const diasEntre = (a: string, b: string) => Math.round((dia(b) - dia(a)) / 864e5);

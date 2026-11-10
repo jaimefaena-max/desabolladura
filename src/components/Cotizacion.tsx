@@ -99,7 +99,7 @@ export function CotizacionDoc({ o }: { o: Orden }) {
             <li>Entrega estimada: {fechaLarga(desdeIso(o.entrega))}, una vez aprobado el presupuesto.</li>
             <li>Valores en pesos chilenos. Validez de {VALIDEZ_DIAS} días desde la emisión.</li>
             <li>Si al desarmar aparece un daño oculto, se informa y se cotiza aparte antes de repararlo.</li>
-            {p.tipo === 'aseguradora' && <li>El deducible lo paga el cliente al retirar; el resto lo paga {p.aseguradora}.</li>}
+            {p.tipo === 'aseguradora' && <li>Según la póliza, el deducible lo paga el cliente al retirar; el resto, {p.aseguradora}.</li>}
           </ul>
         </div>
         <dl className="dc-totales">

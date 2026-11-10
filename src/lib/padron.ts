@@ -56,7 +56,7 @@ export function padronEjemplo(): string {
   const filas = [
     ['INSCRIPCION', 'DEMA.55-5'], ['NOMBRE', 'CLIENTE DEMO CINCO'], ['RUT', '10.000.005-1'],
     ['MARCA', 'TOYOTA'], ['MODELO', 'HILUX'], ['ANO', '2021'], ['COLOR', 'PLATEADO'],
-    ['MOTOR', '2GD4471823'], ['CHASIS', 'MR0KA3CD201234567'],
+    ['MOTOR', 'DEMO000001'], ['CHASIS', 'DEMO0000000000001'],
   ];
   x.font = 'bold 30px Arial';
   filas.forEach(([k, v], i) => {
@@ -68,7 +68,10 @@ export function padronEjemplo(): string {
 
 export async function leerConOCR(imagen: string, avance: (p: number) => void): Promise<DatosPadron> {
   const { createWorker } = await import('tesseract.js');
+  // Motor local (publicado con la app, ver vite.config.ts): no se ejecuta código de un CDN.
+  const ocr = `${import.meta.env.BASE_URL}ocr/`;
   const w = await createWorker('spa', 1, {
+    workerPath: `${ocr}worker.min.js`, corePath: ocr, workerBlobURL: false,
     logger: m => { if (m.status === 'recognizing text') avance(m.progress); },
   });
   try {
