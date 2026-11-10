@@ -81,7 +81,7 @@
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--fondo); color: var(--texto); font-family: 'Outfit Variable', system-ui, sans-serif; font-size: 20px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--fondo); color: var(--texto); font-family: 'Outfit Variable', system-ui, sans-serif; font-size: 1.25rem; line-height: 1.45; -webkit-font-smoothing: antialiased; }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: clamp(2rem, 1.5rem + 2vw, 2.7rem); line-height: 1.08; letter-spacing: -.02em; font-weight: 650; }
 h2 { font-size: 1.5rem; line-height: 1.2; letter-spacing: -.01em; font-weight: 620; }
@@ -528,7 +528,7 @@ body, .barra, .nav, .celda, .tarjeta-orden, .demo, .pie, .marca-blanca { transit
     .portal-3d { height: 66vw; min-height: 280px; }
 }
 @media (max-width: 620px) {
-  body { font-size: 19px; }
+  body { font-size: 1.1875rem; }
   .barra-nombre { display: none; }
   .nav-link { display: none; }
   .funciones-grid { grid-template-columns: minmax(0, 1fr); }
@@ -852,3 +852,19 @@ body, .barra, .nav, .celda, .tarjeta-orden, .demo, .pie, .marca-blanca { transit
   .interruptor-tema span { width: 38px; height: 38px; }
 }
 @media (prefers-reduced-motion: reduce) { .vivo, .vivo-wsp { animation: none; } }
+
+/* ---------- Pantallas grandes: la app usa todo el ancho y el texto crece con la pantalla ---------- */
+/*
+ * El tamaño base sube de 16 px (hasta 1280 px de ancho) a 20 px (2560 px o más). Todo lo que está
+ * en rem crece en proporción; en celular y notebook no cambia nada. También compensa un navegador
+ * con zoom reducido: a menos zoom hay más ancho, y el texto sube.
+ */
+html { font-size: clamp(16px, calc(.3125vw + 12px), 20px); }
+@media (min-width: 1100px) {
+  .contenido { max-width: none; padding: clamp(1.2rem, 1.8vw, 2.6rem) clamp(1.2rem, 2.2vw, 3.2rem) 4rem; }
+  /* Las 7 etapas del tablero caben a lo ancho, sin barra de desplazamiento. */
+  .kanban { grid-auto-columns: minmax(min(240px, 14vw), 1fr); }
+  .portal main, .linea-etapas { max-width: min(1760px, 94vw); }
+  .portal-tareas { max-width: 960px; }
+  .barra { padding-left: clamp(1.2rem, 2.2vw, 3.2rem); padding-right: clamp(1.2rem, 2.2vw, 3.2rem); }
+}
