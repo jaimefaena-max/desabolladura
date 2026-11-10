@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowsClockwise, Bell, Camera, Check, CheckCircle, CurrencyCircleDollar, FilePdf, Receipt, FolderOpen, Timer, Eye, HourglassMedium, MagnifyingGlass, PaperPlaneTilt, PencilSimple, Phone, Plus, Printer, Truck, WarningCircle, WhatsappLogo, XCircle } from '@phosphor-icons/react';
+import { ArrowsClockwise, Bell, Camera, Check, CheckCircle, CurrencyCircleDollar, FilePdf, Receipt, FolderOpen, Timer, Eye, HourglassMedium, MagnifyingGlass, PaperPlaneTilt, PencilSimple, Phone, Plus, Printer, Truck, WarningCircle, WhatsappLogo, XCircle } from '../components/iconos';
 import { Auto3D, Barra, forma, FotoGuardada, FotoOrden, Galeria, GaleriaVistas, ir, Logo, Pantalla } from '../components/ui';
 import { CotizacionDoc, imprimirDocumento } from '../components/Cotizacion';
 import FilaRepuesto from '../components/FilaRepuesto';

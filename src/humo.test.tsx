@@ -78,3 +78,11 @@ describe('cada pantalla se dibuja completa', async () => {
     expect(porLink).not.toMatch(roto);
   });
 });
+
+// Va al final: revisa los íconos que se dibujaron en todas las pantallas de arriba.
+describe('íconos', () => {
+  it('ninguno pide un grosor que no se generó (scripts/generar-iconos.ts)', async () => {
+    const { faltantes } = await import('./components/iconos');
+    expect([...faltantes]).toEqual([]);
+  });
+});

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ArrowsClockwise, Camera, CheckCircle, PencilSimple, Sparkle } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, ArrowsClockwise, Camera, CheckCircle, PencilSimple, Sparkle } from '../components/iconos';
 import PiezaPicker from '../components/PiezaPicker';
 import { ir, Pantalla } from '../components/ui';
 import { VISTAS } from '../lib/fichaModelo';

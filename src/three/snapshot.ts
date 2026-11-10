@@ -1,61 +1,156 @@
-import * as THREE from 'three';
-import type { Carroceria, EstadoPieza, Medidas, PiezaId } from '../lib/types';
-import { buildCar } from './carModel';
-import { liberarPiso, makeEnv, makeFloor } from './studio';
-import { coloresTrabajo, encuadre } from './Viewer3D';
+import type { Opciones } from './fotosMotor';
 
-/** Un solo renderizador oculto entrega las fotos de las tarjetas: evita abrir un contexto WebGL por vehículo. */
-let base: { r: THREE.WebGLRenderer; scene: THREE.Scene; cam: THREE.PerspectiveCamera } | null | undefined;
-/** Últimas fotos hechas (las más antiguas salen primero): una lista larga no hace crecer la memoria sin fin. */
-const cache = new Map<string, string>();
-const MAX_CACHE = 40;
+/**
+ * Fotos de las tarjetas (tablero, órdenes, reportes, portada) hechas con el auto 3D.
+ *
+ * Cada foto costaba ≈250 ms de hilo principal, todas seguidas al abrir una pantalla: eso trababa
+ * la app. Ahora:
+ * - se dibujan en un hilo aparte (Worker con OffscreenCanvas): la página no se traba; si el
+ *   navegador no lo permite, se dibujan en la página, de a una y con el navegador libre;
+ * - el auto de cada modelo se construye una vez y se reutiliza (por foto solo se repinta);
+ * - quedan guardadas en el navegador (IndexedDB): en la próxima visita aparecen al instante;
+ * - solo se piden las que se van a ver (ver FotoAuto en components/ui.tsx).
+ */
+export type { Opciones };
 
-function iniciar() {
-  if (base !== undefined) return base;
+/* ---------- Dónde se dibuja: hilo aparte o, si no se puede, la página ---------- */
+type Dibujar = (o: Opciones) => Promise<Blob | null>;
+
+function enWorker(): Dibujar | null {
   try {
-    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 1.05;
-    const scene = new THREE.Scene();
-    scene.environment = makeEnv(r).texture;
-    base = { r, scene, cam: new THREE.PerspectiveCamera(30, 1, .1, 60) };
+    if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') return null;
+    // WebGL dentro de OffscreenCanvas (Safari lo trae desde la 17).
+    if (!new OffscreenCanvas(1, 1).getContext('webgl2')) return null;
+    const w = new Worker(new URL('./fotos.worker.ts', import.meta.url), { type: 'module' });
+    const espera = new Map<number, (r: { blob?: Blob | null; error?: string }) => void>();
+    let n = 0;
+    w.onmessage = (e: MessageEvent<{ id: number; blob?: Blob | null; error?: string }>) => { espera.get(e.data.id)?.(e.data); espera.delete(e.data.id); };
+    w.onerror = () => { espera.forEach(f => f({ error: 'worker' })); espera.clear(); };
+    return o => new Promise((ok, mal) => {
+      const id = ++n;
+      espera.set(id, r => (r.error ? mal(new Error(r.error)) : ok(r.blob ?? null)));
+      w.postMessage({ id, o });
+    });
   } catch {
-    base = null;
+    return null;
   }
-  return base;
 }
 
-interface Opciones {
-  carroceria: Carroceria; medidas?: Medidas; color: string; acento?: string; estados?: Partial<Record<PiezaId, EstadoPieza>>;
-  ancho?: number; alto?: number; angulo?: number;
-}
-
-export function foto({ carroceria, medidas, color, acento, estados = {}, ancho = 720, alto = 405, angulo = 38 }: Opciones): string | null {
-  const key = JSON.stringify([carroceria, medidas, color, acento, estados, ancho, alto, angulo]);
-  const hecha = cache.get(key);
-  if (hecha) { cache.delete(key); cache.set(key, hecha); return hecha; }
-  const b = iniciar();
-  if (!b) return null;
-  b.r.setPixelRatio(1);
-  b.r.setSize(ancho, alto, false);
-  const auto = buildCar(carroceria, color, medidas);
-  const c = coloresTrabajo(acento);
-  auto.piezas.forEach((p, id) => {
-    const e = estados[id];
-    if (e === 'pendiente') { p.mat.color.copy(c.dano); p.mat.metalness = .05; p.mat.roughness = .5; p.mat.clearcoat = .3; p.mat.emissive.copy(c.dano).multiplyScalar(.28); }
-    if (e === 'proceso') { p.mat.color.copy(c.proceso); p.mat.metalness = 0; p.mat.roughness = .8; p.mat.clearcoat = 0; }
+let enPagina: Promise<Dibujar | null> | undefined;
+function dibujarEnPagina(): Promise<Dibujar | null> {
+  enPagina ??= import('./fotosMotor').then(({ crearMotor }) => {
+    try {
+      const m = crearMotor(document.createElement('canvas'));
+      return (o: Opciones) => m.dibujar(o);
+    } catch {
+      return null; // sin WebGL: las tarjetas quedan con su fondo
+    }
   });
-  const piso = makeFloor(auto.largo);
-  b.scene.add(auto.group, piso);
-  b.cam.aspect = ancho / alto;
-  b.cam.updateProjectionMatrix();
-  encuadre(b.cam, auto, angulo, ancho / alto);
-  b.r.render(b.scene, b.cam);
-  const url = b.r.domElement.toDataURL('image/webp', .86);
-  b.scene.remove(auto.group, piso);
-  auto.dispose();
-  liberarPiso(piso);
-  cache.set(key, url);
-  if (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value!);
+  return enPagina;
+}
+
+let worker: Dibujar | null | undefined;
+async function dibujar(o: Opciones): Promise<Blob | null> {
+  if (worker === undefined) worker = enWorker();
+  if (worker) {
+    try { return await worker(o); } catch { worker = null; /* falla el hilo aparte: se sigue en la página */ }
+  }
+  const d = await dibujarEnPagina();
+  return d ? d(o) : null;
+}
+
+/* ---------- Fotos guardadas en el navegador ---------- */
+const VERSION = 'v2';
+function abrirCache() {
+  return new Promise<IDBDatabase>((ok, mal) => {
+    const r = indexedDB.open('dp-cache', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('fotos3d');
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => mal(r.error);
+  });
+}
+let db: Promise<IDBDatabase | null> | undefined;
+const cache = () => (db ??= (typeof indexedDB === 'undefined' ? Promise.resolve(null) : abrirCache().catch(() => null)));
+
+async function leerGuardada(k: string): Promise<Blob | undefined> {
+  const d = await cache();
+  if (!d) return undefined;
+  return new Promise(ok => {
+    try {
+      const r = d.transaction('fotos3d').objectStore('fotos3d').get(k);
+      r.onsuccess = () => ok(r.result instanceof Blob ? r.result : undefined);
+      r.onerror = () => ok(undefined);
+    } catch { ok(undefined); }
+  });
+}
+async function guardar(k: string, blob: Blob) {
+  const d = await cache();
+  if (!d) return;
+  try {
+    const t = d.transaction('fotos3d', 'readwrite'), s = t.objectStore('fotos3d');
+    // Tope simple: si se juntan muchas, se empieza de cero (se regeneran solas).
+    const n = s.count();
+    n.onsuccess = () => { if (n.result > 300) s.clear(); s.put(blob, k); };
+  } catch { /* sin espacio: la foto vale solo para esta visita */ }
+}
+
+/* ---------- Cola: de a una foto; en la página, solo con el navegador libre ---------- */
+const enMemoria = new Map<string, string>();
+const MAX_MEMORIA = 80;
+const pendientes = new Map<string, Promise<string | null>>();
+const cola: (() => Promise<void>)[] = [];
+let trabajando = false;
+
+const libre = (f: () => void) => {
+  // El hilo aparte se crea recién cuando hay que dibujar algo (si todas las fotos estaban guardadas, ni se baja).
+  if (worker === undefined) worker = enWorker();
+  // En el hilo aparte no hace falta esperar: la página no se traba.
+  if (worker) { f(); return; }
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(f, { timeout: 600 }); else setTimeout(f, 16);
+};
+function siguiente() {
+  if (trabajando) return;
+  const tarea = cola.shift();
+  if (!tarea) return;
+  trabajando = true;
+  libre(() => { void tarea().finally(() => { trabajando = false; siguiente(); }); });
+}
+
+function recordar(k: string, url: string) {
+  enMemoria.set(k, url);
+  if (enMemoria.size > MAX_MEMORIA) {
+    const viejo = enMemoria.keys().next().value!;
+    URL.revokeObjectURL(enMemoria.get(viejo)!);
+    enMemoria.delete(viejo);
+  }
   return url;
+}
+
+const clave = (o: Opciones) => JSON.stringify([VERSION, o.carroceria, o.medidas ?? null, o.color, o.acento ?? null, o.estados ?? {}, o.ancho ?? 560, o.alto ?? 315, o.angulo ?? 38]);
+
+/** Foto ya hecha en esta visita (para mostrarla sin esperar). */
+export const fotoLista = (o: Opciones) => enMemoria.get(clave(o));
+
+/** Pide la foto: primero la guardada; si no hay, la dibuja (en el hilo aparte si se puede). */
+export function foto(o: Opciones): Promise<string | null> {
+  const k = clave(o);
+  const hecha = enMemoria.get(k);
+  if (hecha) return Promise.resolve(hecha);
+  let p = pendientes.get(k);
+  if (p) return p;
+  p = (async () => {
+    const guardada = await leerGuardada(k);
+    if (guardada) return recordar(k, URL.createObjectURL(guardada));
+    return new Promise<string | null>(ok => {
+      cola.push(async () => {
+        const blob = await dibujar(o).catch(() => null);
+        if (!blob) { ok(null); return; }
+        void guardar(k, blob);
+        ok(recordar(k, URL.createObjectURL(blob)));
+      });
+      siguiente();
+    });
+  })().finally(() => pendientes.delete(k));
+  pendientes.set(k, p);
+  return p;
 }

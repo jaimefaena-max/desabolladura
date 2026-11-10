@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
-import { CaretLeft, Camera, ChartBar, CurrencyCircleDollar, Gear, Kanban, ListChecks, Moon, Package, SignOut, Sun } from '@phosphor-icons/react';
+import { CaretLeft, Camera, ChartBar, CurrencyCircleDollar, Gear, Kanban, ListChecks, Moon, Package, SignOut, Sun } from './iconos';
 import { alternarTema, useTema } from '../lib/tema';
 import { Barrera } from './Errores';
 import { etapaDe, nombreEtapa } from '../lib/automatizacion';
@@ -157,21 +157,38 @@ function Miniatura({ ref_, nombre, on, onClick }: { ref_: string; nombre: string
   );
 }
 
+/** Módulo de fotos 3D, cargado una vez: después las fotos ya hechas se muestran sin esperar. */
+let fotos3d: typeof import('../three/snapshot') | undefined;
+
+/**
+ * Foto de la tarjeta hecha con el auto 3D. Se pide solo cuando la tarjeta está por verse y se hace
+ * con el navegador libre (ver three/snapshot.ts): abrir el tablero o las órdenes ya no se traba.
+ */
 export function FotoAuto({ carroceria, medidas, color, estados, angulo, alt, ancho, alto }: { carroceria: Carroceria; medidas?: Medidas; color: string; estados?: Partial<Record<PiezaId, EstadoPieza>>; angulo?: number; alt: string; ancho?: number; alto?: number }) {
-  const [src, setSrc] = useState<string | null>(null);
   const acento = useEmpresa().acento;
-  const clave = JSON.stringify([carroceria, medidas, color, acento, estados, angulo]);
+  const opciones = { carroceria, medidas, color, acento, estados, angulo, ancho, alto };
+  const clave = JSON.stringify(opciones);
+  const [hecha, setHecha] = useState<{ clave: string; src: string | null }>();
+  const caja = useRef<HTMLDivElement>(null);
+  const yaLista = fotos3d?.fotoLista(opciones);
   useEffect(() => {
-    let vivo = true;
-    const t = setTimeout(async () => {
-      const { foto } = await import('../three/snapshot');
-      const url = foto({ carroceria, medidas, color, acento, estados, angulo, ancho, alto });
-      if (vivo) setSrc(url);
-    }, 30);
-    return () => { vivo = false; clearTimeout(t); };
+    if (yaLista) return;
+    let vivo = true, io: IntersectionObserver | undefined;
+    const pedir = async () => {
+      fotos3d ??= await import('../three/snapshot');
+      const src = await fotos3d.foto(opciones);
+      if (vivo) setHecha({ clave, src });
+    };
+    if (typeof IntersectionObserver === 'undefined' || !caja.current) void pedir();
+    else {
+      io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { io?.disconnect(); void pedir(); } }, { rootMargin: '300px' });
+      io.observe(caja.current);
+    }
+    return () => { vivo = false; io?.disconnect(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clave]);
-  return src ? <img className="foto" src={src} alt={alt} /> : <div className="foto esqueleto" role="img" aria-label={alt} />;
+  }, [clave, yaLista]);
+  const src = yaLista ?? (hecha?.clave === clave ? hecha.src : undefined);
+  return src ? <img className="foto" src={src} alt={alt} decoding="async" /> : <div ref={caja} className="foto esqueleto" role="img" aria-label={alt} />;
 }
 
 export function TarjetaOrden({ o, destino }: { o: Orden; destino: string }) {

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Camera, CheckCircle, Plus, Wrench } from '@phosphor-icons/react';
+import { Camera, CheckCircle, Plus, Wrench } from '../components/iconos';
 import PiezaPicker from '../components/PiezaPicker';
 import TerminarTrabajo from '../components/TerminarTrabajo';
 import { Auto3D, Barra, forma, FotoGuardada, Galeria, ir, Leyenda, Pantalla, TarjetaOrden } from '../components/ui';

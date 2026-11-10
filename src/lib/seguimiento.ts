@@ -1,6 +1,6 @@
 import { deflateSync, inflateSync, strFromU8, strToU8 } from 'three/examples/jsm/libs/fflate.module.js';
-import { clp, PIEZAS, progreso, tituloItem, TRABAJOS, totales } from './piezas';
-import type { Empresa, Item, Orden } from './types';
+import { clp, fecha, fechaLocal, PIEZAS, progreso, tituloItem, TRABAJOS, totales } from './piezas';
+import type { Empresa, Item, Orden, Repuesto } from './types';
 import { vistasDe } from './vistas';
 
 /**
@@ -156,4 +156,19 @@ export function mensajeAvance(o: Orden, item: Item, antes: number, empresa: Pick
     ahora === 100 ? 'Ya terminamos todos los trabajos. Le avisamos cuando esté listo para retirar.' : '',
     `Vea el avance, el auto en 3D y los detalles aquí: ${enlaceSeguimiento(o, empresa.nombre)}`,
   ].filter(Boolean).join('\n');
+}
+
+/** Aviso al cliente de un repuesto atrasado (vive aquí y no en repuestos.ts: así el compresor del link no entra al arranque). */
+export function mensajeRepuesto(o: Orden, r: Repuesto, empresa: Pick<Empresa, 'nombre'>, hoy = fechaLocal()) {
+  const nombre = /^cliente\b/i.test(o.cliente.nombre) ? '' : o.cliente.nombre.trim().split(/\s+/)[0];
+  const v = `${o.vehiculo.marca} ${o.vehiculo.modelo}`;
+  return [
+    `Hola${nombre ? ` ${nombre}` : ''}, le escribimos de ${empresa.nombre}.`,
+    `Le avisamos que el repuesto *${r.nombre.toLowerCase()}* de su ${v} viene con atraso del proveedor.`,
+    r.prometido && r.prometido >= hoy
+      ? `Ahora llega el ${fecha(r.prometido)} y la nueva fecha estimada de entrega es el *${fecha(o.entrega)}*.`
+      : `${r.prometido ? `Debía llegar el ${fecha(r.prometido)} y aún no lo recibimos. ` : ''}Le confirmaremos la nueva fecha de entrega apenas el proveedor nos dé la suya.`,
+    'Mientras tanto seguimos avanzando con los demás trabajos.',
+    `Vea el avance aquí: ${enlaceSeguimiento(o, empresa.nombre)}`,
+  ].join('\n');
 }

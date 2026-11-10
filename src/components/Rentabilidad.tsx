@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChartPieSlice } from '@phosphor-icons/react';
+import { ChartPieSlice } from './iconos';
 import { conEvento } from '../lib/automatizacion';
 import { clp } from '../lib/piezas';
 import { COSTO_HORA_DEFECTO, rentabilidad, type Semaforo } from '../lib/rentabilidad';

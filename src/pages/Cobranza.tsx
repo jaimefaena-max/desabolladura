@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, EnvelopeSimple, Scales } from '@phosphor-icons/react';
+import { Check, EnvelopeSimple, Scales } from '../components/iconos';
 import { ir, Pantalla } from '../components/ui';
 import { conEvento } from '../lib/automatizacion';
 import { cobradaSeguro, correoRecordatorio, nombreEstado, resumenCobranza, vencimiento, type FilaCobranza } from '../lib/cobranza';

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Camera, CheckCircle, WhatsappLogo, X } from '@phosphor-icons/react';
+import { Camera, CheckCircle, WhatsappLogo, X } from './iconos';
 import { enlaceWhatsApp } from '../lib/automatizacion';
 import { guardarFoto } from '../lib/fotos';
 import { reducirImagen } from '../lib/padron';

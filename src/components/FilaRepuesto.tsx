@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { CalendarBlank, Check, Package, Truck, WhatsappLogo } from '@phosphor-icons/react';
+import { CalendarBlank, Check, Package, Truck, WhatsappLogo } from './iconos';
 import { conEvento, enlaceWhatsApp, sincronizar, sumarHabiles } from '../lib/automatizacion';
 import { fecha, fechaLocal } from '../lib/piezas';
-import { estadoRepuesto, mensajeRepuesto, PROVEEDORES_SUGERIDOS, textoEstado } from '../lib/repuestos';
+import { estadoRepuesto, PROVEEDORES_SUGERIDOS, textoEstado } from '../lib/repuestos';
+import { mensajeRepuesto } from '../lib/seguimiento';
 import { actualizar, useEmpresa, useOrdenes } from '../lib/store';
 import type { Orden, Repuesto } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';

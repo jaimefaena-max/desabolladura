@@ -1,6 +1,5 @@
-import { enlaceSeguimiento } from './seguimiento';
 import { fecha, fechaLocal } from './piezas';
-import type { Empresa, Orden, Repuesto } from './types';
+import type { Orden, Repuesto } from './types';
 
 /**
  * Control de repuestos: quién lo trae, qué día lo prometió y cuánto se atrasó.
@@ -85,16 +84,3 @@ export function resumenRepuestos(ordenes: Orden[], hoy = fechaLocal()) {
  * Aviso honesto al cliente. Con fecha nueva: cuándo llega y la nueva entrega. Atrasado sin fecha
  * nueva: no se inventa una; se dice que se confirmará.
  */
-export function mensajeRepuesto(o: Orden, r: Repuesto, empresa: Pick<Empresa, 'nombre'>, hoy = fechaLocal()) {
-  const nombre = /^cliente\b/i.test(o.cliente.nombre) ? '' : o.cliente.nombre.trim().split(/\s+/)[0];
-  const v = `${o.vehiculo.marca} ${o.vehiculo.modelo}`;
-  return [
-    `Hola${nombre ? ` ${nombre}` : ''}, le escribimos de ${empresa.nombre}.`,
-    `Le avisamos que el repuesto *${r.nombre.toLowerCase()}* de su ${v} viene con atraso del proveedor.`,
-    r.prometido && r.prometido >= hoy
-      ? `Ahora llega el ${fecha(r.prometido)} y la nueva fecha estimada de entrega es el *${fecha(o.entrega)}*.`
-      : `${r.prometido ? `Debía llegar el ${fecha(r.prometido)} y aún no lo recibimos. ` : ''}Le confirmaremos la nueva fecha de entrega apenas el proveedor nos dé la suya.`,
-    'Mientras tanto seguimos avanzando con los demás trabajos.',
-    `Vea el avance aquí: ${enlaceSeguimiento(o, empresa.nombre)}`,
-  ].join('\n');
-}

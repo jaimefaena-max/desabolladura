@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, ArrowsHorizontal, Bell, Camera, ChatCircleDots, CurrencyCircleDollar, Kanban, Package, Scales, ShieldCheck, Storefront, UsersThree, WhatsappLogo } from '@phosphor-icons/react';
+import { ArrowRight, ArrowsHorizontal, Bell, Camera, ChatCircleDots, CurrencyCircleDollar, Kanban, Package, Scales, ShieldCheck, Storefront, UsersThree, WhatsappLogo } from '../components/iconos';
 import { Auto3D, Barra, CuandoSeVea, FotoAuto, InterruptorTema, ir, Leyenda, Marca } from '../components/ui';
 import { useEmpresa } from '../lib/store';
 import type { EstadoPieza, PiezaId } from '../lib/types';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Warning } from '@phosphor-icons/react';
+import { Warning } from '../components/iconos';
 import FilaRepuesto from '../components/FilaRepuesto';
 import { FotoOrden, ir, Pantalla } from '../components/ui';
 import { fecha } from '../lib/piezas';

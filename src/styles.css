@@ -23,7 +23,7 @@
   --secundario-hover: #262b32;
   --urgente: #6b3424;
   --vidrio: rgba(13, 15, 18, .94);
-  --vidrio-suave: rgba(13, 15, 18, .7);
+  --vidrio-suave: rgba(20, 23, 27, .94);
   --velo: rgba(4, 5, 7, .55);
   --brillo: rgba(255, 255, 255, .05);
   --escena-1: #232830;
@@ -61,7 +61,7 @@
   --secundario-hover: #e6e1d8;
   --urgente: #e3a28a;
   --vidrio: rgba(245, 243, 239, .92);
-  --vidrio-suave: rgba(255, 255, 255, .8);
+  --vidrio-suave: rgba(255, 255, 255, .96);
   --velo: rgba(30, 24, 16, .35);
   --brillo: rgba(0, 0, 0, .05);
   --escena-1: #ffffff;
@@ -432,8 +432,7 @@ img { display: block; max-width: 100%; }
 .interruptor-tema span { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--suave); transition: background-color .25s, color .25s; }
 .interruptor-tema span.on { background: var(--acento); color: var(--sobre-acento); }
 .interruptor-tema:hover span:not(.on) { color: var(--texto); }
-html { transition: background-color .3s; }
-body, .barra, .nav, .celda, .tarjeta-orden, .demo, .pie, .marca-blanca { transition: background-color .3s, color .3s, border-color .3s; }
+html.cambiando-tema, html.cambiando-tema * { transition: background-color .3s, color .3s, border-color .3s !important; }
 .login-caja { width: min(620px, 100%); margin: 0 auto; padding: 1.5rem 1.2rem 3rem; }
 .login-caja.angosta { width: min(460px, 100%); }
 .perfiles { display: grid; gap: .8rem; margin-top: 1.4rem; }
@@ -750,9 +749,9 @@ body, .barra, .nav, .celda, .tarjeta-orden, .demo, .pie, .marca-blanca { transit
 .hero-auto { position: relative; }
 .hero-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: opacity .8s ease; pointer-events: none; }
 .hero-poster.oculto { opacity: 0; }
-.hero-auto-lienzo { position: absolute; inset: 0; -webkit-mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent); mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent); }
+.hero-auto-lienzo { position: absolute; inset: 0; }
 .hero-auto-lienzo canvas { display: block; width: 100%; height: 100%; }
-.hero-fase { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: .55rem; margin: 0; padding: .45rem 1rem; border-radius: 99px; background: var(--vidrio-suave); border: 1px solid var(--linea); backdrop-filter: blur(6px); font-size: .95rem; font-weight: 560; white-space: nowrap; animation: aparecer .4s ease-out; }
+.hero-fase { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: .55rem; margin: 0; padding: .45rem 1rem; border-radius: 99px; background: var(--vidrio-suave); border: 1px solid var(--linea); font-size: .95rem; font-weight: 560; white-space: nowrap; animation: aparecer .4s ease-out; }
 .hero-fase i { width: .75rem; height: .75rem; border-radius: 50%; background: var(--pintado); transition: background-color .4s; }
 .hero-fase.pendiente i { background: var(--acento); }
 .hero-fase.proceso i { background: color-mix(in srgb, var(--acento) 28%, #6b7078); }
@@ -817,7 +816,7 @@ body, .barra, .nav, .celda, .tarjeta-orden, .demo, .pie, .marca-blanca { transit
 .confianza p { display: flex; flex-direction: column; line-height: 1.25; }
 .confianza b { font-size: 1.02rem; font-weight: 620; }
 .confianza span { color: var(--suave); font-size: .9rem; }
-.vivo { position: absolute; z-index: 2; display: none; padding: .8rem 1rem; border-radius: 16px; background: var(--vidrio-suave); border: 1px solid var(--linea); box-shadow: var(--sombra-tarjeta); backdrop-filter: blur(10px); font-size: .9rem; pointer-events: none; animation: aparecer .6s ease-out both; }
+.vivo { position: absolute; z-index: 2; display: none; padding: .8rem 1rem; border-radius: 16px; background: var(--vidrio-suave); border: 1px solid var(--linea); box-shadow: var(--sombra-tarjeta); font-size: .9rem; pointer-events: none; animation: aparecer .6s ease-out both; }
 .vivo p { margin: 0; }
 .vivo-tit { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
 .vivo-tit span { color: var(--suave); font-size: .82rem; }

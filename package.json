@@ -5,7 +5,8 @@
     "test": "vitest run",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "iconos": "node scripts/generar-iconos.ts"
   },
   "type": "module",
   "dependencies": {

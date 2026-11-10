@@ -33,9 +33,10 @@ export function makeEnv(renderer: THREE.WebGLRenderer) {
 }
 
 export function makeFloor(largo: number) {
-  const c = document.createElement('canvas');
+  // En el Worker de fotos no hay document: se usa un OffscreenCanvas.
+  const c = typeof document !== 'undefined' ? document.createElement('canvas') : new OffscreenCanvas(512, 512);
   c.width = 512; c.height = 512;
-  const x = c.getContext('2d')!;
+  const x = c.getContext('2d') as CanvasRenderingContext2D;
   const g = x.createRadialGradient(256, 256, 8, 256, 256, 250);
   g.addColorStop(0, 'rgba(0,0,0,.92)'); g.addColorStop(.55, 'rgba(0,0,0,.7)'); g.addColorStop(1, 'rgba(0,0,0,0)');
   x.fillStyle = g; x.fillRect(0, 0, 512, 512);
@@ -59,4 +60,13 @@ export function liberarPiso(m: THREE.Mesh) {
 export function opcionesRender() {
   const dpr = window.devicePixelRatio || 1, nucleos = navigator.hardwareConcurrency || 4;
   return { antialias: dpr < 2, dpr: Math.min(dpr, nucleos <= 4 ? 1.5 : 1.75) };
+}
+
+/**
+ * Densidad para un lienzo de w×h: hasta ≈2,1 millones de píxeles dibujados por cuadro.
+ * Un escenario de 1100×800 a densidad 1,75 eran 2,7 millones; en pantallas grandes no se distingue.
+ */
+export function densidadPara(w: number, h: number) {
+  const tope = opcionesRender().dpr, presupuesto = 2_100_000;
+  return Math.max(1, Math.min(tope, Math.sqrt(presupuesto / Math.max(1, w * h))));
 }

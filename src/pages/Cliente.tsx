@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Car, WhatsappLogo, CheckCircle, Circle, CircleHalf, Check } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, Car, WhatsappLogo, CheckCircle, Circle, CircleHalf, Check } from '../components/iconos';
 import { Auto3D, Barra, forma, FotoGuardada, Galeria, GaleriaVistas, InterruptorTema, ir, Leyenda, Marca } from '../components/ui';
 import { conEvento, enlaceWhatsApp, ETAPAS, etapaDe } from '../lib/automatizacion';
 import { clp, estadosPiezas, fecha, itemsCobrables, progreso, tituloItem, totales } from '../lib/piezas';

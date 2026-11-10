@@ -1,5 +1,5 @@
 import { leerFicha, medidasValidas, promptVista, slugAuto } from './fichaModelo';
-import { desempaquetar, empaquetar, mensajeAvance, mensajePresupuesto } from './seguimiento';
+import { desempaquetar, empaquetar, mensajeAvance, mensajePresupuesto, mensajeRepuesto } from './seguimiento';
 import { specDe } from '../three/carModel';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { extraerJSON } from './gemini';
@@ -9,7 +9,7 @@ import { sugerir } from './precios';
 import { alertas, CMF_REPARACION, diasEnTaller, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, semaforoPlazo, sincronizar, sumarHabiles } from './automatizacion';
 import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
 import { COSTO_HORA_DEFECTO, horasEstimadas, rentabilidad, resumenRentabilidad, semaforoMargen } from './rentabilidad';
-import { diasEntre, estadoRepuesto, mensajeRepuesto, resumenRepuestos, textoEstado } from './repuestos';
+import { diasEntre, estadoRepuesto, resumenRepuestos, textoEstado } from './repuestos';
 import { cobradaSeguro, COMISION_COBRANZA, correoRecordatorio, estadoFactura, resumenCobranza, vencimiento } from './cobranza';
 import type { Item, Orden } from './types';
 import { carroceriaDe, colorHex, patenteValida, verPatente } from './vehiculos';

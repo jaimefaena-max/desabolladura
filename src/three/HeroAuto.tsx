@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { liberarPiso, makeEnv, makeFloor, opcionesRender } from './studio';
-import { PRIMER } from './Viewer3D';
+import { densidadPara, liberarPiso, makeEnv, makeFloor, opcionesRender } from './studio';
+import { PRIMER } from './escena';
 
 /**
  * Auto de la portada: un modelo de estudio que gira y cuenta la historia del producto en bucle.
@@ -89,8 +89,10 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
     let raf = 0, visible = true, t0 = performance.now(), primera = true, largo = 4.7, alto = 1.3;
     const geos: THREE.BufferGeometry[] = [], mats: THREE.Material[] = [];
 
+    let densidadFija = 0;
     const ajustar = () => {
       const w = el.clientWidth || 1, h = el.clientHeight || 1;
+      renderer.setPixelRatio(densidadFija || densidadPara(w, h));
       renderer.setSize(w, h, false);
       cam.aspect = w / h;
       // Encuadre: el largo del auto cabe completo, con aire alrededor.
@@ -159,6 +161,8 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
         mats.push(p);
       });
       const piso = makeFloor(largo);
+      // Sombra un poco más angosta: con el auto grande, el piso completo se salía del lienzo y se cortaba.
+      piso.scale.set(.82, .9, 1);
       scene.add(piso);
       mats.push({ dispose: () => liberarPiso(piso) } as THREE.Material);
       ajustar();
@@ -184,7 +188,7 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
       const dt = ahora - previo;
       previo = ahora;
       if (dt > 45 && dt < 1000) lentos++;
-      if (lentos > 12 && controles.autoRotate) { controles.autoRotate = false; renderer.setPixelRatio(1); ajustar(); sucio = true; }
+      if (lentos > 12 && controles.autoRotate) { controles.autoRotate = false; densidadFija = 1; ajustar(); sucio = true; }
     }
     const proximoCambio = (s: number) => {
       let r = s % total;

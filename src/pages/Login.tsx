@@ -1,4 +1,4 @@
-import { ArrowRight, Briefcase, Car, Wrench } from '@phosphor-icons/react';
+import { ArrowRight, Briefcase, Car, Wrench } from '../components/iconos';
 import { ir, Marca, InterruptorTema } from '../components/ui';
 import { entrarDemo } from '../lib/store';
 import type { Usuario } from '../lib/types';

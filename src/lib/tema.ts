@@ -18,7 +18,15 @@ export function aplicarTema(t: Tema, guardar = true) {
   oyentes.forEach(f => f());
 }
 
-export const alternarTema = () => aplicarTema(actual() === 'claro' ? 'oscuro' : 'claro');
+let fin = 0;
+/** Cambio suave de colores solo durante el cambio de modo; el resto del tiempo no hay transiciones de color. */
+export const alternarTema = () => {
+  const html = document.documentElement;
+  html.classList.add('cambiando-tema');
+  aplicarTema(actual() === 'claro' ? 'oscuro' : 'claro');
+  clearTimeout(fin);
+  fin = window.setTimeout(() => html.classList.remove('cambiando-tema'), 400);
+};
 
 const suscribir = (f: () => void) => {
   oyentes.add(f);

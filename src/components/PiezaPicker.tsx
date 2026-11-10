@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Plus, Trash, X } from '@phosphor-icons/react';
+import { Check, Plus, Trash, X } from './iconos';
 import { nombrePieza, PIEZAS, TRABAJOS, tituloItem } from '../lib/piezas';
 import { sugerir } from '../lib/precios';
 import { uid } from '../lib/store';
