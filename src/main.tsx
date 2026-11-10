@@ -6,6 +6,7 @@ import { AvisoSinGuardar, Barrera } from './components/Errores';
 import { ir } from './components/ui';
 import { aplicarMarca, sesion, useEmpresa } from './lib/store';
 import Landing from './pages/Landing';
+import { despuesDeLaPortada } from './lib/prioridad';
 
 /*
  * Cada perfil baja solo sus pantallas: la portada no carga el código del administrador ni del
@@ -35,6 +36,20 @@ const Login = lazy(cargar(() => import('./pages/Login')));
 const MaestroInicio = lazy(() => maestro().then(m => ({ default: m.MaestroInicio })));
 const MaestroOrden = lazy(() => maestro().then(m => ({ default: m.MaestroOrden })));
 const NuevoVehiculo = lazy(cargar(() => import('./pages/NuevoVehiculo')));
+
+/* Con la página ya cargada y el navegador libre, se bajan las pantallas siguientes: cambiar de página no espera la red. */
+if (typeof window !== 'undefined') {
+  const precargar = () => {
+    void import('./pages/Login').catch(() => {}); void import('./pages/Admin').catch(() => {}); void import('./pages/Cliente').catch(() => {});
+    // El hilo de fotos 3D de las tarjetas: listo antes de abrir tablero u órdenes.
+    void import('./three/snapshot').then(m => m.calentar()).catch(() => {});
+    // El visor 3D de las órdenes: interpretar su código la primera vez eran ≈1 s en un celular lento.
+    void import('./three/Viewer3D').catch(() => {});
+  };
+  // En la portada, después de su auto: si no, le quita red en celular.
+  const libre = () => { despuesDeLaPortada(precargar); };
+  if (document.readyState === 'complete') libre(); else addEventListener('load', libre, { once: true });
+}
 
 function Cargando() {
   return <div className="cargando-pantalla" role="status" aria-label="Cargando"><span className="esqueleto" /></div>;
@@ -87,4 +102,6 @@ function App() {
   return <><Franja /><AvisoSinGuardar /><Barrera clave={ruta}><Suspense fallback={<Cargando />}><Rutas /></Suspense></Barrera></>;
 }
 
+// Si se vio la portada estática de index.html, React la reemplaza sin repetir la animación de entrada.
+if (document.querySelector('#root .estatico') && document.documentElement.classList.contains('en-portada')) document.documentElement.classList.add('sin-entrada');
 createRoot(document.getElementById('root')!).render(<App />);

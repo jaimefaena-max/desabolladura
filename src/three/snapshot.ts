@@ -14,7 +14,7 @@ import type { Opciones } from './fotosMotor';
 export type { Opciones };
 
 /* ---------- Dónde se dibuja: hilo aparte o, si no se puede, la página ---------- */
-type Dibujar = (o: Opciones) => Promise<Blob | null>;
+type Dibujar = (o: Opciones | null) => Promise<Blob | null>;
 
 function enWorker(): Dibujar | null {
   try {
@@ -41,7 +41,7 @@ function dibujarEnPagina(): Promise<Dibujar | null> {
   enPagina ??= import('./fotosMotor').then(({ crearMotor }) => {
     try {
       const m = crearMotor(document.createElement('canvas'));
-      return (o: Opciones) => m.dibujar(o);
+      return (o: Opciones | null) => (o ? m.dibujar(o) : Promise.resolve(null));
     } catch {
       return null; // sin WebGL: las tarjetas quedan con su fondo
     }
@@ -127,6 +127,15 @@ function recordar(k: string, url: string) {
 }
 
 const clave = (o: Opciones) => JSON.stringify([VERSION, o.carroceria, o.medidas ?? null, o.color, o.acento ?? null, o.estados ?? {}, o.ancho ?? 560, o.alto ?? 315, o.angulo ?? 38]);
+
+/**
+ * Deja listo el hilo aparte (descarga y prepara el motor 3D allá, sin tocar la página): así la
+ * primera pantalla con fotos no espera la red. Se llama en tiempo libre, después de la portada.
+ */
+export function calentar() {
+  if (worker === undefined) worker = enWorker();
+  if (worker) void worker(null).catch(() => {});
+}
 
 /** Foto ya hecha en esta visita (para mostrarla sin esperar). */
 export const fotoLista = (o: Opciones) => enMemoria.get(clave(o));

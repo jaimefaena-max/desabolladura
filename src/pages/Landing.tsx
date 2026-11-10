@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ArrowsHorizontal, Bell, Camera, ChatCircleDots, CurrencyCircleDollar, Kanban, Package, Scales, ShieldCheck, Storefront, UsersThree, WhatsappLogo } from '../components/iconos';
 import { Auto3D, Barra, CuandoSeVea, FotoAuto, InterruptorTema, ir, Leyenda, Marca } from '../components/ui';
 import { useEmpresa } from '../lib/store';
+import { portadaLista } from '../lib/prioridad';
 import type { EstadoPieza, PiezaId } from '../lib/types';
 import type { Fase } from '../three/HeroAuto';
 
@@ -44,6 +45,12 @@ const CONFIANZA = [
   { Icono: Storefront, t: 'Tu marca, tus datos', d: 'Logo, color y datos separados' },
 ];
 
+/** Avisa una vez que el auto principal está a la vista (o que se queda la foto): ahí se adelanta lo demás. */
+function AvisarLista({ cuando }: { cuando: boolean }) {
+  useEffect(() => { if (cuando) portadaLista(); }, [cuando]);
+  return null;
+}
+
 /** Conexión lenta o ahorro de datos: se queda con la foto, sin bajar el modelo 3D. */
 function conexionLenta() {
   const c = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
@@ -77,7 +84,7 @@ function HeroMustang() {
   return (
     <div className="hero-3d hero-auto">
       <img className={`hero-poster ${listo ? 'oculto' : ''}`} src={`${import.meta.env.BASE_URL}portada/mustang-poster.webp`}
-        alt="Auto clásico amarillo con franjas negras" fetchPriority="high" decoding="async" />
+        alt="Auto clásico amarillo con franjas negras" width={960} height={848} fetchPriority="high" decoding="async" />
       {arrancar && !lento && !fallo && (
         <Suspense fallback={null}>
           <HeroAuto acento={empresa.acento} quieto={quieto} onListo={() => setListo(true)} onFase={setFase} onError={() => setFallo(true)} onGirar={() => setGirado(true)} />
@@ -86,6 +93,7 @@ function HeroMustang() {
       {listo && !girado && <p className="hero-girar" aria-hidden="true"><ArrowsHorizontal size={18} weight="bold" /> Arrastra para girar</p>}
       {listo && <p className={`hero-fase ${fase}`} aria-live="polite"><i aria-hidden="true" />{TEXTO_FASE[fase]}</p>}
       {listo && <EnVivo fase={fase} />}
+      <AvisarLista cuando={listo || fallo || lento} />
     </div>
   );
 }
@@ -108,6 +116,17 @@ const FUNCIONES = [
   { Icono: CurrencyCircleDollar, t: 'Trabajos adicionales', d: 'Lo que aparece al desarmar vuelve a pedir aprobación antes de seguir.' },
   { Icono: ChatCircleDots, t: 'Avisos por WhatsApp', d: 'El mensaje de cada etapa se escribe solo. Tú solo lo envías.' },
 ];
+
+/**
+ * Foto del bloque «tres miradas». Con el color de fábrica es una imagen fija (public/portada,
+ * generada con el mismo motor 3D): la portada no descarga un segundo motor 3D. Con el color propio
+ * del taller se dibuja en el momento.
+ */
+function FotoBento({ fija, ancho, alto, alt, ...auto }: { fija: string; ancho: number; alto: number; alt: string } & Omit<Parameters<typeof FotoAuto>[0], 'alt' | 'ancho' | 'alto'>) {
+  const deFabrica = useEmpresa().acento.toLowerCase() === '#ff7a2f';
+  if (deFabrica) return <img className="foto" src={`${import.meta.env.BASE_URL}portada/${fija}`} alt={alt} width={ancho} height={alto} loading="lazy" decoding="async" />;
+  return <FotoAuto {...auto} ancho={ancho} alto={alto} alt={alt} />;
+}
 
 export default function Landing() {
   const [pct, setPct] = useState(58);
@@ -144,7 +163,7 @@ export default function Landing() {
       </section>
 
       <section className="demo">
-        <CuandoSeVea className="demo-3d revelar">
+        <CuandoSeVea className="demo-3d revelar" anticipar={1500}>
           <Auto3D carroceria="sedan" color="#a9aeb4" estados={etapa.e} angulo={232} etiqueta="Sedán visto desde atrás, con su maletera y parachoque según el avance" />
         </CuandoSeVea>
         <div className="demo-panel revelar">
@@ -163,7 +182,7 @@ export default function Landing() {
         <h2>Una app, tres miradas</h2>
         <div className="bento-grid">
           <article className="celda maestro revelar">
-            <CuandoSeVea className="celda-foto" alto="340px"><FotoAuto carroceria="suv" color="#1d3f72" estados={ESTADOS_SUV} angulo={58} ancho={1100} alto={560} alt="SUV con capot y parachoque marcados por reparar" /></CuandoSeVea>
+            <CuandoSeVea className="celda-foto" alto="340px"><FotoBento fija="bento-trabajador.webp" carroceria="suv" color="#1d3f72" estados={ESTADOS_SUV} angulo={58} ancho={1100} alto={560} alt="SUV con capot y parachoque marcados por reparar" /></CuandoSeVea>
             <div>
               <h3>El trabajador</h3>
               <p>Saca una foto al padrón, toca la pieza dañada y anota el trabajo. Texto grande y botones claros.</p>
@@ -175,7 +194,7 @@ export default function Landing() {
             <p>Ve el taller completo, fija cada monto y cobra separando deducible y compañía.</p>
           </article>
           <article className="celda cliente revelar">
-            <CuandoSeVea className="celda-foto" alto="300px"><FotoAuto carroceria="hatchback" color="#e4e6e8" angulo={320} ancho={760} alto={420} alt="Hatchback blanco terminado" /></CuandoSeVea>
+            <CuandoSeVea className="celda-foto" alto="300px"><FotoBento fija="bento-cliente.webp" carroceria="hatchback" color="#e4e6e8" angulo={320} ancho={760} alto={420} alt="Hatchback blanco terminado" /></CuandoSeVea>
             <div>
               <h3>El cliente</h3>
               <p>Entra con su patente y un código. Ve avance, fotos y aprueba su presupuesto.</p>

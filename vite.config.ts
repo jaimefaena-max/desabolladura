@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { defineConfig, type Plugin } from 'vitest/config';
@@ -39,8 +40,10 @@ const CSP = [
 ].join('; ');
 
 function blindaje(): Plugin {
+  let base = '/';
   return {
     name: 'desabolladura-blindaje',
+    configResolved(c) { base = c.base; },
     configureServer(servidor) {
       servidor.middlewares.use((req, res, next) => {
         const archivo = OCR[req.url?.match(/\/ocr\/([\w.-]+)$/)?.[1] ?? ''];
@@ -53,8 +56,17 @@ function blindaje(): Plugin {
       for (const [nombre, archivo] of Object.entries(OCR)) this.emitFile({ type: 'asset', fileName: `ocr/${nombre}`, source: readFileSync(requerir.resolve(archivo)) });
     },
     transformIndexHtml: {
-      order: 'pre',
-      handler: (html, ctx) => (ctx.server ? html : html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${CSP}" />`)),
+      order: 'post',
+      handler: (html, ctx) => {
+        if (ctx.server) return html;
+        // Scripts en línea de index.html (el del modo día/noche): se autorizan por su huella, no con 'unsafe-inline'.
+        const huellas = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`);
+        const csp = CSP.replace("script-src 'self'", `script-src 'self' ${huellas.join(' ')}`);
+        // La fuente se pide junto con el código, no recién cuando React dibuja (en celular eran ≈2,7 s).
+        const fuente = Object.keys(ctx.bundle ?? {}).find(n => /outfit-latin-wght-normal-[\w-]+\.woff2$/.test(n));
+        const precarga = fuente ? `\n    <link rel="preload" as="font" type="font/woff2" crossorigin href="${base}${fuente}" />` : '';
+        return html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${csp}" />${precarga}`);
+      },
     },
   };
 }

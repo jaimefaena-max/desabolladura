@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { CaretLeft, Camera, ChartBar, CurrencyCircleDollar, Gear, Kanban, ListChecks, Moon, Package, SignOut, Sun } from './iconos';
 import { alternarTema, useTema } from '../lib/tema';
+import { despuesDeLaPortada } from '../lib/prioridad';
 import { Barrera } from './Errores';
 import { etapaDe, nombreEtapa } from '../lib/automatizacion';
 import { guardarFoto, leerFoto } from '../lib/fotos';
@@ -260,14 +261,19 @@ export function Galeria({ fotos, onAgregar }: { fotos: FotoRef[]; onAgregar?: (f
  * Monta su contenido recién cuando está por entrar en pantalla. La portada tiene tres autos 3D:
  * abrir los tres contextos gráficos al cargar compite con el auto principal y traba el primer segundo.
  */
-export function CuandoSeVea({ children, className, alto }: { children: ReactNode; className?: string; alto?: string }) {
+export function CuandoSeVea({ children, className, alto, anticipar }: { children: ReactNode; className?: string; alto?: string; anticipar?: number }) {
   const caja = useRef<HTMLDivElement>(null);
   const [ver, setVer] = useState(typeof IntersectionObserver === 'undefined');
   useEffect(() => {
     if (ver || !caja.current) return;
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVer(true); io.disconnect(); } }, { rootMargin: '200px' });
     io.observe(caja.current);
-    return () => io.disconnect();
-  }, [ver]);
+    // anticipar: además se monta solo, con el navegador libre, pasados esos ms. Así el costo de
+    // preparar un 3D no cae justo cuando el visitante llega con el scroll (era ≈1 s de tirón en celular).
+    // En la portada, además, espera a que su auto principal esté listo.
+    let t = 0, cancelar = () => {};
+    if (anticipar !== undefined) t = window.setTimeout(() => { cancelar = despuesDeLaPortada(() => setVer(true)); }, anticipar);
+    return () => { io.disconnect(); clearTimeout(t); cancelar(); };
+  }, [ver, anticipar]);
   return <div ref={caja} className={className} style={ver ? undefined : { minHeight: alto }}>{ver ? children : null}</div>;
 }

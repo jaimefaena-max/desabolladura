@@ -4,12 +4,7 @@
  * dejar la página en blanco. Cuando la app arranca, reemplaza el contenido de #root y esto no actúa.
  */
 (function () {
-  // Modo día o noche antes del primer dibujo: la elección guardada o, si no hay, la del equipo.
-  try {
-    var tema = localStorage.getItem('dp.tema');
-    if (tema !== 'claro' && tema !== 'oscuro') tema = matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'oscuro';
-    document.documentElement.setAttribute('data-tema', tema);
-  } catch (e) { /* almacenamiento bloqueado: queda el modo noche */ }
+  // El modo día/noche se aplica antes, en línea en index.html.
   var restablecer = /[?&]restablecer=1/.test(location.search);
   if (restablecer) {
     try {
@@ -22,6 +17,8 @@
   function mostrar() {
     var aviso = document.getElementById('rescate');
     if (aviso) aviso.hidden = false;
+    var estatico = document.querySelector('.estatico');
+    if (estatico) estatico.remove();
   }
   // Los errores de carga de archivos no burbujean: se escuchan en la fase de captura.
   addEventListener('error', mostrar, true);

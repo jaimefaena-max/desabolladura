@@ -167,8 +167,12 @@ export default function HeroAuto({ acento, onListo, onFase, onError, onGirar, qu
       mats.push({ dispose: () => liberarPiso(piso) } as THREE.Material);
       ajustar();
       camara(angulo);
-      t0 = performance.now();
-      pedir();
+      // Prepara los shaders sin bloquear (si el navegador lo permite) antes del primer cuadro: eran ≈270 ms de traba.
+      return renderer.compileAsync(scene, cam).catch(() => undefined).then(() => {
+        if (!vivo) return;
+        t0 = performance.now();
+        pedir();
+      });
     }).catch(() => { if (vivo) cb.current.onError(); });
 
     // Guion: el color del capot sigue a la fase con una transición suave.

@@ -246,7 +246,10 @@ img { display: block; max-width: 100%; }
 .viewer.cargando-3d { background: linear-gradient(100deg, transparent 30%, var(--brillo) 50%, transparent 70%); background-size: 220% 100%; animation: brillo 1.4s linear infinite; }
 .escena { height: clamp(260px, 42vw, 420px); border-radius: var(--r); background: radial-gradient(ellipse at 50% 35%, var(--escena-1), var(--escena-2) 72%); overflow: hidden; border: 1px solid var(--linea); }
 .escena.alto { height: clamp(300px, 46vw, 480px); }
-.esqueleto { background: linear-gradient(100deg, var(--fondo-2) 30%, var(--fondo-3) 50%, var(--fondo-2) 70%); background-size: 220% 100%; animation: brillo 1.4s linear infinite; }
+.esqueleto { position: relative; overflow: hidden; background: var(--fondo-2); }
+/* El brillo se mueve con transform: lo anima el compositor, sin repintar la tarjeta en cada cuadro. */
+.esqueleto::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 25%, var(--fondo-3) 50%, transparent 75%); transform: translateX(-100%); animation: brillo-x 1.4s linear infinite; }
+@keyframes brillo-x { to { transform: translateX(100%); } }
 @keyframes brillo { to { background-position: -220% 0; } }
 .foto { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: radial-gradient(ellipse at 50% 35%, var(--escena-1), var(--escena-2) 72%); }
 .ayuda-3d { color: var(--suave); margin-top: .7rem; font-size: 1.02rem; }
@@ -432,7 +435,8 @@ img { display: block; max-width: 100%; }
 .interruptor-tema span { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--suave); transition: background-color .25s, color .25s; }
 .interruptor-tema span.on { background: var(--acento); color: var(--sobre-acento); }
 .interruptor-tema:hover span:not(.on) { color: var(--texto); }
-html.cambiando-tema, html.cambiando-tema * { transition: background-color .3s, color .3s, border-color .3s !important; }
+/* Cambio día/noche: fundido de la página completa con View Transitions (corre en la GPU). */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .3s; }
 .login-caja { width: min(620px, 100%); margin: 0 auto; padding: 1.5rem 1.2rem 3rem; }
 .login-caja.angosta { width: min(460px, 100%); }
 .perfiles { display: grid; gap: .8rem; margin-top: 1.4rem; }
@@ -889,3 +893,11 @@ html { font-size: clamp(16px, calc(.3125vw + 12px), 20px); }
 .ajustes-grid { display: grid; gap: 1.2rem; }
 .ajuste-tarjeta { display: grid; gap: .7rem; align-content: start; padding: 1.4rem; background: var(--fondo-2); border: 1px solid var(--linea); border-radius: var(--r); }
 .ajuste-tarjeta > .btn { justify-self: start; }
+
+/* ---------- Portada estática de index.html (se ve antes de que llegue el código) ---------- */
+.estatico { display: none; }
+html.en-portada .estatico { display: block; }
+.estatico a { color: inherit; text-decoration: none; }
+.estatico .btn.primario { color: var(--sobre-acento); }
+/* Al reemplazarla React, la entrada animada ya se vio: no se repite. */
+html.sin-entrada .hero h1, html.sin-entrada .hero-texto p, html.sin-entrada .hero-cta, html.sin-entrada .hero-3d { animation: none; }

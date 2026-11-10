@@ -6,11 +6,46 @@
     <meta name="theme-color" content="#0d0f12" />
     <meta name="description" content="Gestión de taller de desabolladura y pintura: ingreso de vehículos, cotización para aseguradoras y seguimiento 3D para el cliente." />
     <title>Desabolladura Premium</title>
+    <!-- Modo día/noche y «estamos en la portada» antes del primer dibujo. En línea: sin ida y vuelta de red (la CSP lo autoriza por su hash). -->
+    <script>(function(){var d=document.documentElement;try{var t=localStorage.getItem('dp.tema');if(t!=='claro'&&t!=='oscuro')t=matchMedia('(prefers-color-scheme: light)').matches?'claro':'oscuro';d.setAttribute('data-tema',t)}catch(e){}var h=location.hash;if(!h||h==='#'||h==='#/')d.classList.add('en-portada')})();</script>
     <link rel="preload" as="image" href="/portada/mustang-poster.webp" fetchpriority="high" />
-    <script src="/rescate.js"></script>
   </head>
   <body>
+    <!-- Va aquí y no en <head>: así no retrasa la descarga del código y los estilos. -->
+    <script src="/rescate.js"></script>
     <div id="root">
+      <!--
+        Portada estática: se ve apenas llegan los estilos, sin esperar el código de la app (en celular
+        eso eran ≈3 s). Es la misma portada que dibuja React, que la reemplaza al arrancar.
+        Los enlaces funcionan antes de que cargue la app. Solo se muestra si se entra por la portada.
+      -->
+      <div class="estatico">
+        <p class="demo-franja">Demostración: no ingreses datos reales. Los datos se guardan en este navegador.</p>
+        <div class="landing">
+          <header class="nav">
+            <a class="marca" href="#/" aria-label="Taller Demo, inicio"><span class="logo-vacio">TU LOGO<br />AQUÍ</span><span class="marca-txt"><b>Taller Demo</b><small>Desabolladura Premium</small></span></a>
+            <nav>
+              <a class="nav-link solo-escritorio" href="#funciones">Funciones</a>
+              <a class="nav-link" href="#/cliente">Seguimiento</a>
+              <span class="interruptor-tema" aria-hidden="true"><span></span><span></span></span>
+              <a class="btn primario" href="#/entrar">Entrar</a>
+            </nav>
+          </header>
+          <main>
+            <section class="hero">
+              <div class="hero-texto">
+                <h1>Tu taller, en piloto automático.</h1>
+                <p>Recibe, cotiza y repara cada vehículo en una sola app. Tu cliente sigue el avance en 3D.</p>
+                <div class="hero-cta">
+                  <a class="btn primario grande" href="#/entrar">Probar la demo <span aria-hidden="true">→</span></a>
+                  <a class="btn secundario grande" href="#/cliente/demo">Ver un seguimiento</a>
+                </div>
+              </div>
+              <div class="hero-3d hero-auto"><img class="hero-poster" src="/portada/mustang-poster.webp" alt="Auto clásico amarillo con franjas negras" width="960" height="848" fetchpriority="high" /></div>
+            </section>
+          </main>
+        </div>
+      </div>
       <div id="rescate" hidden style="max-width:32rem;margin:18vh auto 0;padding:1.5rem;border-radius:16px;background:#14171b;font:1.1rem/1.5 system-ui,sans-serif;color:#f1f3f5;text-align:center">
         <h1 style="font-size:1.6rem;margin:0 0 .6rem">La demostración no pudo cargar</h1>
         <p style="margin:0 0 1.2rem;color:#b9c0c8">Revisa tu conexión y vuelve a intentar.</p>

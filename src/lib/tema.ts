@@ -18,14 +18,15 @@ export function aplicarTema(t: Tema, guardar = true) {
   oyentes.forEach(f => f());
 }
 
-let fin = 0;
-/** Cambio suave de colores solo durante el cambio de modo; el resto del tiempo no hay transiciones de color. */
+/**
+ * Cambio de modo con un fundido de toda la página (View Transitions: lo hace el compositor, no
+ * recalcula cada elemento). Sin soporte o con «reducir movimiento», el cambio es instantáneo.
+ */
 export const alternarTema = () => {
-  const html = document.documentElement;
-  html.classList.add('cambiando-tema');
-  aplicarTema(actual() === 'claro' ? 'oscuro' : 'claro');
-  clearTimeout(fin);
-  fin = window.setTimeout(() => html.classList.remove('cambiando-tema'), 400);
+  const siguiente = actual() === 'claro' ? 'oscuro' : 'claro';
+  const doc = document as Document & { startViewTransition?: (f: () => void) => unknown };
+  if (doc.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) doc.startViewTransition(() => aplicarTema(siguiente));
+  else aplicarTema(siguiente);
 };
 
 const suscribir = (f: () => void) => {

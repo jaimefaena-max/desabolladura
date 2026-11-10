@@ -57,7 +57,34 @@ interface Montado {
   dispose(): void;
 }
 
-function montarParametrico(auto: Auto, color: string, acento: string | undefined, reduce: boolean): Montado {
+/**
+ * Autos ya construidos, para reutilizar entre visores: construir uno son ≈100 ms (≈400 en un celular
+ * lento) y abrir otra orden del mismo modelo lo repetía. Al montarse, el visor repinta todas las piezas
+ * (aplicar sin animar), así que un auto usado antes queda como nuevo. Si el mismo modelo ya está en
+ * pantalla en otro visor, se construye uno aparte (un objeto 3D no puede estar en dos escenas).
+ */
+const AUTOS_GUARDADOS = 4;
+const autosGuardados = new Map<string, { auto: Auto; enUso: boolean }>();
+function tomarAuto(carroceria: Carroceria, color: string, medidas?: Medidas): { auto: Auto; soltar: () => void } {
+  const k = JSON.stringify([carroceria, medidas ?? null]);
+  const e = autosGuardados.get(k);
+  if (e && !e.enUso) {
+    e.enUso = true;
+    autosGuardados.delete(k); autosGuardados.set(k, e);
+    return { auto: e.auto, soltar: () => { e.enUso = false; } };
+  }
+  const auto = buildCar(carroceria, color, medidas);
+  if (e) return { auto, soltar: () => auto.dispose() };
+  const nuevo = { auto, enUso: true };
+  autosGuardados.set(k, nuevo);
+  for (const [kv, v] of autosGuardados) {
+    if (autosGuardados.size <= AUTOS_GUARDADOS) break;
+    if (!v.enUso) { autosGuardados.delete(kv); v.auto.dispose(); }
+  }
+  return { auto, soltar: () => { nuevo.enUso = false; } };
+}
+
+function montarParametrico({ auto, soltar }: { auto: Auto; soltar: () => void }, color: string, acento: string | undefined, reduce: boolean): Montado {
   const objetivos = new Map<PiezaId, Meta>();
   let quedan = 0;
   const fijar = () => auto.piezas.forEach((p, id) => {
@@ -89,7 +116,7 @@ function montarParametrico(auto: Auto, color: string, acento: string | undefined
       return --quedan > 0;
     },
     pieza: hit => hit.object.userData.pieza as PiezaId | undefined,
-    dispose: () => auto.dispose(),
+    dispose: soltar,
   };
 }
 
@@ -218,9 +245,10 @@ export default function Viewer3D({ carroceria, medidas, modelo, color, acento, e
       controls.update();
       api.current = { aplicar: (e, sel, animar) => { m.aplicar(e, sel, animar); pedir(); } };
       m.aplicar(estadoRef.current.estados ?? {}, estadoRef.current.seleccion, false);
-      pedir();
+      // Shaders preparados sin bloquear antes del primer cuadro (eran ≈250 ms de traba al abrir una orden).
+      void renderer.compileAsync(scene, cam).catch(() => undefined).then(() => { if (vivo) pedir(); });
     };
-    const parametrico = () => montarParametrico(buildCar(carroceria, color, medidas), color, acento, reduce);
+    const parametrico = () => montarParametrico(tomarAuto(carroceria, color, medidas), color, acento, reduce);
 
     if (modelo) {
       setCargando(true);
