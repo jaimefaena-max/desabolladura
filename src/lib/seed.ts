@@ -108,13 +108,16 @@ function orden(b: Base): Orden {
     Object.assign(o, sincronizar(o));
   }
   if (b.factura) {
+    const f = b.factura;
+    // El trabajo extra se cobró aparte: el último trabajo del presupuesto va en la factura complementaria.
+    if (f.complementaria) o.items = o.items.map(i => (i.id === `i${b.filas.length - 1}` ? { ...i, facturaAparte: true } : i));
     // Si hubo factura complementaria, la primera cubre solo lo que no era el adicional.
-    const f = b.factura, monto = totales(o).aseguradora - (f.complementaria?.monto ?? 0);
+    const monto = totales(o).aseguradora - (f.complementaria?.monto ?? 0);
     const facturas: Factura[] = [{ numero: f.numero, emitida: dias(-f.emitidaHace), monto, ...(f.pagadaHace !== undefined ? { pagadaEl: dias(-f.pagadaHace) } : {}) }];
     // Adicional autorizado después de facturar: se cobra con otra factura, no editando la primera.
     if (f.complementaria) {
       const c = f.complementaria;
-      facturas.push({ numero: c.numero, emitida: dias(-c.emitidaHace), monto: c.monto, concepto: 'Trabajos adicionales autorizados', ...(c.pagadaHace !== undefined ? { pagadaEl: dias(-c.pagadaHace) } : {}) });
+      facturas.push({ numero: c.numero, emitida: dias(-c.emitidaHace), monto: c.monto, tipo: 'adicionales', concepto: 'Trabajos adicionales autorizados', ...(c.pagadaHace !== undefined ? { pagadaEl: dias(-c.pagadaHace) } : {}) });
     }
     o.facturas = facturas;
     o.cobrada = cobradaSeguro(o);

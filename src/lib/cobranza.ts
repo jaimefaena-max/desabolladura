@@ -1,4 +1,4 @@
-import { fechaLocal, totales } from './piezas';
+import { fechaLocal, itemsPresupuesto, totales } from './piezas';
 import { enPeriodo, type Periodo } from './automatizacion';
 import type { Factura, Orden } from './types';
 
@@ -46,6 +46,33 @@ export const nombreEstado = (e: ReturnType<typeof estadoFactura>) => (
 export const facturasDe = (o: Orden): Factura[] => o.facturas ?? [];
 
 export const facturado = (o: Orden) => facturasDe(o).reduce((a, f) => a + f.monto, 0);
+
+/**
+ * Dos grupos de cobro. Lo que el administrador autoriza con «factura aparte» no entra en la factura
+ * del presupuesto: se emite un documento propio, aunque nada estuviera facturado todavía.
+ */
+export type GrupoFactura = 'presupuesto' | 'adicionales';
+export const grupoDe = (f: Factura): GrupoFactura => f.tipo ?? 'presupuesto';
+const grupoDeItem = (i: Orden['items'][number]): GrupoFactura => (i.facturaAparte ? 'adicionales' : 'presupuesto');
+
+export const facturadoDe = (o: Orden, grupo: GrupoFactura) => facturasDe(o).filter(f => grupoDe(f) === grupo).reduce((a, f) => a + f.monto, 0);
+
+/** Lo que la compañía paga por cada grupo, con el deducible descontado del presupuesto base. */
+export function montosDe(o: Orden, grupo: GrupoFactura) {
+  const items = itemsPresupuesto(o).filter(i => grupoDeItem(i) === grupo);
+  const neto = items.reduce((a, i) => a + (i.monto ?? 0), 0);
+  const iva = Math.round(neto * .19), total = neto + iva;
+  const t = totales(o);
+  const base = itemsPresupuesto(o).filter(i => grupoDeItem(i) === 'presupuesto').reduce((a, i) => a + (i.monto ?? 0), 0);
+  const baseTotal = base + Math.round(base * .19);
+  const deducible = grupo === 'presupuesto'
+    ? Math.min(t.deducible, total)
+    : Math.min(t.deducible - Math.min(t.deducible, baseTotal), total);
+  return { neto, iva, total, deducible, aseguradora: total - deducible, faltan: items.filter(i => i.monto === null).length };
+}
+
+/** Lo que falta facturar de un grupo. Una factura emitida no se edita: el saldo va en otra. */
+export const porFacturarDe = (o: Orden, grupo: GrupoFactura) => Math.max(0, montosDe(o, grupo).aseguradora - facturadoDe(o, grupo));
 
 /**
  * Lo que falta facturar a la compañía. Si se autoriza un adicional después de emitida la factura,

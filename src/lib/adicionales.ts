@@ -19,17 +19,35 @@ const nombre = (texto: string) => texto.toLowerCase();
 
 export type Decision = { orden: Orden; texto: string };
 
+export interface Autorizacion {
+  /** Precio neto que fija el administrador para cada ítem; los que falten conservan el del taller. */
+  precios?: Record<string, number | null>;
+  /** true = se cobra con una factura propia; false = entra en la factura del presupuesto. */
+  aparte?: boolean;
+}
+
 /** Autorizar los adicionales elegidos: se suman al trabajo existente y la orden vuelve a «aprobada». */
-export function autorizarAdicionales(o: Orden, ids: string[] | 'todos', titulo: (i: Orden['items'][number]) => string): Decision | null {
-  const elegidos = adicionalesPendientes(o).filter(i => ids === 'todos' || ids.includes(i.id));
+export function autorizarAdicionales(
+  o: Orden,
+  ids: string[] | 'todos',
+  titulo: (i: Orden['items'][number]) => string,
+  { precios = {}, aparte = false }: Autorizacion = {},
+): Decision | null {
+  const pendientes = adicionalesPendientes(o);
+  const elegidos = pendientes.filter(i => ids === 'todos' || ids.includes(i.id))
+    .map(i => (i.id in precios ? { ...i, monto: precios[i.id] ?? i.monto } : i));
   if (!elegidos.length) return null;
-  const items = o.items.map(i => (elegidos.some(e => e.id === i.id) ? { ...i, adicional: false } : i));
+  // El precio y el destino de cobro quedan fijados al autorizar: es la respuesta del liquidador.
+  const items = o.items.map(i => {
+    const e = elegidos.find(x => x.id === i.id);
+    return e ? { ...i, monto: e.monto, adicional: false, facturaAparte: aparte || undefined } : i;
+  });
   const quedan = items.filter(i => i.trabajo !== 'general' && i.adicional).length;
   const monto = elegidos.reduce((a, i) => a + (i.monto ?? 0), 0);
   const detalle = elegidos.map(i => `${nombre(titulo(i))} (${clp(i.monto ?? 0)})`).join(', ');
   const texto = elegidos.length === 1
-    ? `Adicional autorizado: ${detalle}`
-    : `${elegidos.length} adicionales autorizados por ${clp(monto)} neto: ${detalle}`;
+    ? `Adicional autorizado: ${detalle}${aparte ? ' · se cobra en factura aparte' : ''}`
+    : `${elegidos.length} adicionales autorizados por ${clp(monto)} neto: ${detalle}${aparte ? ' · se cobran en factura aparte' : ''}`;
   // Trabajo nuevo sobre una orden ya pagada: vuelve a quedar plata por cobrar.
   const orden = conEvento(
     { ...o, items, aprobacion: quedan ? o.aprobacion : 'aprobada', cobrada: o.cobrada ? false : o.cobrada },

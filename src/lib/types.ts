@@ -29,6 +29,8 @@ export interface Item {
   sugerido?: Sugerido;
   /** Trabajo descubierto después de aprobar: vuelve a pedir autorización. */
   adicional?: boolean;
+  /** El taller decidió cobrarlo con una factura propia, aparte de la del presupuesto. */
+  facturaAparte?: boolean;
   /** Lo que el maestro deja al terminar: lo ve el cliente en su portal. */
   nota?: string;
   /** Fotos de esta tarea (identificadores en IndexedDB). */
@@ -91,7 +93,11 @@ export interface Repuesto {
  * Una orden puede tener varias (la del presupuesto y una por cada adicional autorizado después):
  * una factura emitida no se edita, así que el trabajo nuevo se cobra con otro documento.
  */
-export interface Factura { numero: number; emitida: string; monto: number; pagadaEl?: string; concepto?: string }
+export interface Factura {
+  numero: number; emitida: string; monto: number; pagadaEl?: string; concepto?: string;
+  /** Qué parte del presupuesto cubre. Sin dato (facturas antiguas) es la del presupuesto. */
+  tipo?: 'presupuesto' | 'adicionales';
+}
 
 export interface FotoRef { id: string; momento: 'antes' | 'despues'; }
 export interface Recepcion { km: number | null; combustible: string; observaciones: string; }

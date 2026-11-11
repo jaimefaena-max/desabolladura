@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { adicionalesPendientes, autorizarAdicionales, netoAdicionales, rechazarAdicionales } from './adicionales';
-import { cobradaSeguro, facturado, porFacturar } from './cobranza';
+import { cobradaSeguro, facturado, montosDe, porFacturar, porFacturarDe } from './cobranza';
 import { tituloItem, totales } from './piezas';
 import { ordenesDemo } from './seed';
 import type { Orden } from './types';
@@ -42,6 +42,27 @@ describe('adicionales', () => {
     expect(d.orden.repuestos).toEqual(o.repuestos);
     expect(d.orden.historial[0].texto).toContain('rechazados por la compañía');
     expect(d.orden.historial[0].texto).toContain('480.000');
+  });
+
+  it('el administrador fija el precio al autorizar, no el taller', () => {
+    const o = con1053(), ids = adicionalesPendientes(o).map(i => i.id);
+    const d = autorizarAdicionales(o, ids, nombre(o), { precios: { [ids[0]]: 300000, [ids[1]]: 200000, [ids[2]]: 50000 } })!;
+    const autorizados = d.orden.items.filter(i => ids.includes(i.id));
+    expect(autorizados.map(i => i.monto)).toEqual([300000, 200000, 50000]);
+    expect(d.orden.historial[0].texto).toContain('550.000');
+  });
+
+  it('con factura aparte el adicional no entra en la factura del presupuesto', () => {
+    const o = con1053(), antes = montosDe(o, 'presupuesto').aseguradora;
+    const d = autorizarAdicionales(o, 'todos', nombre(o), { aparte: true })!;
+    // El presupuesto no se mueve; el adicional queda como saldo de su propio grupo.
+    expect(montosDe(d.orden, 'presupuesto').aseguradora).toBe(antes);
+    expect(porFacturarDe(d.orden, 'presupuesto')).toBe(antes);
+    expect(porFacturarDe(d.orden, 'adicionales')).toBe(Math.round(920000 * 1.19));
+    // Y en una sola factura, en cambio, todo cae en el presupuesto.
+    const junto = autorizarAdicionales(o, 'todos', nombre(o))!.orden;
+    expect(montosDe(junto, 'adicionales').aseguradora).toBe(0);
+    expect(porFacturarDe(junto, 'presupuesto')).toBe(antes + Math.round(920000 * 1.19));
   });
 
   it('lo autorizado después de facturar queda como saldo para una factura complementaria', () => {

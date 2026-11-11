@@ -72,7 +72,7 @@ describe('cada pantalla se dibuja completa', async () => {
     const texto = dibujar(<AdminOrden id={o.id} />, 'admin');
     expect(texto).toMatch(/3 adicionales por autorizar/);
     expect(texto).toMatch(/Autorizar los 3/);
-    expect(texto).toMatch(/de \$[\d.]+ a \$[\d.]+ con IVA/);
+    expect(texto).toMatch(/pasa a \$[\d.]+ y lo paga/);
     expect(texto).not.toMatch(/La compañía autorizó/);
   });
 

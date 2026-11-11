@@ -709,6 +709,19 @@ img { display: block; max-width: 100%; }
 .ad-confirmar div { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
 /* Los botones de confirmar van en fila: la regla de la lista los apilaría en columna. */
 .adicionales-caja li .ad-confirmar div { flex-direction: row; gap: .7rem; }
+/* Revisión antes de autorizar: el precio lo pone el administrador y elige cómo se cobra. */
+.ad-revision { display: grid; gap: .7rem; padding: .8rem; border-radius: 12px; background: var(--fondo); border: 1px solid var(--linea); }
+.ad-revision li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .6rem; }
+.ad-precio { display: flex; align-items: center; gap: .5rem; }
+.ad-precio span { color: var(--suave); font-size: .85rem; }
+.ad-precio input { width: 8.5rem; padding: .5rem .6rem; border-radius: 10px; border: 1px solid var(--linea); background: var(--fondo-2); color: var(--texto); font: inherit; font-variant-numeric: tabular-nums; text-align: right; }
+.ad-cobro { display: grid; gap: .4rem; margin: 0; padding: .6rem .8rem; border: 1px solid var(--linea); border-radius: 12px; }
+.ad-cobro legend { padding: 0 .3rem; font-weight: 600; font-size: .9rem; }
+.ad-cobro label { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .5rem; align-items: start; padding: .45rem .5rem; border-radius: 10px; cursor: pointer; }
+.ad-cobro label.elegido { background: color-mix(in srgb, var(--acento) 10%, transparent); }
+.ad-cobro label span { display: grid; gap: .1rem; }
+.ad-cobro small { color: var(--suave); font-size: .85rem; }
+.ad-revision .ad-acciones { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
 .sin-foto { display: grid; place-items: center; align-content: center; gap: .1rem; border: 1.5px dashed var(--error); color: var(--error); font-size: .75rem; }
 .foto-liquidador { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: .1rem 0 .4rem; }
 .foto-liquidador img, .foto-liquidador .esqueleto { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; }
@@ -717,6 +730,9 @@ img { display: block; max-width: 100%; }
 /* En pantalla angosta los botones bajan debajo del daño, a todo el ancho: es donde se toca con el dedo. */
 @media (max-width: 620px) {
   .adicionales-caja li .ad-fila { grid-template-columns: 1fr; }
+  .ad-revision li { grid-template-columns: 1fr; }
+  .ad-precio { justify-content: space-between; }
+  .ad-precio input { width: 7.5rem; }
   .adicionales-caja li .ad-acciones { grid-column: 1; grid-row: auto; justify-content: stretch; flex-wrap: wrap; margin-top: .3rem; }
   .ad-acciones .btn { flex: 1 1 auto; }
 }
