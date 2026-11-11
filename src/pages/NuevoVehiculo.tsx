@@ -6,6 +6,7 @@ import { VISTAS } from '../lib/fichaModelo';
 import { claveGemini, fichaModeloGemini, generarVistasGemini, leerPadronGemini } from '../lib/gemini';
 import { leerConOCR, leerPatenteConOCR, padronEjemplo, reducirImagen, type DatosPadron } from '../lib/padron';
 import { carroceriaDeTipo, consultarPatente } from '../lib/patentes';
+import { PATENTE_EJEMPLO } from '../lib/patentesDemo';
 import { conEvento, sincronizar } from '../lib/automatizacion';
 import { fechaLocal } from '../lib/piezas';
 import { sugerir } from '../lib/precios';
@@ -248,9 +249,6 @@ function Navegar({ atras, siguiente, ok, texto = 'Siguiente', ayuda }: { atras: 
 }
 
 type DatosIngreso = DatosPadron & { tipo?: string };
-
-/** Patente de ejemplo: sirve para mostrar el flujo completo de la demo sin conexión. */
-const PATENTE_EJEMPLO = 'DEMA55';
 
 function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?: string) => void; onManual: () => void }) {
   const fotoPadron = useRef<HTMLInputElement>(null);

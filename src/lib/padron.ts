@@ -55,9 +55,10 @@ export function padronEjemplo(): string {
   x.font = 'bold 34px Arial'; x.fillText('CERTIFICADO DE INSCRIPCION', 60, 80);
   x.font = '22px Arial'; x.fillText('DOCUMENTO DE EJEMPLO SIN VALIDEZ', 60, 116);
   const filas = [
-    ['INSCRIPCION', 'DEMA.55-5'], ['NOMBRE', 'CLIENTE DEMO CINCO'], ['RUT', '10.000.005-1'],
-    ['MARCA', 'TOYOTA'], ['MODELO', 'HILUX'], ['ANO', '2021'], ['COLOR', 'PLATEADO'],
-    ['MOTOR', 'DEMO000001'], ['CHASIS', 'DEMO0000000000001'],
+    // El mismo vehículo que devuelve la patente de ejemplo: los dos caminos llevan al mismo auto.
+    ['INSCRIPCION', 'DEMA.44-4'], ['NOMBRE', 'CLIENTE DEMO CUATRO'], ['RUT', '10.000.004-5'],
+    ['MARCA', 'SUZUKI'], ['MODELO', 'SWIFT'], ['ANO', '2019'], ['COLOR', 'BLANCO'],
+    ['MOTOR', 'DEMO000004'], ['CHASIS', 'DEMO0000000000004'],
   ];
   x.font = 'bold 30px Arial';
   filas.forEach(([k, v], i) => {

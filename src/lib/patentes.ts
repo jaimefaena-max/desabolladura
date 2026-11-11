@@ -1,3 +1,4 @@
+import { VEHICULOS_DEMO } from './patentesDemo';
 import type { Carroceria } from './types';
 import { normalizarPatente, patenteValida } from './vehiculos';
 
@@ -24,14 +25,6 @@ export type Consulta =
 const SERVICIO = (import.meta.env.VITE_API_PATENTES ?? '').replace(/\/+$/, '');
 const MEMORIA = 'dp.patentes';
 const VIGENCIA = 30 * 24 * 60 * 60 * 1000;
-
-/**
- * Patentes de ejemplo para poder mostrar el flujo sin conexión. Son ficticias y coinciden con el
- * padrón de ejemplo de la app, para que los dos caminos lleven al mismo vehículo.
- */
-const EJEMPLO: Record<string, DatosVehiculo> = {
-  DEMA55: { patente: 'DEMA55', marca: 'Toyota', modelo: 'Hilux', anio: 2021, tipo: 'CAMIONETA', motor: 'DEMO000001', chasis: 'DEMO0000000000001', color: 'Plateado' },
-};
 
 interface Guardada { datos: DatosVehiculo; cuando: number }
 
@@ -99,10 +92,10 @@ export async function consultarPatente(entrada: string): Promise<Consulta> {
   if (guardada && Date.now() - guardada.cuando < VIGENCIA) return { estado: 'ok', datos: guardada.datos, fuente: 'memoria' };
 
   if (!SERVICIO) {
-    const ejemplo = EJEMPLO[patente];
+    const ejemplo = VEHICULOS_DEMO[patente];
     return ejemplo
       ? { estado: 'ok', datos: { ...ejemplo }, fuente: 'ejemplo' }
-      : { estado: 'sin-servicio', motivo: 'La consulta de patentes no está conectada en esta demo.' };
+      : { estado: 'sin-servicio', motivo: 'La consulta al registro de vehículos todavía no está activada.' };
   }
 
   const control = new AbortController();

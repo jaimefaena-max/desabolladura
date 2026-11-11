@@ -15,7 +15,7 @@ navegador ──► worker (Cloudflare, gratis) ──► proveedor de patentes
 ```bash
 cd infra/worker-patentes
 npx wrangler login                 # abre el navegador, autoriza tu cuenta
-npx wrangler secret put BOOSTR_KEY # pega la clave de Boostr: no queda en ningún archivo
+npx wrangler secret put CLAVE_PATENTES # pega la clave de Boostr: no queda en ningún archivo
 npx wrangler deploy
 ```
 
@@ -43,8 +43,8 @@ no gasta cuota.
 ## Comprobar que está vivo
 
 ```bash
-curl -s https://patentes-zasa.TU-SUBDOMINIO.workers.dev/patente/DEMA55
-# {"encontrada":true,"datos":{"patente":"DEMA55","marca":"TOYOTA","modelo":"HILUX","anio":2021,...}}
+curl -s https://patentes-zasa.TU-SUBDOMINIO.workers.dev/patente/DEMA44
+# {"encontrada":true,"datos":{"patente":"DEMA44","marca":"SUZUKI","modelo":"SWIFT","anio":2019,...}}
 ```
 
 ## Límites puestos a propósito

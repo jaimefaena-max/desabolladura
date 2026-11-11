@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { carroceriaDeTipo, consultarPatente, interpretarPatente, leerRespuesta } from './patentes';
+import { VEHICULOS_DEMO } from './patentesDemo';
+import { ordenesDemo } from './seed';
 
 describe('interpretarPatente (lectura de la foto)', () => {
   it('acepta los dos formatos vigentes', () => {
@@ -66,11 +68,20 @@ describe('leerRespuesta', () => {
 
 describe('consultarPatente sin servicio configurado', () => {
   it('resuelve la patente de ejemplo para poder demostrar el flujo', async () => {
-    const r = await consultarPatente('dema.55');
+    const r = await consultarPatente('dema.44');
     expect(r.estado).toBe('ok');
     if (r.estado === 'ok') {
       expect(r.fuente).toBe('ejemplo');
-      expect(r.datos).toMatchObject({ patente: 'DEMA55', marca: 'Toyota', modelo: 'Hilux', anio: 2021 });
+      expect(r.datos).toMatchObject({ patente: 'DEMA44', marca: 'Suzuki', modelo: 'Swift', anio: 2019 });
+    }
+  });
+
+  it('las patentes de ejemplo son las mismas que trae el taller', () => {
+    const ordenes = ordenesDemo();
+    for (const [patente, d] of Object.entries(VEHICULOS_DEMO)) {
+      const o = ordenes.find(x => x.vehiculo.patente === patente);
+      expect(o, `la orden de ${patente} debería existir`).toBeTruthy();
+      expect([d.marca, d.modelo, d.anio]).toEqual([o!.vehiculo.marca, o!.vehiculo.modelo, o!.vehiculo.anio]);
     }
   });
 
