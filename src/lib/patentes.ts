@@ -1,4 +1,4 @@
-import { VEHICULOS_DEMO } from './patentesDemo';
+import { AUTO_DEMO, VEHICULOS_DEMO } from './patentesDemo';
 import type { Carroceria } from './types';
 import { normalizarPatente, patenteValida } from './vehiculos';
 
@@ -92,10 +92,11 @@ export async function consultarPatente(entrada: string): Promise<Consulta> {
   if (guardada && Date.now() - guardada.cuando < VIGENCIA) return { estado: 'ok', datos: guardada.datos, fuente: 'memoria' };
 
   if (!SERVICIO) {
+    // Sin registro conectado la consulta no se puede hacer, pero la demo tiene que fluir: se
+    // devuelve el vehículo de prueba con la patente que escribió el maestro. El aviso en pantalla
+    // deja claro que los datos son de demostración, así que nadie los confunde con reales.
     const ejemplo = VEHICULOS_DEMO[patente];
-    return ejemplo
-      ? { estado: 'ok', datos: { ...ejemplo }, fuente: 'ejemplo' }
-      : { estado: 'sin-servicio', motivo: 'La consulta al registro de vehículos todavía no está activada.' };
+    return { estado: 'ok', datos: ejemplo ? { ...ejemplo } : { ...AUTO_DEMO, patente }, fuente: 'ejemplo' };
   }
 
   const control = new AbortController();

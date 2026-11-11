@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { carroceriaDeTipo, consultarPatente, interpretarPatente, leerRespuesta } from './patentes';
-import { VEHICULOS_DEMO } from './patentesDemo';
+import { AUTO_DEMO, VEHICULOS_DEMO } from './patentesDemo';
 import { ordenesDemo } from './seed';
 
 describe('interpretarPatente (lectura de la foto)', () => {
@@ -85,9 +85,19 @@ describe('consultarPatente sin servicio configurado', () => {
     }
   });
 
-  it('avisa en vez de fallar cuando la patente no está y no hay servicio', async () => {
+  it('devuelve el vehículo de prueba para cualquier patente cuando no hay servicio', async () => {
     const r = await consultarPatente('ABCD12');
-    expect(r.estado).toBe('sin-servicio');
+    expect(r.estado).toBe('ok');
+    if (r.estado === 'ok') {
+      expect(r.fuente).toBe('ejemplo');
+      // La patente que escribió el maestro se conserva; la ficha es la del vehículo de prueba.
+      expect(r.datos).toMatchObject({ ...AUTO_DEMO, patente: 'ABCD12' });
+    }
+  });
+
+  it('respeta la ficha propia de las patentes del taller', async () => {
+    const r = await consultarPatente('DEMA33');
+    if (r.estado === 'ok') expect(r.datos).toMatchObject({ marca: 'Hyundai', modelo: 'Tucson', anio: 2023 });
   });
 
   it('no consulta patentes con formato inválido', async () => {

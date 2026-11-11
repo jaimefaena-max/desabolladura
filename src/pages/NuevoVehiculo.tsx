@@ -303,7 +303,7 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
         const d = r.datos;
         const quien = [d.marca, d.modelo, d.anio].filter(Boolean).join(' ');
         const aviso = r.fuente === 'ejemplo'
-          ? `Patente ${verPatente(d.patente)}: datos de ejemplo de la demo. En producción se consultan al registro.`
+          ? `Patente ${verPatente(d.patente)}: vehículo de prueba de la demo. Con el registro conectado, estos datos salen del vehículo real.`
           : r.fuente === 'memoria'
             ? `Patente ${verPatente(d.patente)}: ya la habíamos consultado. Revisa que sea el mismo vehículo.`
             : `Patente ${verPatente(d.patente)}: ${quien}. Revísalos antes de seguir.`;
@@ -353,7 +353,7 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
             <MagnifyingGlass size={22} weight="bold" /> {buscando ? 'Buscando…' : 'Buscar el vehículo'}
           </button>
         </form>
-        <p className="pista">Formato ABCD-12 (nuevo) o AB-1234 (antiguo).</p>
+        <p className="pista">Formato ABCD-12 (nuevo) o AB-1234 (antiguo). En la demo, cualquier patente carga un vehículo de prueba.</p>
         <div className="patente-acciones">
           <button className="enlace" onClick={() => { setPatente(null); setError(''); setNota(''); }}>Volver</button>
           <button className="enlace" onClick={onManual}>Escribir todos los datos a mano</button>

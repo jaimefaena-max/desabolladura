@@ -17,3 +17,21 @@ export const VEHICULOS_DEMO: Record<string, DatosVehiculo> = {
 
 /** La que se usa en el botón «probar con una patente de ejemplo» y en el padrón de ejemplo. */
 export const PATENTE_EJEMPLO = 'DEMA44';
+
+/**
+ * Vehículo de prueba que se muestra mientras el registro real no está conectado: cualquier
+ * patente válida que escriba el maestro devuelve esta ficha, con todos los campos que después
+ * llenará la consulta de verdad (marca, modelo, año, tipo, motor, chasis y color).
+ *
+ * Motor y chasis van marcados como DEMO a propósito: si algún día alguien los copia a mano en
+ * una orden real, el error salta a la vista.
+ */
+export const AUTO_DEMO: Omit<DatosVehiculo, 'patente'> = {
+  marca: 'Toyota',
+  modelo: 'Yaris Sport',
+  anio: 2022,
+  tipo: 'AUTOMOVIL',
+  motor: 'DEMO-2NR-0001',
+  chasis: 'DEMO0000000000001',
+  color: 'Blanco',
+};
