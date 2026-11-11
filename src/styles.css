@@ -903,6 +903,41 @@ html { font-size: clamp(16px, calc(.3125vw + 12px), 20px); }
 .ajuste-tarjeta { display: grid; gap: .7rem; align-content: start; padding: 1.4rem; background: var(--fondo-2); border: 1px solid var(--linea); border-radius: var(--r); }
 .ajuste-tarjeta > .btn { justify-self: start; }
 
+/* ---------- Costos del taller (Ajustes) ---------- */
+.costo-hora-cifra { display: flex; flex-wrap: wrap; align-items: baseline; gap: .6rem; }
+.costo-hora-cifra b { font-size: clamp(1.9rem, 3.4vw, 2.6rem); line-height: 1.1; }
+.costo-hora-cifra span { color: var(--suave); }
+.costo-hora-detalle { display: grid; gap: .4rem; margin: 0; }
+.costo-hora-detalle > div { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem .7rem; background: var(--fondo-3); border-radius: 10px; }
+.costo-hora-detalle dt { color: var(--suave); }
+.costo-hora-detalle dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.costos-lista { display: grid; gap: .7rem; }
+.costos-ancho { grid-column: 1 / -1; }
+.trabajador-fila { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.1fr) minmax(0, .8fr) minmax(0, .8fr) minmax(0, .9fr) auto; gap: .6rem; align-items: end; padding: .8rem; background: var(--fondo-3); border-radius: 12px; }
+.trabajador-fila .campo input { min-height: 50px !important; font-size: 1rem !important; min-width: 0; }
+.trabajador-fila .campo { min-width: 0; }
+.trabajador-fila .campo > span { font-size: .92rem; }
+.gasto-fila { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.3fr) auto auto; gap: .6rem; align-items: center; padding: .6rem .8rem; background: var(--fondo-3); border-radius: 12px; }
+.gasto-fila.apagado { opacity: .55; }
+.gasto-fila small { color: var(--suave); font-variant-numeric: tabular-nums; }
+.gasto-nombre { min-width: 0; min-height: 46px; padding: 0 .8rem; background: var(--fondo-2); border: 1.5px solid var(--borde-campo); border-radius: 10px; font-size: 1rem; font-weight: 560; }
+.gasto-fila select { min-height: 46px; padding: 0 .6rem; background: var(--fondo-2); border: 1.5px solid var(--borde-campo); border-radius: 10px; font-size: .95rem; }
+.gasto-nuevo { display: grid; grid-template-columns: 1.4fr minmax(0, .9fr) auto auto; gap: .6rem; align-items: end; }
+.costos-avisos { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.costos-avisos li { padding: .65rem .8rem; border-radius: 10px; background: var(--fondo-3); border-left: 4px solid var(--linea); }
+.costos-avisos li.atencion { border-left-color: var(--error); }
+.costos-avisos li.dato { border-left-color: var(--acento); }
+.boleta-foto { display: grid; gap: .6rem; justify-items: start; }
+.aviso-atencion { padding: .7rem .9rem; border-radius: 10px; background: color-mix(in srgb, var(--acento) 12%, var(--fondo-2)); border-left: 4px solid var(--acento); }
+.boleta-mini { max-width: 190px; border-radius: 10px; border: 1px solid var(--linea); }
+.btn.secundario.chico { min-height: 46px; padding: 0 .9rem; font-size: .95rem; }
+@media (max-width: 860px) {
+  .trabajador-fila { grid-template-columns: 1fr 1fr; }
+  .gasto-fila { grid-template-columns: 1fr auto auto; }
+  .gasto-fila small { grid-column: 1 / -1; }
+  .gasto-nuevo { grid-template-columns: 1fr; }
+}
+
 /* ---------- Portada estática de index.html (se ve antes de que llegue el código) ---------- */
 .estatico { display: none; }
 html.en-portada .estatico { display: block; }

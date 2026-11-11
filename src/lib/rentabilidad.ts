@@ -36,14 +36,25 @@ const REPUESTO_SOBRE_COBRO = .5;
 
 export const horasEstimadas = (i: Item) => HORAS[i.trabajo][i.severidad ?? 'medio'];
 
+/**
+ * De dónde sale el costo de la hora. El administrador puede fijarlo a mano en la empresa; si no,
+ * se usa el que resulta de sus propios costos para el mes de la orden (ver `costos.ts`), y solo si
+ * no hay ningún dato se cae al valor de referencia.
+ */
+export type ResolverHora = (periodo: string) => number | undefined;
+
+function horaDe(empresa: Pick<Empresa, 'costoHora'>, periodo: string, resolver?: ResolverHora) {
+  return empresa.costoHora ?? resolver?.(periodo) ?? COSTO_HORA_DEFECTO;
+}
+
 export interface LineaCosto { item: Item; horas: number; horasReales: boolean; manoObra: number; insumos: number; repuesto: number; repuestoReal: boolean }
 
 export type Semaforo = 'buena' | 'justa' | 'baja' | 'perdida';
 export const semaforoMargen = (margen: number): Semaforo => (margen < 0 ? 'perdida' : margen < 15 ? 'baja' : margen < 30 ? 'justa' : 'buena');
 
 /** Cuentas de una orden. `estimado` indica si algún costo aún no es real (horas o repuesto sin anotar). */
-export function rentabilidad(o: Orden, empresa: Pick<Empresa, 'costoHora'>) {
-  const hora = empresa.costoHora ?? COSTO_HORA_DEFECTO;
+export function rentabilidad(o: Orden, empresa: Pick<Empresa, 'costoHora'>, resolver?: ResolverHora) {
+  const hora = horaDe(empresa, o.creada.slice(0, 7), resolver);
   const lineas: LineaCosto[] = o.items.map(i => {
     const horas = i.horas ?? horasEstimadas(i);
     const rep = i.trabajo === 'cambio' ? o.repuestos.find(r => r.itemId === i.id) : undefined;
@@ -65,9 +76,9 @@ export function rentabilidad(o: Orden, empresa: Pick<Empresa, 'costoHora'>) {
 }
 
 /** Para el dueño: margen total y qué trabajos y qué pagadores dejan más (o menos) plata. */
-export function resumenRentabilidad(ordenes: Orden[], empresa: Pick<Empresa, 'costoHora'>) {
+export function resumenRentabilidad(ordenes: Orden[], empresa: Pick<Empresa, 'costoHora'>, resolver?: ResolverHora) {
   const conMonto = ordenes.filter(o => totales(o).neto > 0 && !itemsCobrables(o).some(i => i.monto === null));
-  const filas = conMonto.map(o => ({ o, r: rentabilidad(o, empresa) }));
+  const filas = conMonto.map(o => ({ o, r: rentabilidad(o, empresa, resolver) }));
   const ingreso = filas.reduce((a, x) => a + x.r.ingreso, 0), ganancia = filas.reduce((a, x) => a + x.r.ganancia, 0);
 
   // Por tipo de trabajo: lo cobrado de cada ítem contra su propio costo.

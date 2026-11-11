@@ -4,7 +4,9 @@ import { Auto3D, Barra, forma, FotoGuardada, FotoOrden, Galeria, GaleriaVistas, 
 import { CotizacionDoc, imprimirDocumento } from '../components/Cotizacion';
 import FilaRepuesto from '../components/FilaRepuesto';
 import Rentabilidad, { TEXTO_SEMAFORO } from '../components/Rentabilidad';
-import { COSTO_HORA_DEFECTO, resumenRentabilidad } from '../lib/rentabilidad';
+import { resumenRentabilidad } from '../lib/rentabilidad';
+import Costos from '../components/Costos';
+import { costoHoraDelMes, restablecerCostos } from '../lib/costos';
 import { ExpedienteDoc } from '../components/Expediente';
 import { cobradaSeguro, estadoFactura, nombreEstado, siguienteFactura, vencimiento } from '../lib/cobranza';
 import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
@@ -100,7 +102,7 @@ export function Ordenes() {
 export function Reportes() {
   const ordenes = useOrdenes(), empresa = useEmpresa();
   const m = metricas(ordenes);
-  const rb = resumenRentabilidad(ordenes, empresa);
+  const rb = resumenRentabilidad(ordenes, empresa, p => costoHoraDelMes(empresa.id, p));
   const topeMargen = Math.max(...rb.tipos.map(t => Math.abs(t.margen)), ...rb.pagadores.map(p => Math.abs(p.margen)), 1);
   const tope = Math.max(...m.meses.map(x => x.valor), 1);
   const topeTipo = Math.max(...m.tipos.map(t => t[1]), 1);
@@ -474,14 +476,7 @@ export function Ajustes() {
         </div>
       </section>
 
-      <section className="ajuste-tarjeta">
-        <h2>Costos del taller</h2>
-        <p className="sub">Se usan para calcular cuánto ganas en cada orden.</p>
-        <label className="campo"><span>Costo de una hora de taller (maestro + arriendo, luz, cabina y herramientas)</span>
-          <input inputMode="numeric" value={(empresa.costoHora ?? COSTO_HORA_DEFECTO).toLocaleString('es-CL')}
-            onChange={e => { const n = Number(e.target.value.replace(/\D/g, '')); editarEmpresa({ costoHora: n || undefined }); }} />
-        </label>
-      </section>
+      <Costos />
 
       <section className="ajuste-tarjeta">
         <h2>Empresas</h2>
@@ -509,7 +504,7 @@ export function Ajustes() {
       <section className="ajuste-tarjeta">
         <h2>Datos de ejemplo</h2>
         <p className="sub">Vuelve la demostración a como venía: órdenes, cobros y repuestos de ejemplo.</p>
-        <button className="btn secundario grande" onClick={() => { if (confirm('Se borrarán los cambios de esta empresa. ¿Continuar?')) restablecerDemo(); }}><ArrowsClockwise size={24} /> Restablecer datos</button>
+        <button className="btn secundario grande" onClick={() => { if (confirm('Se borrarán los cambios de esta empresa. ¿Continuar?')) { restablecerDemo(); restablecerCostos(empresa.id); } }}><ArrowsClockwise size={24} /> Restablecer datos</button>
       </section>
       </div>
     </Pantalla>
