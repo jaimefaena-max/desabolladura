@@ -1,0 +1,10 @@
+name = "patentes-zasa"
+main = "index.js"
+compatibility_date = "2026-01-01"
+
+# Quién puede llamar al servicio. Solo la demo publicada y el servidor de desarrollo local.
+[vars]
+ORIGENES = "https://jaimefaena-max.github.io,http://localhost:5173"
+
+# La clave del proveedor NO va aquí: se carga como secreto.
+#   npx wrangler secret put BOOSTR_KEY

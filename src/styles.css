@@ -315,6 +315,13 @@ img { display: block; max-width: 100%; }
 
 /* Elección de ingreso */
 .elegir-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 1rem; margin: 1.1rem 0; }
+/* Tres formas de ingresar el vehículo: la primera pesa más porque es la que más se usa. */
+.elegir-grid.elegir-tres { grid-template-columns: 1.25fr 1fr 1fr; }
+/* Búsqueda por patente: el campo es el protagonista, en mayúsculas y grande como una placa. */
+.patente-caja { display: flex; flex-wrap: wrap; align-items: center; gap: .8rem; margin: 1rem 0 .4rem; }
+.patente-caja input { flex: 1 1 220px; min-width: 0; font-size: 2rem; font-weight: 620; letter-spacing: .14em; text-align: center; text-transform: uppercase; padding: .85rem 1rem; background: var(--fondo-2); border: 1.5px solid var(--linea); border-radius: var(--r); color: var(--texto); }
+.patente-caja input:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.patente-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 0 1.4rem; margin-top: .8rem; }
 .elegir-op { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; text-align: left; padding: 1.6rem; min-height: 210px; justify-content: flex-end; background: var(--fondo-2); border: 1.5px solid var(--linea); border-radius: var(--r); transition: transform .15s; }
 .elegir-op:active { transform: scale(.985); }
 .elegir-op b { font-size: 1.4rem; font-weight: 620; }
@@ -538,8 +545,10 @@ img { display: block; max-width: 100%; }
   .repuesto { grid-template-columns: minmax(0, 1fr); }
   .kanban { grid-auto-columns: 82vw; }
   .nueva-empresa { flex-direction: column; align-items: stretch; }
-  .elegir-grid { grid-template-columns: minmax(0, 1fr); }
+  .elegir-grid, .elegir-grid.elegir-tres { grid-template-columns: minmax(0, 1fr); }
   .elegir-op { min-height: 150px; }
+  .patente-caja input { flex-basis: 100%; }
+  .patente-caja .btn { width: 100%; }
   .precio-fila { grid-template-columns: minmax(0, 1fr); }
     .segmentos.tres button { min-height: 54px; font-size: .98rem; }
   .fila-orden { grid-template-columns: 96px 1fr; }

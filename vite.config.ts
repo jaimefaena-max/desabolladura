@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { loadEnv } from 'vite';
 import { defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
@@ -25,12 +26,13 @@ const OCR: Record<string, string> = {
  * - connect: Gemini (opcional) y el diccionario del OCR.
  * - style en línea: lo usa el aviso de rescate de index.html.
  */
-const CSP = [
+const CSP = (origenes: string[]) => [
   "default-src 'self'",
   "script-src 'self' 'wasm-unsafe-eval'",
   "worker-src 'self' blob:",
   // blob: y data: los usa el cargador 3D para las texturas que vienen dentro del modelo.
-  "connect-src 'self' blob: data: https://generativelanguage.googleapis.com https://cdn.jsdelivr.net",
+  // El servicio de patentes se añade solo si está configurado (VITE_API_PATENTES).
+  `connect-src 'self' blob: data: https://generativelanguage.googleapis.com https://cdn.jsdelivr.net${origenes.map(o => ` ${o}`).join('')}`,
   "img-src 'self' data: blob:",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self'",
@@ -39,7 +41,7 @@ const CSP = [
   "form-action 'self'",
 ].join('; ');
 
-function blindaje(): Plugin {
+function blindaje(origenPatentes = ''): Plugin {
   let base = '/';
   return {
     name: 'desabolladura-blindaje',
@@ -61,7 +63,7 @@ function blindaje(): Plugin {
         if (ctx.server) return html;
         // Scripts en línea de index.html (el del modo día/noche): se autorizan por su huella, no con 'unsafe-inline'.
         const huellas = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => `'sha256-${createHash('sha256').update(m[1]).digest('base64')}'`);
-        const csp = CSP.replace("script-src 'self'", `script-src 'self' ${huellas.join(' ')}`);
+        const csp = CSP(origenPatentes ? [origenPatentes] : []).replace("script-src 'self'", `script-src 'self' ${huellas.join(' ')}`);
         // La fuente se pide junto con el código, no recién cuando React dibuja (en celular eran ≈2,7 s).
         const fuente = Object.keys(ctx.bundle ?? {}).find(n => /outfit-latin-wght-normal-[\w-]+\.woff2$/.test(n));
         const precarga = fuente ? `\n    <link rel="preload" as="font" type="font/woff2" crossorigin href="${base}${fuente}" />` : '';
@@ -71,9 +73,15 @@ function blindaje(): Plugin {
   };
 }
 
-export default defineConfig({
-  base: '/desabolladura/',
-  plugins: [react(), blindaje()],
-  build: { chunkSizeWarningLimit: 900 },
-  test: { environment: 'node', include: ['src/**/*.test.ts', 'src/**/*.test.tsx'] },
+export default defineConfig(({ mode }) => {
+  // Sin VITE_API_PATENTES la consulta real queda apagada y la app sigue funcionando: no es un requisito.
+  const patentes = loadEnv(mode, process.cwd(), 'VITE_').VITE_API_PATENTES ?? '';
+  let origen = '';
+  try { origen = patentes ? new URL(patentes).origin : ''; } catch { /* variable mal escrita: se ignora */ }
+  return {
+    base: '/desabolladura/',
+    plugins: [react(), blindaje(origen)],
+    build: { chunkSizeWarningLimit: 900 },
+    test: { environment: 'node', include: ['src/**/*.test.ts', 'src/**/*.test.tsx'] },
+  };
 });

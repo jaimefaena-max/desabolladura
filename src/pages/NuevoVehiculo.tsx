@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ArrowsClockwise, Camera, CheckCircle, PencilSimple, Sparkle } from '../components/iconos';
+import { ArrowLeft, ArrowRight, ArrowsClockwise, Camera, Car, CheckCircle, MagnifyingGlass, PencilSimple, Sparkle } from '../components/iconos';
 import PiezaPicker from '../components/PiezaPicker';
 import { ir, Pantalla } from '../components/ui';
 import { VISTAS } from '../lib/fichaModelo';
 import { claveGemini, fichaModeloGemini, generarVistasGemini, leerPadronGemini } from '../lib/gemini';
-import { leerConOCR, padronEjemplo, reducirImagen, type DatosPadron } from '../lib/padron';
+import { leerConOCR, leerPatenteConOCR, padronEjemplo, reducirImagen, type DatosPadron } from '../lib/padron';
+import { carroceriaDeTipo, consultarPatente } from '../lib/patentes';
 import { conEvento, sincronizar } from '../lib/automatizacion';
 import { fechaLocal } from '../lib/piezas';
 import { sugerir } from '../lib/precios';
@@ -65,16 +66,18 @@ export default function NuevoVehiculo() {
     }
   };
 
-  const aplicar = (d: DatosPadron) => {
+  const aplicar = (d: DatosPadron & { tipo?: string }, aviso?: string) => {
     const marca = Object.keys(CATALOGO).find(k => k.toLowerCase() === (d.marca ?? '').toLowerCase()) ?? d.marca ?? '';
     const modelo = d.modelo ?? '', col = d.color ? colorHex(d.color) : COLORES[1];
     setV(x => ({
       ...x, marca, modelo, anio: d.anio ?? x.anio, patente: d.patente ?? '', motor: d.motor, chasis: d.chasis,
-      color: col.nombre, colorHex: col.hex, carroceria: carroceriaDe(marca, modelo) ?? x.carroceria,
+      color: col.nombre, colorHex: col.hex,
+      // El catálogo propio manda; si no conoce el modelo, se usa el tipo que informa el registro.
+      carroceria: carroceriaDe(marca, modelo) ?? carroceriaDeTipo(d.tipo) ?? x.carroceria,
     }));
     setCliente(c => ({ ...c, nombre: d.nombre ?? c.nombre, rut: d.rut ?? c.rut }));
     const n = [d.patente, d.marca, d.modelo, d.anio, d.color, d.chasis, d.nombre, d.rut].filter(Boolean).length;
-    setLeido(`Se leyeron ${n} datos del padrón. Revísalos antes de seguir.`);
+    setLeido(aviso ?? `Se leyeron ${n} datos del padrón. Revísalos antes de seguir.`);
     setPaso(1);
   };
 
@@ -146,7 +149,7 @@ export default function NuevoVehiculo() {
         {PASOS.map((p, i) => <li key={p} className={i === paso ? 'on' : i < paso ? 'hecho' : ''}><span>{i + 1}</span>{p}</li>)}
       </ol>
 
-      {paso === 0 && <PasoPadron onDatos={aplicar} onManual={() => setPaso(1)} />}
+      {paso === 0 && <PasoIngreso onDatos={aplicar} onManual={() => setPaso(1)} />}
 
       {paso === 1 && (
         <section className="formulario">
@@ -244,16 +247,26 @@ function Navegar({ atras, siguiente, ok, texto = 'Siguiente', ayuda }: { atras: 
   );
 }
 
-function PasoPadron({ onDatos, onManual }: { onDatos: (d: DatosPadron) => void; onManual: () => void }) {
-  const input = useRef<HTMLInputElement>(null);
+type DatosIngreso = DatosPadron & { tipo?: string };
+
+/** Patente de ejemplo: sirve para mostrar el flujo completo de la demo sin conexión. */
+const PATENTE_EJEMPLO = 'DEMA55';
+
+function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?: string) => void; onManual: () => void }) {
+  const fotoPadron = useRef<HTMLInputElement>(null);
+  const fotoPatente = useRef<HTMLInputElement>(null);
   const [estado, setEstado] = useState<{ avance: number; img: string; fuente: string } | null>(null);
   const [error, setError] = useState('');
   const [porConfirmar, setPorConfirmar] = useState<string | null>(null);
+  // null = no se está pidiendo la patente; '' = pantalla abierta, todavía sin escribir.
+  const [patente, setPatente] = useState<string | null>(null);
+  const [nota, setNota] = useState('');
+  const [buscando, setBuscando] = useState(false);
 
-  // Una foto real con Gemini conectado sale del equipo: se avisa antes de enviarla.
-  const revisar = (img: string) => { if (claveGemini()) setPorConfirmar(img); else void leer(img); };
+  // Una foto real de padrón con Gemini conectado sale del equipo: se avisa antes de enviarla.
+  const revisarPadron = (img: string) => { if (claveGemini()) setPorConfirmar(img); else void leerPadron(img); };
 
-  const leer = async (img: string) => {
+  const leerPadron = async (img: string) => {
     setPorConfirmar(null);
     setError('');
     const conGemini = !!claveGemini();
@@ -267,6 +280,46 @@ function PasoPadron({ onDatos, onManual }: { onDatos: (d: DatosPadron) => void; 
     }
   };
 
+  /** La foto de la patente se lee en el propio teléfono: la imagen no sale del equipo. */
+  const leerPatente = async (img: string) => {
+    setError(''); setNota(''); setPatente('');
+    setEstado({ avance: 0, img, fuente: 'Leyendo la patente' });
+    try {
+      const p = await leerPatenteConOCR(img, x => setEstado(s => s && { ...s, avance: x }));
+      setEstado(null);
+      setPatente(p ?? '');
+      if (p) setNota('Este es el número que se leyó de la foto. Corrígelo si no coincide.');
+      else setError('No se pudo leer la patente de la foto. Escríbela abajo.');
+    } catch (e) {
+      setEstado(null); setPatente('');
+      setError(`No se pudo leer la patente (${(e as Error).message}). Escríbela abajo.`);
+    }
+  };
+
+  const buscar = async (p: string) => {
+    setError('');
+    setBuscando(true);
+    try {
+      const r = await consultarPatente(p);
+      if (r.estado === 'ok') {
+        const d = r.datos;
+        const quien = [d.marca, d.modelo, d.anio].filter(Boolean).join(' ');
+        const aviso = r.fuente === 'ejemplo'
+          ? `Patente ${verPatente(d.patente)}: datos de ejemplo de la demo. En producción se consultan al registro.`
+          : r.fuente === 'memoria'
+            ? `Patente ${verPatente(d.patente)}: ya la habíamos consultado. Revisa que sea el mismo vehículo.`
+            : `Patente ${verPatente(d.patente)}: ${quien}. Revísalos antes de seguir.`;
+        onDatos({ patente: d.patente, marca: d.marca, modelo: d.modelo, anio: d.anio, motor: d.motor, chasis: d.chasis, color: d.color, tipo: d.tipo }, aviso);
+        return;
+      }
+      setError(r.estado === 'no-encontrada'
+        ? 'Esa patente no aparece en el registro. Revísala o escribe los datos a mano.'
+        : `${r.motivo} Puedes escribir los datos a mano.`);
+    } finally {
+      setBuscando(false);
+    }
+  };
+
   if (porConfirmar) {
     return (
       <section className="confirmar" role="alertdialog" aria-label="Aviso antes de enviar la foto">
@@ -274,7 +327,7 @@ function PasoPadron({ onDatos, onManual }: { onDatos: (d: DatosPadron) => void; 
         <p>Gemini recibirá la imagen, que puede incluir nombre y RUT del dueño. En esta demo usa solo el padrón de ejemplo.</p>
         <div>
           <button className="btn primario grande" onClick={() => setPorConfirmar(null)}>Cancelar</button>
-          <button className="btn secundario grande" onClick={() => leer(porConfirmar)}>Enviar a Gemini</button>
+          <button className="btn secundario grande" onClick={() => leerPadron(porConfirmar)}>Enviar a Gemini</button>
         </div>
       </section>
     );
@@ -283,9 +336,31 @@ function PasoPadron({ onDatos, onManual }: { onDatos: (d: DatosPadron) => void; 
   if (estado) {
     return (
       <div className="lectura">
-        <div className="lectura-img"><img src={estado.img} alt="Padrón en lectura" /><span className="scan" aria-hidden="true" /></div>
+        <div className="lectura-img"><img src={estado.img} alt="Foto en lectura" /><span className="scan" aria-hidden="true" /></div>
         <p role="status">{estado.fuente}{estado.avance > 0 ? `: ${Math.round(estado.avance * 100)}%` : '…'}</p>
       </div>
+    );
+  }
+
+  if (patente !== null) {
+    return (
+      <section className="elegir">
+        <p className="sub">Patente del vehículo</p>
+        {nota && <p className="aviso-ok" role="status">{nota}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
+        <form className="patente-caja" onSubmit={e => { e.preventDefault(); if (patenteValida(patente)) void buscar(patente); }}>
+          <input value={patente} onChange={e => setPatente(e.target.value.toUpperCase())} placeholder="ABCD-12"
+            aria-label="Patente del vehículo" autoComplete="off" autoFocus />
+          <button className="btn primario grande" type="submit" disabled={!patenteValida(patente) || buscando}>
+            <MagnifyingGlass size={22} weight="bold" /> {buscando ? 'Buscando…' : 'Buscar el vehículo'}
+          </button>
+        </form>
+        <p className="pista">Formato ABCD-12 (nuevo) o AB-1234 (antiguo).</p>
+        <div className="patente-acciones">
+          <button className="enlace" onClick={() => { setPatente(null); setError(''); setNota(''); }}>Volver</button>
+          <button className="enlace" onClick={onManual}>Escribir todos los datos a mano</button>
+        </div>
+      </section>
     );
   }
 
@@ -293,26 +368,42 @@ function PasoPadron({ onDatos, onManual }: { onDatos: (d: DatosPadron) => void; 
     <section className="elegir">
       <p className="sub">¿Cómo quieres ingresar los datos?</p>
       {error && <p className="error" role="alert">{error}</p>}
-      <div className="elegir-grid">
-        <button className="elegir-op destacada" onClick={() => input.current?.click()}>
+      <div className="elegir-grid elegir-tres">
+        <button className="elegir-op destacada" onClick={() => fotoPadron.current?.click()}>
           <Camera size={52} weight="light" />
-          <b>Sacar foto al padrón</b>
+          <b>Foto al padrón</b>
           <small>La app lee los datos sola</small>
         </button>
-        <button className="elegir-op" onClick={onManual}>
-          <PencilSimple size={52} weight="light" />
-          <b>Escribir los datos</b>
-          <small>Marca, modelo, año y patente</small>
+        <button className="elegir-op" onClick={() => { setError(''); setNota(''); fotoPatente.current?.click(); }}>
+          <Car size={52} weight="light" />
+          <b>Foto a la patente</b>
+          <small>Se lee aquí mismo y se buscan los datos</small>
+        </button>
+        <button className="elegir-op" onClick={() => { setError(''); setNota(''); setPatente(''); }}>
+          <MagnifyingGlass size={52} weight="light" />
+          <b>Escribir la patente</b>
+          <small>Marca, modelo y año llegan solos</small>
         </button>
       </div>
-      <input ref={input} type="file" accept="image/*" capture="environment" hidden aria-label="Foto del padrón"
+      <input ref={fotoPadron} type="file" accept="image/*" capture="environment" hidden aria-label="Foto del padrón"
         onChange={async e => {
           const f = e.target.files?.[0];
           e.target.value = '';
           if (!f) return;
-          try { revisar(await reducirImagen(f)); } catch (err) { setError((err as Error).message); }
+          try { revisarPadron(await reducirImagen(f)); } catch (err) { setError((err as Error).message); }
         }} />
-      <button className="enlace" onClick={() => revisar(padronEjemplo())}>Probar con un padrón de ejemplo</button>
+      <input ref={fotoPatente} type="file" accept="image/*" capture="environment" hidden aria-label="Foto de la patente"
+        onChange={async e => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (!f) return;
+          try { await leerPatente(await reducirImagen(f, 2000)); } catch (err) { setError((err as Error).message); }
+        }} />
+      <div className="patente-acciones">
+        <button className="enlace" onClick={() => revisarPadron(padronEjemplo())}>Probar con un padrón de ejemplo</button>
+        <button className="enlace" onClick={() => { setNota('Patente de ejemplo para la demostración.'); setPatente(PATENTE_EJEMPLO); }}>Probar con una patente de ejemplo</button>
+        <button className="enlace" onClick={onManual}><PencilSimple size={18} /> Prefiero escribir todos los datos</button>
+      </div>
     </section>
   );
 }

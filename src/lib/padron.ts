@@ -1,3 +1,4 @@
+import { interpretarPatente } from './patentes';
 import { normalizarPatente } from './vehiculos';
 
 export interface DatosPadron {
@@ -77,6 +78,56 @@ export async function leerConOCR(imagen: string, avance: (p: number) => void): P
   try {
     const { data } = await w.recognize(imagen);
     return interpretarPadron(data.text);
+  } finally {
+    await w.terminate();
+  }
+}
+
+/**
+ * Deja la foto de la patente en las mejores condiciones para el OCR: la pasa a blanco y negro y
+ * sube el contraste. Sin esto, el brillo del sol y los reflejos del metal se comen las letras.
+ * No se recorta: el trabajador apunta a la placa, pero la placa no siempre queda centrada.
+ */
+export function prepararFotoPatente(imagen: string): Promise<string> {
+  return new Promise((ok, mal) => {
+    const img = new Image();
+    img.onload = () => {
+      // Las placas son anchas: se conserva la proporción y solo se agranda si viene chica.
+      const k = Math.min(2, 1600 / Math.max(1, img.width));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      const x = c.getContext('2d')!;
+      x.drawImage(img, 0, 0, c.width, c.height);
+      const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+      for (let i = 0; i < p.length; i += 4) {
+        const gris = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2];
+        // Contraste fuerte alrededor del punto medio: letras negras sobre fondo claro y al revés.
+        const v = Math.max(0, Math.min(255, (gris - 128) * 1.8 + 128));
+        p[i] = p[i + 1] = p[i + 2] = v;
+      }
+      x.putImageData(d, 0, 0);
+      ok(c.toDataURL('image/jpeg', .9));
+    };
+    img.onerror = () => mal(new Error('No se pudo abrir la foto de la patente'));
+    img.src = imagen;
+  });
+}
+
+/**
+ * Lee una patente de una foto. Usa el motor local con la lista blanca de caracteres de una placa
+ * chilena, que es lo que hace que acierte: no hay que interpretar nada más.
+ */
+export async function leerPatenteConOCR(imagen: string, avance: (p: number) => void): Promise<string | null> {
+  const { createWorker } = await import('tesseract.js');
+  const ocr = `${import.meta.env.BASE_URL}ocr/`;
+  const w = await createWorker('eng', 1, {
+    workerPath: `${ocr}worker.min.js`, corePath: ocr, workerBlobURL: false,
+    logger: m => { if (m.status === 'recognizing text') avance(m.progress); },
+  });
+  try {
+    await w.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' });
+    const { data } = await w.recognize(await prepararFotoPatente(imagen));
+    return interpretarPatente(data.text);
   } finally {
     await w.terminate();
   }
