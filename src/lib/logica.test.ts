@@ -352,7 +352,7 @@ describe('cobranza a compañías (Ley 19.983)', () => {
   });
   it('resume lo por cobrar, lo vencido y el promedio de pago por compañía', () => {
     const r = resumenCobranza(ordenesDemo());
-    expect(r.abiertas.length).toBe(3);
+    expect(r.abiertas.length).toBe(5);
     expect(r.nVencidas).toBe(1);
     expect(r.porCobrar).toBe(r.abiertas.reduce((a, x) => a + x.f.monto, 0));
     expect(r.abiertas[0].e.estado).toBe('vencida');
@@ -376,7 +376,7 @@ describe('visitante que ya abrió la demo', () => {
     expect(nueva.find(o => o.numero === 1039)!.factura?.numero).toBe(2206);
     expect(nueva.find(o => o.numero === 1039)!.notas).toBe('cambio del visitante');
     expect(nueva.some(o => o.numero === 1032) && nueva.some(o => o.numero === 1033)).toBe(true);
-    expect(resumenCobranza(nueva).abiertas.length).toBe(3);
+    expect(resumenCobranza(nueva).abiertas.length).toBe(5);
   });
   it('no pisa una factura que el visitante ya emitió o pagó', () => {
     const o = ordenesDemo().find(x => x.numero === 1039)!;
@@ -411,8 +411,8 @@ describe('control de repuestos', () => {
     expect(r2.detenidos[0].o.numero).toBe(1041);
     expect(r2.filas[0].e.estado).toBe('atrasado');
     const norte = r2.proveedores.find(p => p.nombre === 'Repuestos Demo Norte')!;
-    expect(norte).toMatchObject({ pedidos: 3, cumplimiento: 67, atrasoPromedio: .3 });
-    expect(r2.proveedores.find(p => p.nombre === 'Autopartes Demo Centro')!.cumplimiento).toBe(0);
+    expect(norte).toMatchObject({ pedidos: 4, cumplimiento: 75, atrasoPromedio: .3 });
+    expect(r2.proveedores.find(p => p.nombre === 'Autopartes Demo Centro')!).toMatchObject({ pedidos: 3, cumplimiento: 50 });
   });
   it('el aviso al cliente explica el atraso y trae la nueva fecha y el link', () => {
     globalThis.location = { origin: 'https://ejemplo.cl', pathname: '/desabolladura/' } as Location;
@@ -485,7 +485,7 @@ describe('los datos de ejemplo no dependen del día en que se abren', () => {
     vi.setSystemTime(dia);
     const ordenes = ordenesDemo();
     const c = resumenCobranza(ordenes);
-    expect(c.abiertas).toHaveLength(3);
+    expect(c.abiertas).toHaveLength(5);
     expect(c.nVencidas).toBe(1);
     const textos = alertas(ordenes).map(a => a.texto).join(' | ');
     expect(textos).toMatch(/factura N\.º 2204 vencida hace 14 días/);

@@ -97,6 +97,8 @@ function cargarOrdenes(id: string): Orden[] {
     if (!Array.isArray(crudo)) return base();
     const sanas = crudo.map(repararOrden).filter((o): o is Orden => !!o);
     if (crudo.length && !sanas.length) return base();
+    // El taller de ejemplo nunca queda vacío: un visitante viejo que guardó [] al restablecer ve la demo llena.
+    if (id === 'demo' && !sanas.length) return base();
     return id === 'demo' ? conFotosDemo(sanas) : sanas;
   } catch {
     return base();
@@ -160,7 +162,7 @@ const fotosDe = (os: Orden[]) => os.flatMap(o => [
 
 export function restablecerDemo() {
   void borrarFotos(fotosDe(ordenes)).catch(() => { /* sin IndexedDB no hay fotos que borrar */ });
-  publicar(actual.id === 'demo' ? ordenesDemo() : []);
+  publicar(ordenesDemo());
 }
 
 /** Salida de emergencia: borra todo lo guardado de la demo (no la clave de Gemini). */
@@ -213,6 +215,8 @@ export function crearEmpresa(nombre: string) {
 export function entrarDemo(rol: Usuario['rol']): Usuario {
   const u = USUARIOS.find(x => x.rol === rol)!;
   deSesion.escribir(SESION, u.id);
+  // Quien entra a la demo ve el taller de ejemplo, aunque antes haya creado uno propio vacío.
+  if (empresas.some(e => e.id === 'demo')) cambiarEmpresa('demo');
   return u;
 }
 export const sesion = () => USUARIOS.find(u => u.id === deSesion.leer(SESION)) ?? null;

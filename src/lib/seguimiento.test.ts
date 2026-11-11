@@ -10,7 +10,7 @@ const armar = (d: unknown) => {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 const base = () => {
-  const o = ordenesDemo()[1];
+  const o = ordenesDemo().find(x => x.numero === 1042)!;
   return { ...o, vehiculo: { ...o.vehiculo, motor: '2GD4471823', chasis: 'DEMO0000000000000' } };
 };
 const bueno = () => ({
