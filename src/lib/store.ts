@@ -78,8 +78,12 @@ function leerEmpresas(): Empresa[] {
 function repararOrden(o: unknown): Orden | null {
   if (!esObjeto(o) || typeof o.id !== 'string' || typeof o.numero !== 'number' || typeof o.codigo !== 'string') return null;
   if (!esObjeto(o.vehiculo) || !esObjeto(o.pagador) || !Array.isArray(o.items) || !o.items.every(esObjeto)) return null;
+  // Órdenes guardadas antes de las facturas múltiples: la única factura pasa a ser la primera de la lista.
+  const { factura: legado, ...resto } = o as Record<string, unknown> & { factura?: unknown };
+  const facturas = lista(o.facturas).filter(esObjeto);
   return {
-    ...o,
+    ...resto,
+    facturas: facturas.length ? facturas : esObjeto(legado) ? [legado] : [],
     cliente: esObjeto(o.cliente) ? o.cliente : { nombre: '', rut: '', telefono: '' },
     recepcion: esObjeto(o.recepcion) ? o.recepcion : { km: null, combustible: '', observaciones: '' },
     repuestos: lista(o.repuestos), fotos: lista(o.fotos), historial: lista(o.historial),

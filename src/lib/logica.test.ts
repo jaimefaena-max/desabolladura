@@ -367,13 +367,13 @@ describe('cobranza a compañías (Ley 19.983)', () => {
   it('una orden con seguro queda cobrada solo con factura pagada y deducible cobrado', () => {
     const o = ordenesDemo().find(x => x.numero === 1039)!;
     expect(cobradaSeguro(o)).toBe(false);
-    const pagada = { ...o, factura: { ...o.factura!, pagadaEl: '2026-11-09' } };
+    const pagada = { ...o, facturas: o.facturas!.map(f => ({ ...f, pagadaEl: '2026-11-09' })) };
     expect(cobradaSeguro(pagada)).toBe(false); // falta el deducible del asegurado
     expect(cobradaSeguro({ ...pagada, deducibleCobradoEl: '2026-11-09' })).toBe(true);
   });
   it('resume lo por cobrar, lo vencido y el promedio de pago por compañía', () => {
     const r = resumenCobranza(ordenesDemo());
-    expect(r.abiertas.length).toBe(5);
+    expect(r.abiertas.length).toBe(6);
     expect(r.nVencidas).toBe(1);
     expect(r.porCobrar).toBe(r.abiertas.reduce((a, x) => a + x.f.monto, 0));
     expect(r.abiertas[0].e.estado).toBe('vencida');
@@ -402,17 +402,17 @@ describe('cobranza a compañías (Ley 19.983)', () => {
 describe('visitante que ya abrió la demo', () => {
   it('recibe las facturas de ejemplo y las órdenes históricas nuevas sin perder sus cambios', () => {
     const vieja = ordenesDemo().filter(o => o.numero !== 1032 && o.numero !== 1033)
-      .map(o => ({ ...o, factura: undefined, deducibleCobradoEl: null, notas: 'cambio del visitante' }));
+      .map(o => ({ ...o, facturas: undefined, deducibleCobradoEl: null, notas: 'cambio del visitante' }));
     const nueva = conFotosDemo(vieja);
-    expect(nueva.find(o => o.numero === 1039)!.factura?.numero).toBe(2206);
+    expect(nueva.find(o => o.numero === 1039)!.facturas![0].numero).toBe(2206);
     expect(nueva.find(o => o.numero === 1039)!.notas).toBe('cambio del visitante');
     expect(nueva.some(o => o.numero === 1032) && nueva.some(o => o.numero === 1033)).toBe(true);
-    expect(resumenCobranza(nueva).abiertas.length).toBe(5);
+    expect(resumenCobranza(nueva).abiertas.length).toBe(6);
   });
   it('no pisa una factura que el visitante ya emitió o pagó', () => {
     const o = ordenesDemo().find(x => x.numero === 1039)!;
-    const propia = { ...o, factura: { ...o.factura!, pagadaEl: '2026-11-09' } };
-    expect(conFotosDemo([propia])[0].factura?.pagadaEl).toBe('2026-11-09');
+    const propia = { ...o, facturas: o.facturas!.map(f => ({ ...f, pagadaEl: '2026-11-09' })) };
+    expect(conFotosDemo([propia])[0].facturas![0].pagadaEl).toBe('2026-11-09');
   });
 });
 
@@ -516,7 +516,7 @@ describe('los datos de ejemplo no dependen del día en que se abren', () => {
     vi.setSystemTime(dia);
     const ordenes = ordenesDemo();
     const c = resumenCobranza(ordenes);
-    expect(c.abiertas).toHaveLength(5);
+    expect(c.abiertas).toHaveLength(6);
     expect(c.nVencidas).toBe(1);
     const textos = alertas(ordenes).map(a => a.texto).join(' | ');
     expect(textos).toMatch(/factura N\.º 2204 vencida hace 14 días/);

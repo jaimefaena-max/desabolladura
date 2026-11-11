@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { adicionalesPendientes, autorizarAdicionales, netoAdicionales, rechazarAdicionales } from './adicionales';
+import { cobradaSeguro, facturado, porFacturar } from './cobranza';
 import { tituloItem, totales } from './piezas';
 import { ordenesDemo } from './seed';
 import type { Orden } from './types';
@@ -41,6 +42,32 @@ describe('adicionales', () => {
     expect(d.orden.repuestos).toEqual(o.repuestos);
     expect(d.orden.historial[0].texto).toContain('rechazados por la compañía');
     expect(d.orden.historial[0].texto).toContain('480.000');
+  });
+
+  it('lo autorizado después de facturar queda como saldo para una factura complementaria', () => {
+    const o = con1053();
+    const emitida = { ...o, facturas: [{ numero: 2225, emitida: '2026-11-10', monto: totales(o).aseguradora }] };
+    expect(porFacturar(emitida)).toBe(0);
+    const d = autorizarAdicionales(emitida, 'todos', nombre(emitida))!;
+    // La factura emitida no se edita: el saldo es exactamente el adicional con IVA.
+    expect(porFacturar(d.orden)).toBe(Math.round(920000 * 1.19));
+    expect(facturado(d.orden)).toBe(totales(o).aseguradora);
+  });
+
+  it('una orden va cobrada solo cuando la compañía pagó todas sus facturas', () => {
+    const o = con1053();
+    const dos = { ...o, deducibleCobradoEl: '2026-11-10', facturas: [
+      { numero: 2225, emitida: '2026-11-10', monto: 1000, pagadaEl: '2026-11-11' },
+      { numero: 2226, emitida: '2026-11-10', monto: 2000 },
+    ] };
+    expect(cobradaSeguro(dos)).toBe(false);
+    expect(cobradaSeguro({ ...dos, facturas: dos.facturas.map(f => ({ ...f, pagadaEl: '2026-11-11' })) })).toBe(true);
+  });
+
+  it('una orden ya pagada vuelve a quedar por cobrar cuando se autoriza trabajo nuevo', () => {
+    const o = { ...con1053(), cobrada: true };
+    expect(autorizarAdicionales(o, 'todos', nombre(o))!.orden.cobrada).toBe(false);
+    expect(rechazarAdicionales(o, adicionalesPendientes(o).map(i => i.id), nombre(o))!.orden.cobrada).toBe(true);
   });
 
   it('nada que decidir devuelve null', () => {

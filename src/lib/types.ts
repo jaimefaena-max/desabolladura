@@ -86,8 +86,12 @@ export interface Repuesto {
   /** Lo que le costó el repuesto al taller (neto). */
   costo?: number;
 }
-/** Factura a la compañía. Fechas AAAA-MM-DD; la ley cuenta el plazo desde que la compañía la recibe. */
-export interface Factura { numero: number; emitida: string; monto: number; pagadaEl?: string }
+/**
+ * Factura a la compañía. Fechas AAAA-MM-DD; la ley cuenta el plazo desde que la compañía la recibe.
+ * Una orden puede tener varias (la del presupuesto y una por cada adicional autorizado después):
+ * una factura emitida no se edita, así que el trabajo nuevo se cobra con otro documento.
+ */
+export interface Factura { numero: number; emitida: string; monto: number; pagadaEl?: string; concepto?: string }
 
 export interface FotoRef { id: string; momento: 'antes' | 'despues'; }
 export interface Recepcion { km: number | null; combustible: string; observaciones: string; }
@@ -100,8 +104,8 @@ export interface Orden {
   aprobacion: Aprobacion; repuestos: Repuesto[]; fotos: FotoRef[]; historial: Evento[];
   recepcion: Recepcion; entregadaEl: string | null;
   cobrada: boolean;
-  /** Factura a la compañía de seguros (solo órdenes con seguro). */
-  factura?: Factura;
+  /** Facturas a la compañía de seguros (solo órdenes con seguro), en orden de emisión. */
+  facturas?: Factura[];
   /** Fecha (AAAA-MM-DD) en que el asegurado pagó el deducible. */
   deducibleCobradoEl?: string | null;
   /**

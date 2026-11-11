@@ -1,6 +1,6 @@
-import { estadoFactura } from './cobranza';
+import { estadoFactura, facturasDe, porFacturar } from './cobranza';
 import { estadoRepuesto } from './repuestos';
-import { fechaLocal, nombrePieza, totales } from './piezas';
+import { clp, fechaLocal, nombrePieza, totales } from './piezas';
 import type { Empresa, EtapaId, Item, Orden, Repuesto, Severidad } from './types';
 
 /** Reglas que mueven el taller solo: nadie arrastra tarjetas ni recuerda avisos. */
@@ -86,14 +86,15 @@ export function alertas(ordenes: Orden[], hoy = fechaLocal()): Alerta[] {
   for (const o of ordenes) {
     const et = etapaDe(o), v = `${o.vehiculo.marca} ${o.vehiculo.modelo}`, add = (k: string, texto: string, urgente = false) => out.push({ id: `${o.id}-${k}`, ordenId: o.id, texto: `${v}: ${texto}`, urgente });
     if (et !== 'entrega' && et !== 'entregado' && o.entrega < hoy) add('atraso', 'pasó su fecha de entrega', true);
-    const f = o.factura, cia = o.pagador.aseguradora;
-    if (f && !f.pagadaEl) {
+    const fs = facturasDe(o), cia = o.pagador.aseguradora;
+    for (const f of fs.filter(x => !x.pagadaEl)) {
       // Cobranza a la compañía: plazo legal de 30 días (Ley 19.983).
       const e = estadoFactura(f, hoy);
-      if (e.estado === 'vencida') add('factura', `factura N.º ${f.numero} vencida hace ${-e.dias} días (${cia})`, true);
-      else if (e.estado === 'por_vencer') add('factura', `factura N.º ${f.numero} ${e.dias === 0 ? 'vence hoy' : `vence en ${e.dias} días`} (${cia})`);
+      if (e.estado === 'vencida') add(`factura-${f.numero}`, `factura N.º ${f.numero} vencida hace ${-e.dias} días (${cia})`, true);
+      else if (e.estado === 'por_vencer') add(`factura-${f.numero}`, `factura N.º ${f.numero} ${e.dias === 0 ? 'vence hoy' : `vence en ${e.dias} días`} (${cia})`);
     }
-    if (et === 'entregado' && !o.cobrada && o.pagador.tipo === 'aseguradora' && !f) add('cobro', `entregado sin facturar a ${cia}`, true);
+    const porFactura = porFacturar(o);
+    if (et === 'entregado' && !o.cobrada && o.pagador.tipo === 'aseguradora' && porFactura > 0) add('cobro', fs.length ? `entregado con ${clp(porFactura)} sin facturar a ${cia}` : `entregado sin facturar a ${cia}`, true);
     else if (et === 'entregado' && !o.cobrada && o.pagador.tipo === 'particular') add('cobro', 'entregado sin cobrar', true);
     if (et === 'entregado' && o.pagador.tipo === 'aseguradora' && totales(o).deducible > 0 && !o.deducibleCobradoEl) add('deducible', 'deducible por cobrar al cliente', true);
     if (o.cobrada) continue;

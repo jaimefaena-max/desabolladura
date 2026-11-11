@@ -16,7 +16,7 @@ function Pagar({ x }: { x: FilaCobranza }) {
   return (
     <span className="cb-confirmar">
       <button className="btn primario" onClick={() => actualizar(x.o.id, o => {
-        const n = { ...o, factura: { ...x.f, pagadaEl: fechaLocal() } };
+        const n = { ...o, facturas: (o.facturas ?? []).map(f => (f.numero === x.f.numero ? { ...f, pagadaEl: fechaLocal() } : f)) };
         return conEvento({ ...n, cobrada: cobradaSeguro(n) }, `${cia} pagó la factura N.º ${x.f.numero} (${clp(x.f.monto)})`);
       })}>Confirmar pago</button>
       <button className="enlace" onClick={() => setConfirmando(false)}>Cancelar</button>
@@ -78,9 +78,9 @@ export function Cobranza() {
             {lista.map(x => {
               const v = x.o.vehiculo;
               return (
-                <li key={x.o.id} className={x.e.estado}>
+                <li key={`${x.o.id}-${x.f.numero}`} className={x.e.estado}>
                   <button className="cb-orden" onClick={() => ir(`/admin/ot/${x.o.id}`)}>
-                    <b>N.º {x.f.numero} · {x.o.pagador.aseguradora}</b>
+                    <b>N.º {x.f.numero} · {x.o.pagador.aseguradora}</b>{x.f.concepto && <small>{x.f.concepto}</small>}
                     <small>{v.marca} {v.modelo} · {verPatente(v.patente)} · siniestro {x.o.pagador.siniestro}</small>
                     <small>Emitida {fecha(x.f.emitida)} · vence {fecha(vencimiento(x.f))}{x.f.pagadaEl ? ` · pagada ${fecha(x.f.pagadaEl)}` : ''}</small>
                   </button>

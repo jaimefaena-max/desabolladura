@@ -752,6 +752,8 @@ img { display: block; max-width: 100%; }
 .cs-fila { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .6rem 1rem; padding-bottom: .7rem; border-bottom: 1px solid var(--linea); }
 .cs-fila > div { display: flex; flex-direction: column; }
 .cs-fila small { color: var(--suave); font-size: .9rem; }
+.cs-fila .cs-mora { color: var(--error); }
+.cobro-seguro .ec-confirmar { flex: 1 1 100%; }
 .cs-fila .btn { min-height: 48px; }
 .cb-aviso { margin: 1rem 0 0; padding: .8rem 1rem; border-radius: 12px; background: color-mix(in srgb, var(--acento) 10%, var(--fondo-2)); border: 1px solid color-mix(in srgb, var(--acento) 35%, var(--linea)); }
 .cb-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 1.6rem; margin-top: 1.6rem; align-items: start; }

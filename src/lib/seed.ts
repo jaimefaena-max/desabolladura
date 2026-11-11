@@ -5,7 +5,7 @@ import { fechaLocal, totales } from './piezas';
 import { sugerir } from './precios';
 import autosDemo from './autosDemo.json';
 import { slugAuto } from './fichaModelo';
-import type { Aprobacion, Carroceria, EstadoItem, FichaModelo, Item, Orden, Pagador, PiezaId, Severidad, Trabajo, Usuario, Vehiculo, Vista } from './types';
+import type { Aprobacion, Carroceria, EstadoItem, Factura, FichaModelo, Item, Orden, Pagador, PiezaId, Severidad, Trabajo, Usuario, Vehiculo, Vista } from './types';
 
 /**
  * Datos ficticios hechos para no coincidir con nadie: los RUT tienen dígito verificador inválido
@@ -67,7 +67,11 @@ interface Base {
   numero: number; codigo: string; v: Vehiculo; desde: number; pagador: Pagador; aprobacion: Aprobacion;
   filas: Fila[]; cierre?: EstadoItem; entregadaHace?: number; cobrada?: boolean; notas?: string;
   /** Factura a la compañía: hace cuántos días se emitió y, si ya pagó, hace cuántos días. */
-  factura?: { numero: number; emitidaHace: number; pagadaHace?: number; deduciblePendiente?: boolean };
+  factura?: {
+    numero: number; emitidaHace: number; pagadaHace?: number; deduciblePendiente?: boolean;
+    /** Segunda factura del mismo trabajo (adicionales autorizados después de la primera). */
+    complementaria?: { numero: number; emitidaHace: number; monto: number; pagadaHace?: number };
+  };
   /** Repuesto del cambio de pieza (fila `item`): proveedor y días relativos a hoy (negativo = en el futuro). */
   parte?: { item: string; proveedor: string; pedidoHace: number; prometidoHace: number; recibidoHace?: number; costo?: number };
   /** Horas reales distintas a las típicas (p. ej. un repintado). */
@@ -104,8 +108,15 @@ function orden(b: Base): Orden {
     Object.assign(o, sincronizar(o));
   }
   if (b.factura) {
-    const f = b.factura, monto = totales(o).aseguradora;
-    o.factura = { numero: f.numero, emitida: dias(-f.emitidaHace), monto, ...(f.pagadaHace !== undefined ? { pagadaEl: dias(-f.pagadaHace) } : {}) };
+    // Si hubo factura complementaria, la primera cubre solo lo que no era el adicional.
+    const f = b.factura, monto = totales(o).aseguradora - (f.complementaria?.monto ?? 0);
+    const facturas: Factura[] = [{ numero: f.numero, emitida: dias(-f.emitidaHace), monto, ...(f.pagadaHace !== undefined ? { pagadaEl: dias(-f.pagadaHace) } : {}) }];
+    // Adicional autorizado después de facturar: se cobra con otra factura, no editando la primera.
+    if (f.complementaria) {
+      const c = f.complementaria;
+      facturas.push({ numero: c.numero, emitida: dias(-c.emitidaHace), monto: c.monto, concepto: 'Trabajos adicionales autorizados', ...(c.pagadaHace !== undefined ? { pagadaEl: dias(-c.pagadaHace) } : {}) });
+    }
+    o.facturas = facturas;
     o.cobrada = cobradaSeguro(o);
   }
   return conEvento(o, 'Vehículo ingresado al taller');
@@ -200,6 +211,8 @@ interface Salida {
   /** Neto cobrado por la desabolladura y por la pintura. */
   a: number; b: number;
   cambio?: boolean; pagador: Pagador; factura?: Base['factura'];
+  /** Trabajo que apareció al desarmar y se cobró con la factura complementaria. */
+  extra?: Fila;
   /** Repuesto: proveedor, pedido, prometido y recibido (días atrás) y su costo. */
   parte?: [string, number, number, number, number];
   /** Horas reales distintas a las típicas (p. ej. un repintado). */
@@ -211,7 +224,8 @@ const SALIDAS: Salida[] = [
   { numero: 1045, marca: 'Kia', modelo: 'Sportage', anio: 2020, carroceria: 'suv', color: 'Blanco', colorHex: '#e9eaec', desde: 18, hace: 9, a: 385000, b: 345000, pagador: particular },
   { numero: 1048, marca: 'Toyota', modelo: 'Hilux', anio: 2020, carroceria: 'pickup', color: 'Gris', colorHex: '#4a4f55', desde: 20, hace: 7, a: 480000, b: 400000, pagador: particular },
   { numero: 1049, marca: 'Kia', modelo: 'Morning', anio: 2021, carroceria: 'hatchback', color: 'Rojo', colorHex: '#a3121c', desde: 24, hace: 3, a: 260000, b: 220000, pagador: particular },
-  { numero: 1058, marca: 'Nissan', modelo: 'Navara', anio: 2021, carroceria: 'pickup', color: 'Azul', colorHex: '#1d3f72', desde: 7, hace: 1, a: 520000, b: 430000, pagador: seguro('Compañía Demo Centro', 1058, 150000), factura: { numero: 2221, emitidaHace: 1, pagadaHace: 1 } },
+  // Con factura complementaria: al desarmar apareció daño en la puerta y se cobró con una segunda factura.
+  { numero: 1058, marca: 'Nissan', modelo: 'Navara', anio: 2021, carroceria: 'pickup', color: 'Azul', colorHex: '#1d3f72', desde: 7, hace: 1, a: 520000, b: 430000, pagador: seguro('Compañía Demo Centro', 1058, 150000), factura: { numero: 2221, emitidaHace: 1, pagadaHace: 1, complementaria: { numero: 2222, emitidaHace: 1, monto: 214200 } }, extra: ['cambio', 'espejo_izq', 'medio', 'listo', 180000] },
   { numero: 1046, marca: 'Toyota', modelo: 'Yaris', anio: 2019, carroceria: 'hatchback', color: 'Rojo', colorHex: '#a3121c', desde: 15, hace: 5, a: 300000, b: 260000, pagador: seguro('Compañía Demo Sur', 1046, 100000), factura: { numero: 2214, emitidaHace: 5 } },
   { numero: 1047, marca: 'Ford', modelo: 'Ranger', anio: 2021, carroceria: 'pickup', color: 'Gris', colorHex: '#4a4f55', desde: 22, hace: 2, a: 455000, b: 395000, cambio: true, pagador: seguro('Compañía Demo Centro', 1047, 150000), factura: { numero: 2215, emitidaHace: 2 }, parte: ['Concesionario de la marca', 24, 10, 10, 48000] },
   // ----- Mes pasado -----------------------------------------------------
@@ -246,7 +260,8 @@ function historico(): Orden[] {
     v: auto(d.marca, d.modelo, d.anio, 60 + k, d.color, d.colorHex, d.carroceria),
     desde: d.desde, aprobacion: 'aprobada', pagador: d.pagador,
     filas: [['desabolladura', 'puerta_del_der', 'medio', 'listo', d.a], ['pintura', 'puerta_del_der', 'medio', 'listo', d.b],
-      ...(d.cambio ? [['cambio', 'espejo_der', 'medio', 'listo', 65000] as Fila] : [])],
+      ...(d.cambio ? [['cambio', 'espejo_der', 'medio', 'listo', 65000] as Fila] : []),
+      ...(d.extra ? [d.extra] : [])],
     cierre: 'listo', entregadaHace: d.hace, cobrada: d.pagador.tipo === 'particular', factura: d.factura,
     parte: d.parte && { item: 'i2', proveedor: d.parte[0], pedidoHace: d.parte[1], prometidoHace: d.parte[2], recibidoHace: d.parte[3], costo: d.parte[4] },
     horas: d.horas,
@@ -272,7 +287,7 @@ export function conFotosDemo(guardadas: Orden[]): Orden[] {
     const extras = f.items.filter(i => i.adicional && !n.items.some(x => x.id === i.id) && !n.historial.some(h => /adicional/i.test(h.texto)));
     if (extras.length) n = { ...n, items: [...n.items, ...extras], aprobacion: n.aprobacion === 'aprobada' ? 'pendiente' : n.aprobacion };
     // Cobranza de ejemplo: las órdenes históricas con seguro reciben su factura si aún no la tienen.
-    if (f.factura && !o.factura && o.entregadaEl) n = { ...n, factura: f.factura, deducibleCobradoEl: f.deducibleCobradoEl, cobrada: f.cobrada };
+    if (f.facturas?.length && !o.facturas?.length && o.entregadaEl) n = { ...n, facturas: f.facturas, deducibleCobradoEl: f.deducibleCobradoEl, cobrada: f.cobrada };
     return n;
   });
   // Órdenes de ejemplo agregadas después (p. ej. facturas por vencer y vencidas).

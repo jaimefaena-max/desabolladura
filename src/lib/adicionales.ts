@@ -30,8 +30,9 @@ export function autorizarAdicionales(o: Orden, ids: string[] | 'todos', titulo: 
   const texto = elegidos.length === 1
     ? `Adicional autorizado: ${detalle}`
     : `${elegidos.length} adicionales autorizados por ${clp(monto)} neto: ${detalle}`;
+  // Trabajo nuevo sobre una orden ya pagada: vuelve a quedar plata por cobrar.
   const orden = conEvento(
-    { ...o, items, aprobacion: quedan ? o.aprobacion : 'aprobada' },
+    { ...o, items, aprobacion: quedan ? o.aprobacion : 'aprobada', cobrada: o.cobrada ? false : o.cobrada },
     quedan ? `${texto}. Quedan ${quedan} por autorizar` : texto,
   );
   return { orden, texto };

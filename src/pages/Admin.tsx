@@ -9,7 +9,7 @@ import { adicionalesPendientes, autorizarAdicionales, netoAdicionales, rechazarA
 import Costos from '../components/Costos';
 import { costoHoraDelMes, insumoDe, leerCostos, restablecerCostos } from '../lib/costos';
 import { ExpedienteDoc } from '../components/Expediente';
-import { cobradaSeguro, estadoFactura, nombreEstado, siguienteFactura, vencimiento } from '../lib/cobranza';
+import { cobradaSeguro, estadoFactura, facturado, facturasDe, nombreEstado, porFacturar, siguienteFactura, vencimiento } from '../lib/cobranza';
 import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
 import { alertas, CMF_REPARACION, conEvento, diasEnTaller, enlaceWhatsApp, enPeriodo, metricas, nombreEtapa, semaforoPlazo, ETAPAS, etapaDe, mensajeCliente, ultimosMeses } from '../lib/automatizacion';
 import BarraPeriodo, { textoRango, usePeriodo, type Preset } from '../components/Periodo';
@@ -18,7 +18,7 @@ import { reducirImagen } from '../lib/padron';
 import { clp, estadosPiezas, fecha, fechaLocal, itemsPresupuesto, progreso, TRABAJOS, tituloItem, totales } from '../lib/piezas';
 import { USUARIOS } from '../lib/seed';
 import { actualizar, cambiarEmpresa, crearEmpresa, editarEmpresa, restablecerDemo, useEmpresa, useEmpresas, useOrden, useOrdenes } from '../lib/store';
-import type { Item, Orden } from '../lib/types';
+import type { Factura, Item, Orden } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';
 
 export function Tablero() {
@@ -280,22 +280,29 @@ function RespuestaCliente({ o, aprobar }: { o: Orden; aprobar: (como: string) =>
 }
 
 /**
- * Cobro de una orden con seguro: deducible al asegurado y factura a la compañía (Ley 19.983: 30 días).
- * Cuando ambos están pagados, la orden queda cobrada sola.
+ * Cobro de una orden con seguro: deducible al asegurado y factura(s) a la compañía (Ley 19.983: 30 días).
+ * Una factura emitida no se edita: si después se autoriza un adicional, se emite otra por la diferencia.
+ * Cuando la compañía pagó todas y el asegurado su deducible, la orden queda cobrada sola.
  */
 function CobroSeguro({ o }: { o: Orden }) {
   const ordenes = useOrdenes();
-  const [confirmando, setConfirmando] = useState(false);
-  const t = totales(o), et = etapaDe(o), f = o.factura, cia = o.pagador.aseguradora ?? 'la compañía';
+  const [pagando, setPagando] = useState<number | null>(null);
+  const t = totales(o), et = etapaDe(o), cia = o.pagador.aseguradora ?? 'la compañía';
+  const facturas = facturasDe(o), saldo = porFacturar(o);
   const listo = et === 'entrega' || et === 'entregado';
   const cambiar = (c: Partial<Orden>, texto: string) => actualizar(o.id, x => {
     const n = { ...x, ...c };
     return conEvento({ ...n, cobrada: cobradaSeguro(n) }, texto);
   });
-  const e = f && estadoFactura(f);
+  const emitir = () => {
+    const numero = siguienteFactura(ordenes);
+    const segunda = facturas.length > 0;
+    const nueva: Factura = { numero, emitida: fechaLocal(), monto: saldo, ...(segunda ? { concepto: 'Trabajos adicionales autorizados' } : {}) };
+    cambiar({ facturas: [...facturas, nueva] }, `Factura N.º ${numero} emitida a ${cia} por ${clp(saldo)}${segunda ? ' (adicionales)' : ''}`);
+  };
 
   if (o.cobrada) return <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada: {cia} pagó{t.deducible ? ' y el asegurado pagó su deducible' : ''}.</p>;
-  if (!listo && !f) return <p className="pista">La factura a {cia} y el deducible se cobran al entregar el vehículo.</p>;
+  if (!listo && !facturas.length) return <p className="pista">La factura a {cia} y el deducible se cobran al entregar el vehículo.</p>;
   return (
     <section className="cobro-seguro" aria-label="Cobro de la orden">
       <h3>Cobro</h3>
@@ -306,29 +313,39 @@ function CobroSeguro({ o }: { o: Orden }) {
             : <button className="btn secundario" onClick={() => cambiar({ deducibleCobradoEl: fechaLocal() }, `Deducible cobrado al asegurado (${clp(t.deducible)})`)}>Cobrar deducible</button>}
         </div>
       )}
-      <div className="cs-fila">
-        <div>
-          <b>Factura a {cia}</b>
-          <small>{f ? `N.º ${f.numero} · emitida ${fecha(f.emitida)} · vence ${fecha(vencimiento(f))}` : `${clp(t.aseguradora)} con IVA · plazo legal 30 días`}</small>
-        </div>
-        {!f ? (
-          <button className="btn primario" disabled={t.faltan > 0} onClick={() => {
-            const numero = siguienteFactura(ordenes);
-            cambiar({ factura: { numero, emitida: fechaLocal(), monto: t.aseguradora } }, `Factura N.º ${numero} emitida a ${cia} por ${clp(t.aseguradora)}`);
-          }}><Receipt size={22} /> Emitir factura</button>
-        ) : <span className={`chip ${e!.estado}`}>{nombreEstado(e!)}</span>}
-      </div>
-      {f && !f.pagadaEl && e!.estado === 'vencida' && <p className="pista">Atrasada: corre interés por mora y una comisión de cobranza de {clp(e!.comision)} (1 %, Ley 19.983).</p>}
-      {f && !f.pagadaEl && (confirmando ? (
-        <div className="ec-confirmar" role="group" aria-label="Confirmar pago">
-          <p>¿{cia} pagó la factura N.º {f.numero} por {clp(f.monto)}?</p>
-          <div>
-            <button className="btn primario" onClick={() => { setConfirmando(false); cambiar({ factura: { ...f, pagadaEl: fechaLocal() } }, `${cia} pagó la factura N.º ${f.numero} (${clp(f.monto)})`); }}><Check size={22} weight="bold" /> Sí, pagó</button>
-            <button className="btn secundario" onClick={() => setConfirmando(false)}>Cancelar</button>
+      {facturas.map(f => {
+        const e = estadoFactura(f);
+        return (
+          <div className="cs-fila" key={f.numero}>
+            <div>
+              <b>Factura N.º {f.numero} a {cia}</b>
+              <small>{f.concepto ? `${f.concepto} · ` : ''}emitida {fecha(f.emitida)} · vence {fecha(vencimiento(f))} · {clp(f.monto)}</small>
+              {!f.pagadaEl && e.estado === 'vencida' && <small className="cs-mora">Atrasada: interés por mora y comisión de cobranza de {clp(e.comision)} (1 %, Ley 19.983).</small>}
+            </div>
+            {f.pagadaEl ? <span className={`chip ${e.estado}`}>{nombreEstado(e)}</span>
+              : pagando === f.numero ? (
+                <div className="ec-confirmar" role="group" aria-label="Confirmar pago">
+                  <p>¿{cia} pagó la factura N.º {f.numero} por {clp(f.monto)}?</p>
+                  <div>
+                    <button className="btn primario" onClick={() => { setPagando(null); cambiar({ facturas: facturas.map(x => (x.numero === f.numero ? { ...x, pagadaEl: fechaLocal() } : x)) }, `${cia} pagó la factura N.º ${f.numero} (${clp(f.monto)})`); }}><Check size={22} weight="bold" /> Sí, pagó</button>
+                    <button className="btn secundario" onClick={() => setPagando(null)}>Cancelar</button>
+                  </div>
+                </div>
+              ) : <button className="btn secundario" onClick={() => setPagando(f.numero)}><CurrencyCircleDollar size={22} /> Pagó</button>}
           </div>
+        );
+      })}
+      {saldo > 0 && (
+        <div className="cs-fila">
+          <div>
+            <b>{facturas.length ? `Factura complementaria a ${cia}` : `Factura a ${cia}`}</b>
+            <small>{clp(saldo)} con IVA · plazo legal 30 días{facturas.length ? ` · el presupuesto original ya está facturado por ${clp(facturado(o))}` : ''}</small>
+          </div>
+          <button className="btn primario" disabled={t.faltan > 0} onClick={emitir}><Receipt size={22} /> {facturas.length ? `Emitir la N.º ${siguienteFactura(ordenes)}` : 'Emitir factura'}</button>
         </div>
-      ) : <button className="btn secundario grande ancho" onClick={() => setConfirmando(true)}><CurrencyCircleDollar size={24} /> Registrar pago de {cia}</button>)}
-      {t.faltan > 0 && !f && <p className="pista">Faltan {t.faltan} montos para emitir la factura.</p>}
+      )}
+      {saldo === 0 && facturas.length > 1 && <p className="pista">La orden va en {facturas.length} facturas: la del presupuesto y una por cada adicional autorizado después.</p>}
+      {t.faltan > 0 && <p className="pista">Faltan {t.faltan} montos para emitir la factura.</p>}
     </section>
   );
 }
@@ -426,7 +443,7 @@ function Adicionales({ o, onSolicitud }: { o: Orden; onSolicitud: () => void }) 
       <p className="pista">Autorizar lo suma al presupuesto: de {clp(t.total)} a {clp(t.total + Math.round(neto * 1.19))} con IVA{seguro ? `, que paga ${cia}` : ''}.</p>
       <button className="btn primario grande ancho" onClick={() => aplicar(autorizarAdicionales(o, 'todos', nombre))}><CheckCircle size={24} /> Autorizar {lista.length === 1 ? 'el adicional' : `los ${lista.length}`} · {clp(neto)} neto</button>
       {seguro && <button className="btn secundario grande ancho" onClick={onSolicitud}><FilePdf size={24} /> Solicitud de adicionales (PDF)</button>}
-      {o.factura && <p className="pista">La factura N.º {o.factura.numero} ya está emitida por {clp(o.factura.monto)}: lo que autorices ahora no la edita, va en una nota de débito.</p>}
+      {facturasDe(o).length > 0 && <p className="pista">La orden ya tiene {facturasDe(o).length === 1 ? 'la factura' : `las ${facturasDe(o).length} facturas`} {facturasDe(o).map(f => `N.º ${f.numero}`).join(', ')}: lo que autorices no las edita, se cobra con una factura complementaria desde el cobro de la orden.</p>}
     </section>
   );
 }

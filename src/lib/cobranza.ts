@@ -43,12 +43,22 @@ export const nombreEstado = (e: ReturnType<typeof estadoFactura>) => (
       : e.dias === 0 ? 'Vence hoy' : `Vence en ${e.dias} ${e.dias === 1 ? 'día' : 'días'}`
 );
 
-export const siguienteFactura = (ordenes: Orden[]) => Math.max(2200, ...ordenes.map(o => o.factura?.numero ?? 0)) + 1;
+export const facturasDe = (o: Orden): Factura[] => o.facturas ?? [];
 
-/** Una orden con seguro queda cobrada cuando la compañía pagó y el asegurado pagó su deducible. */
+export const facturado = (o: Orden) => facturasDe(o).reduce((a, f) => a + f.monto, 0);
+
+/**
+ * Lo que falta facturar a la compañía. Si se autoriza un adicional después de emitida la factura,
+ * aquí aparece la diferencia: se cobra con una factura nueva, nunca editando la anterior.
+ */
+export const porFacturar = (o: Orden) => Math.max(0, totales(o).aseguradora - facturado(o));
+
+export const siguienteFactura = (ordenes: Orden[]) => Math.max(2200, ...ordenes.flatMap(o => facturasDe(o).map(f => f.numero))) + 1;
+
+/** Una orden con seguro queda cobrada cuando la compañía pagó todas sus facturas y el asegurado su deducible. */
 export function cobradaSeguro(o: Orden) {
-  const t = totales(o);
-  return !!o.factura?.pagadaEl && (t.deducible === 0 || !!o.deducibleCobradoEl);
+  const t = totales(o), fs = facturasDe(o);
+  return fs.length > 0 && fs.every(f => !!f.pagadaEl) && (t.deducible === 0 || !!o.deducibleCobradoEl);
 }
 
 export interface FilaCobranza { o: Orden; f: Factura; e: ReturnType<typeof estadoFactura> }
@@ -58,8 +68,9 @@ export function resumenCobranza(ordenes: Orden[], hoy = fechaLocal(), periodo?: 
   const dentro = (f?: string | null) => !periodo || enPeriodo(f, periodo);
   const seguros = ordenes.filter(o => o.pagador.tipo === 'aseguradora');
   // Las facturas se fechan al emitirse: ese mes es el que se filtra. Lo pendiente de hoy se mide aparte.
-  const filas: FilaCobranza[] = seguros.filter(o => o.factura && dentro(o.factura.emitida)).map(o => ({ o, f: o.factura!, e: estadoFactura(o.factura!, hoy) }));
-  const carteraHoy = seguros.reduce((a, o) => a + (o.factura && !o.factura.pagadaEl ? o.factura.monto : 0), 0);
+  // Una orden puede tener varias (presupuesto + adicionales): cada una es una fila con su propio plazo.
+  const filas: FilaCobranza[] = seguros.flatMap(o => facturasDe(o).filter(f => dentro(f.emitida)).map(f => ({ o, f, e: estadoFactura(f, hoy) })));
+  const carteraHoy = seguros.reduce((a, o) => a + facturasDe(o).filter(f => !f.pagadaEl).reduce((b, f) => b + f.monto, 0), 0);
   const abiertas = filas.filter(x => x.e.estado !== 'pagada').sort((a, b) => a.e.dias - b.e.dias);
   const pagadas = filas.filter(x => x.e.estado === 'pagada').sort((a, b) => b.f.pagadaEl!.localeCompare(a.f.pagadaEl!));
   const suma = (l: FilaCobranza[]) => l.reduce((a, x) => a + x.f.monto, 0);
@@ -77,7 +88,8 @@ export function resumenCobranza(ordenes: Orden[], hoy = fechaLocal(), periodo?: 
     };
   }).filter(c => c.abiertas || c.diasPromedio !== null).sort((a, b) => b.porCobrar - a.porCobrar);
 
-  const sinFacturar = seguros.filter(o => !o.factura && o.entregadaEl && totales(o).aseguradora > 0 && dentro(o.entregadaEl));
+  // Entregadas a las que les falta facturar todo o parte (el adicional autorizado después de facturar).
+  const sinFacturar = seguros.filter(o => o.entregadaEl && porFacturar(o) > 0 && dentro(o.entregadaEl));
   const deducibles = seguros.filter(o => o.entregadaEl && totales(o).deducible > 0 && !o.deducibleCobradoEl && dentro(o.entregadaEl));
 
   return {
@@ -87,7 +99,7 @@ export function resumenCobranza(ordenes: Orden[], hoy = fechaLocal(), periodo?: 
     porVencer: suma(porVencer), nPorVencer: porVencer.length,
     comisiones: vencidas.reduce((a, x) => a + x.e.comision, 0),
     deduciblesPendientes: deducibles.reduce((a, o) => a + totales(o).deducible, 0),
-    sinFacturarMonto: sinFacturar.reduce((a, o) => a + totales(o).aseguradora, 0),
+    sinFacturarMonto: sinFacturar.reduce((a, o) => a + porFacturar(o), 0),
   };
 }
 
