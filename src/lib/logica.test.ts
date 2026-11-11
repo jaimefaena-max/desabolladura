@@ -6,7 +6,7 @@ import { extraerJSON } from './gemini';
 import { interpretarPadron } from './padron';
 import { clp, estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
-import { alertas, CMF_REPARACION, diasEnTaller, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, semaforoPlazo, sincronizar, sumarHabiles } from './automatizacion';
+import { alertas, CMF_REPARACION, diasEnTaller, diasTrabajo, enlaceWhatsApp, enPeriodo, etapaDe, mesesElegibles, mensajeCliente, metricas, semaforoPlazo, sincronizar, sumarHabiles, ultimosMeses } from './automatizacion';
 import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
 import { COSTO_HORA_DEFECTO, horaDe, horasEstimadas, MARGEN_OBJETIVO, precioMinimo, rentabilidad, resumenRentabilidad, semaforoMargen } from './rentabilidad';
 import { diasEntre, estadoRepuesto, resumenRepuestos, textoEstado } from './repuestos';
@@ -189,6 +189,27 @@ describe('automatización', () => {
     expect(m.ciclo).toBeGreaterThan(0);
     expect(m.meses).toHaveLength(6);
     expect(metricas([])).toMatchObject({ ingresos: 0, ticket: 0, ciclo: 0 });
+  });
+  it('segmenta los reportes por rango de meses', () => {
+    const hoy = new Date(Number(fechaLocal().slice(0, 4)), Number(fechaLocal().slice(5, 7)) - 1, 15);
+    const rango = ultimosMeses(3, hoy);
+    const m = metricas(ordenes, hoy, rango);
+    expect(m.meses).toHaveLength(3);
+    expect(m.meses[2].mes).toContain(String(hoy.getFullYear()).slice(2));
+    expect(m.ingresos).toBeLessThanOrEqual(metricas(ordenes, hoy).ingresos);
+    expect(m.entregadas).toBeLessThan(ordenes.filter(o => o.entregadaEl).length);
+    // Rango futuro: nada entregado, nada cobrado, pero el taller sigue lleno.
+    const vacio = metricas(ordenes, hoy, { desde: '2030-01', hasta: '2030-02' });
+    expect(vacio).toMatchObject({ ingresos: 0, ticket: 0, entregadas: 0 });
+    expect(vacio.enTaller).toBeGreaterThan(0);
+    expect(vacio.tipos.length).toBeGreaterThan(0);
+  });
+  it('ofrece solo los meses que existen en el historial', () => {
+    const meses = mesesElegibles(ordenes);
+    expect(meses.length).toBeGreaterThan(5);
+    expect(meses.some(x => x.larga.includes('septiembre'))).toBe(true);
+    expect(enPeriodo('2026-09-14', { desde: '2026-09', hasta: '2026-10' })).toBe(true);
+    expect(enPeriodo(null, { desde: '2026-09', hasta: '2026-10' })).toBe(false);
   });
   it('tiene un perfil de demo por rol, sin credenciales', () => {
     expect(USUARIOS.map(u => [u.id, u.rol])).toEqual([['admin', 'admin'], ['trabajador', 'maestro']]);

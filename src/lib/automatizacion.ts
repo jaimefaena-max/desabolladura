@@ -129,25 +129,73 @@ export function enlaceWhatsApp(telefono: string, texto: string) {
 }
 
 const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
-export function metricas(ordenes: Orden[], hoy = new Date()) {
-  const entregadas = ordenes.filter(o => o.entregadaEl);
-  const cobradas = ordenes.filter(o => o.cobrada);
+/** Un rango de reportes: meses 'AAAA-MM', ambos incluidos. */
+export type Periodo = { desde: string; hasta: string };
+export type OpcionMes = { clave: string; corta: string; larga: string };
+
+const dos = (n: number) => String(n).padStart(2, '0');
+const mesDe = (fecha?: string | null) => (fecha ? fecha.slice(0, 7) : null);
+
+/** ¿La fecha cae dentro del rango? Las órdenes sin entregar nunca entran: los ingresos se cuentan al entregar. */
+export const enPeriodo = (fecha: string | null | undefined, p: Periodo) => {
+  const m = mesDe(fecha);
+  return !!m && m >= p.desde && m <= p.hasta;
+};
+
+/** Los meses del rango, en orden. `tope` evita barras de un píxel si alguien pide diez años. */
+export function mesesDe(p: Periodo, tope = 36): (OpcionMes & { valor?: number })[] {
+  const [ay, am] = p.desde.split('-').map(Number);
+  const [by, bm] = p.hasta.split('-').map(Number);
+  const n = Math.min(Math.max((by - ay) * 12 + (bm - am) + 1, 1), tope);
+  return Array.from({ length: n }, (_, k) => {
+    const d = new Date(ay, am - 1 + k, 1);
+    return {
+      clave: `${d.getFullYear()}-${dos(d.getMonth() + 1)}`,
+      corta: `${MESES[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`,
+      larga: `${MESES_LARGOS[d.getMonth()]} ${d.getFullYear()}`,
+    };
+  });
+}
+
+/** El rango por defecto: los últimos 6 meses hasta hoy, igual que la vista histórica de siempre. */
+export function ultimosMeses(n: number, hoy = new Date()): Periodo {
+  const fin = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const ini = new Date(hoy.getFullYear(), hoy.getMonth() - (n - 1), 1);
+  return { desde: `${ini.getFullYear()}-${dos(ini.getMonth() + 1)}`, hasta: `${fin.getFullYear()}-${dos(fin.getMonth() + 1)}` };
+}
+
+/** Los meses que vale la pena ofrecer: desde la orden más vieja guardada hasta el mes en curso. */
+export function mesesElegibles(ordenes: Orden[], hoy = new Date()): OpcionMes[] {
+  const claves = ordenes.flatMap(o => [mesDe(o.creada), mesDe(o.entregadaEl)]).filter((m): m is string => !!m).sort();
+  const actual = `${hoy.getFullYear()}-${dos(hoy.getMonth() + 1)}`;
+  const desde = claves[0] && claves[0] < actual ? claves[0] : actual;
+  const hasta = claves.length && claves[claves.length - 1] > actual ? claves[claves.length - 1] : actual;
+  return mesesDe({ desde, hasta });
+}
+
+export function metricas(ordenes: Orden[], hoy = new Date(), periodo?: Periodo) {
+  const dentro = (o: Orden) => !periodo || enPeriodo(o.entregadaEl, periodo);
+  const entregadas = ordenes.filter(o => o.entregadaEl && dentro(o));
+  const cobradas = ordenes.filter(o => o.cobrada && dentro(o));
   const ingresos = cobradas.reduce((a, o) => a + totales(o).total, 0);
   const dias = entregadas.map(o => Math.round((Date.parse(o.entregadaEl!) - Date.parse(o.creada)) / 864e5));
   const seguro = cobradas.filter(o => o.pagador.tipo === 'aseguradora').reduce((a, o) => a + totales(o).total, 0);
-  const meses = Array.from({ length: 6 }, (_, k) => {
-    const d = new Date(hoy.getFullYear(), hoy.getMonth() - 5 + k, 1);
-    const clave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    return { mes: MESES[d.getMonth()], valor: cobradas.filter(o => o.entregadaEl?.startsWith(clave)).reduce((a, o) => a + totales(o).total, 0) };
-  });
+  const meses = (periodo ? mesesDe(periodo) : mesesDe(ultimosMeses(6, hoy))).map(({ clave, corta }) => ({
+    mes: corta,
+    valor: cobradas.filter(o => o.entregadaEl?.startsWith(clave)).reduce((a, o) => a + totales(o).total, 0),
+  }));
+  // Los autos que siguen en taller son carga de hoy: cuentan solo si el rango llega hasta el mes en curso.
+  const enCurso = `${hoy.getFullYear()}-${dos(hoy.getMonth() + 1)}`;
+  const incluyeHoy = !periodo || periodo.hasta >= enCurso;
   const tipos = new Map<string, number>();
-  for (const o of ordenes) for (const i of o.items) if (i.trabajo !== 'general') tipos.set(i.trabajo, (tipos.get(i.trabajo) ?? 0) + 1);
+  for (const o of ordenes) if (o.entregadaEl ? dentro(o) : incluyeHoy) for (const i of o.items) if (i.trabajo !== 'general') tipos.set(i.trabajo, (tipos.get(i.trabajo) ?? 0) + 1);
   return {
     ingresos, ticket: cobradas.length ? Math.round(ingresos / cobradas.length) : 0,
     ciclo: dias.length ? Math.round((dias.reduce((a, b) => a + b, 0) / dias.length) * 10) / 10 : 0,
     pctSeguro: ingresos ? Math.round((seguro / ingresos) * 100) : 0,
-    enTaller: ordenes.length - entregadas.length, meses,
+    enTaller: ordenes.filter(o => !o.entregadaEl).length, entregadas: entregadas.length, cobradas: cobradas.length, abierto: incluyeHoy, meses,
     tipos: [...tipos.entries()].sort((a, b) => b[1] - a[1]),
   };
 }

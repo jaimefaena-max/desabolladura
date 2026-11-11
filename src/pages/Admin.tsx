@@ -10,7 +10,7 @@ import { costoHoraDelMes, insumoDe, leerCostos, restablecerCostos } from '../lib
 import { ExpedienteDoc } from '../components/Expediente';
 import { cobradaSeguro, estadoFactura, nombreEstado, siguienteFactura, vencimiento } from '../lib/cobranza';
 import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
-import { alertas, CMF_REPARACION, conEvento, diasEnTaller, enlaceWhatsApp, semaforoPlazo, ETAPAS, etapaDe, mensajeCliente, metricas, nombreEtapa } from '../lib/automatizacion';
+import { alertas, CMF_REPARACION, conEvento, diasEnTaller, enlaceWhatsApp, enPeriodo, mesesElegibles, metricas, nombreEtapa, semaforoPlazo, ETAPAS, etapaDe, mensajeCliente, ultimosMeses, type Periodo } from '../lib/automatizacion';
 import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../lib/gemini';
 import { reducirImagen } from '../lib/padron';
 import { clp, estadosPiezas, fecha, fechaLocal, itemsCobrables, progreso, TRABAJOS, tituloItem, totales } from '../lib/piezas';
@@ -99,16 +99,75 @@ export function Ordenes() {
   );
 }
 
+const CLAVE_PERIODO = 'dp.reportes.periodo';
+
+/** El rango elegido se recuerda: quien revisó septiembre-octubre lo vuelve a ver al entrar. */
+function leerPeriodo(): Periodo | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(CLAVE_PERIODO) ?? 'null');
+    return v && typeof v.desde === 'string' && typeof v.hasta === 'string' ? v : null;
+  } catch { return null; }
+}
+
 export function Reportes() {
   const ordenes = useOrdenes(), empresa = useEmpresa();
-  const m = metricas(ordenes);
-  const rb = resumenRentabilidad(ordenes, empresa, p => costoHoraDelMes(empresa.id, p), (tr, s) => insumoDe(leerCostos(empresa.id), tr, s));
+  const hoy = new Date();
+  const meses = mesesElegibles(ordenes, hoy);
+  const todo: Periodo = { desde: meses[0].clave, hasta: meses[meses.length - 1].clave };
+  /** El rango guardado puede apuntar a meses que ya no existen: se recorta al historial real. */
+  const acotar = (p: Periodo): Periodo => ({
+    desde: p.desde < todo.desde ? todo.desde : p.desde > todo.hasta ? todo.hasta : p.desde,
+    hasta: p.hasta > todo.hasta ? todo.hasta : p.hasta < todo.desde ? todo.desde : p.hasta,
+  });
+  const [periodo, setPeriodo] = useState<Periodo>(() => acotar(leerPeriodo() ?? ultimosMeses(6, hoy)));
+  useEffect(() => {
+    try { localStorage.setItem(CLAVE_PERIODO, JSON.stringify(periodo)); } catch { /* sin espacio: el rango dura la sesión */ }
+  }, [periodo]);
+  const m = metricas(ordenes, hoy, periodo);
+  const cerradas = ordenes.filter(o => enPeriodo(o.entregadaEl, periodo));
+  const rb = resumenRentabilidad(cerradas, empresa, p => costoHoraDelMes(empresa.id, p), (tr, s) => insumoDe(leerCostos(empresa.id), tr, s));
   const topeMargen = Math.max(...rb.tipos.map(t => Math.abs(t.margen)), ...rb.pagadores.map(p => Math.abs(p.margen)), 1);
   const tope = Math.max(...m.meses.map(x => x.valor), 1);
   const topeTipo = Math.max(...m.tipos.map(t => t[1]), 1);
   const nombreTipo = (id: string) => TRABAJOS.find(t => t.id === id)?.nombre ?? id;
+  const presets: { id: string; texto: string; p: Periodo }[] = [
+    { id: 'mes', texto: 'Este mes', p: ultimosMeses(1, hoy) },
+    { id: '3m', texto: '3 meses', p: ultimosMeses(3, hoy) },
+    { id: '6m', texto: '6 meses', p: ultimosMeses(6, hoy) },
+    { id: 'anio', texto: 'Este año', p: { desde: `${hoy.getFullYear()}-01`, hasta: ultimosMeses(1, hoy).hasta } },
+    { id: 'todo', texto: 'Todo', p: todo },
+  ];
+  const activo = (p: Periodo) => p.desde === periodo.desde && p.hasta === periodo.hasta;
+  const ponerDesde = (v: string) => setPeriodo({ desde: v, hasta: v > periodo.hasta ? v : periodo.hasta });
+  const ponerHasta = (v: string) => setPeriodo({ desde: v < periodo.desde ? v : periodo.desde, hasta: v });
+  const larga = (clave: string) => meses.find(x => x.clave === clave)?.larga ?? clave;
   return (
     <Pantalla titulo="Reportes" sub="Cómo va el negocio, calculado con las órdenes del taller.">
+      <div className="periodo">
+        <div className="segmentos" role="group" aria-label="Rangos rápidos">
+          {presets.map(x => (
+            <button key={x.id} aria-pressed={activo(x.p)} className={activo(x.p) ? 'on' : ''} onClick={() => setPeriodo(x.p)}>{x.texto}</button>
+          ))}
+        </div>
+        <label className="campo"><span>Desde</span>
+          <select value={periodo.desde} onChange={e => ponerDesde(e.target.value)}>
+            {meses.map(x => <option key={x.clave} value={x.clave}>{x.larga}</option>)}
+          </select>
+        </label>
+        <label className="campo"><span>Hasta</span>
+          <select value={periodo.hasta} onChange={e => ponerHasta(e.target.value)}>
+            {meses.map(x => <option key={x.clave} value={x.clave}>{x.larga}</option>)}
+          </select>
+        </label>
+      </div>
+      <p className="pista periodo-resumen">
+        {m.entregadas > 0
+          ? <>{larga(periodo.desde)} a {larga(periodo.hasta)}: <b>{m.entregadas}</b> {m.entregadas === 1 ? 'orden entregada' : 'órdenes entregadas'}, {m.cobradas} cobradas.</>
+          : <>{larga(periodo.desde)} a {larga(periodo.hasta)}: sin órdenes entregadas.</>}
+        {m.abierto
+          ? <> {m.enTaller} {m.enTaller === 1 ? 'auto sigue' : 'autos siguen'} en taller; cuentan cuando se entregan.</>
+          : <> Hoy hay {m.enTaller} {m.enTaller === 1 ? 'auto' : 'autos'} en taller, fuera de este período.</>}
+      </p>
       <dl className="kpis">
         <div><dt>Ingresos cobrados</dt><dd>{clp(m.ingresos)}</dd></div>
         <div><dt>Valor promedio por orden</dt><dd>{clp(m.ticket)}</dd></div>
@@ -133,6 +192,7 @@ export function Reportes() {
           <ul className="barras-h">
             {m.tipos.map(([id, n]) => <li key={id} title={`${nombreTipo(id)}: ${n}`}><span>{nombreTipo(id)}</span><div><i style={{ width: `${(n / topeTipo) * 100}%` }} /><b>{n}</b></div></li>)}
           </ul>
+          {m.tipos.length === 0 && <p className="pista">Sin trabajos en este período.</p>}
         </section>
       </div>
 
@@ -150,7 +210,7 @@ export function Reportes() {
           <ul className="barras-h margen">
             {rb.tipos.map(t => <li key={t.id} title={`${t.nombre}: ${t.margen} % sobre ${clp(t.ingreso)}`} className={t.margen < 15 ? 'bajo' : ''}><span>{t.nombre}</span><div><i style={{ width: `${(Math.max(0, t.margen) / topeMargen) * 85}%` }} /><b>{t.margen} %</b></div></li>)}
           </ul>
-          <p className="pista">El trabajo que más deja va primero. Si uno queda bajo 15 %, conviene revisar su precio.</p>
+          <p className="pista">{rb.tipos.length ? 'El trabajo que más deja va primero. Si uno queda bajo 15 %, conviene revisar su precio.' : 'Sin órdenes cerradas en este período: no hay margen que calcular.'}</p>
         </section>
         <section>
           <h2>Margen por quién paga</h2>
