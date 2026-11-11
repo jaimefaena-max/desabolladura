@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Car, WhatsappLogo, CheckCircle, Circle, CircleHalf, Check } from '../components/iconos';
 import { Auto3D, Barra, forma, FotoGuardada, Galeria, GaleriaVistas, InterruptorTema, ir, Leyenda, Marca } from '../components/ui';
 import { conEvento, enlaceWhatsApp, ETAPAS, etapaDe } from '../lib/automatizacion';
-import { clp, estadosPiezas, fecha, itemsCobrables, progreso, tituloItem, totales } from '../lib/piezas';
+import { clp, estadosPiezas, fecha, itemsPresupuesto, progreso, tituloItem, totales } from '../lib/piezas';
 import { actualizar, buscarPorAcceso, sesion, useOrdenes } from '../lib/store';
 import { desempaquetar } from '../lib/seguimiento';
 import type { Item, Orden } from '../lib/types';
@@ -62,7 +62,7 @@ function Presupuesto({ o, soloLectura, wspTaller, onRespuesta }: { o: Orden; sol
   const [rechazando, setRechazando] = useState(false);
   const responder = (ok: boolean) => {
     actualizar(o.id, x => conEvento(
-      { ...x, aprobacion: ok ? 'aprobada' : 'rechazada', items: ok ? x.items.map(i => ({ ...i, adicional: false })) : x.items },
+      { ...x, aprobacion: ok ? 'aprobada' : 'rechazada' },
       ok ? 'El cliente aprobó el presupuesto en su portal' : 'El cliente rechazó el presupuesto en su portal',
     ));
     onRespuesta(ok);
@@ -70,7 +70,7 @@ function Presupuesto({ o, soloLectura, wspTaller, onRespuesta }: { o: Orden; sol
   return (
     <section className="presupuesto">
       <h2>Tu presupuesto</h2>
-      <ul>{itemsCobrables(o).map(i => <li key={i.id}><span>{tituloItem(i, o.vehiculo.carroceria)}</span><b>{clp(i.monto ?? 0)}</b></li>)}</ul>
+      <ul>{itemsPresupuesto(o).map(i => <li key={i.id}><span>{tituloItem(i, o.vehiculo.carroceria)}</span><b>{clp(i.monto ?? 0)}</b></li>)}</ul>
       <p className="presupuesto-total"><span>Total con IVA</span><b>{clp(t.total)}</b></p>
       {soloLectura ? (
         <div className="presupuesto-wsp">

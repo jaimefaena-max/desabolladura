@@ -5,6 +5,7 @@ import { CotizacionDoc, imprimirDocumento } from '../components/Cotizacion';
 import FilaRepuesto from '../components/FilaRepuesto';
 import Rentabilidad, { TEXTO_SEMAFORO } from '../components/Rentabilidad';
 import { horaDe, MARGEN_OBJETIVO, precioMinimo, rentabilidad, resumenRentabilidad } from '../lib/rentabilidad';
+import { adicionalesPendientes, autorizarAdicionales, netoAdicionales, rechazarAdicionales, type Decision } from '../lib/adicionales';
 import Costos from '../components/Costos';
 import { costoHoraDelMes, insumoDe, leerCostos, restablecerCostos } from '../lib/costos';
 import { ExpedienteDoc } from '../components/Expediente';
@@ -14,7 +15,7 @@ import { alertas, CMF_REPARACION, conEvento, diasEnTaller, enlaceWhatsApp, enPer
 import BarraPeriodo, { textoRango, usePeriodo, type Preset } from '../components/Periodo';
 import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../lib/gemini';
 import { reducirImagen } from '../lib/padron';
-import { clp, estadosPiezas, fecha, fechaLocal, itemsCobrables, progreso, TRABAJOS, tituloItem, totales } from '../lib/piezas';
+import { clp, estadosPiezas, fecha, fechaLocal, itemsPresupuesto, progreso, TRABAJOS, tituloItem, totales } from '../lib/piezas';
 import { USUARIOS } from '../lib/seed';
 import { actualizar, cambiarEmpresa, crearEmpresa, editarEmpresa, restablecerDemo, useEmpresa, useEmpresas, useOrden, useOrdenes } from '../lib/store';
 import type { Item, Orden } from '../lib/types';
@@ -336,7 +337,9 @@ function Acciones({ o }: { o: Orden }) {
   const empresa = useEmpresa();
   const t = totales(o), et = etapaDe(o), seguro = o.pagador.tipo === 'aseguradora';
   const cambiar = (c: Partial<Orden>, texto: string) => actualizar(o.id, x => conEvento({ ...x, ...c }, texto));
-  const aprobar = (como = '') => cambiar({ aprobacion: 'aprobada', items: o.items.map(i => ({ ...i, adicional: false })) }, seguro ? 'Compañía autorizó el presupuesto' : `Presupuesto aprobado${como ? ` ${como}` : ''}`);
+  // Aprueba el presupuesto base. Los adicionales se autorizan aparte, en su panel: un botón único
+  // escondería un rechazo parcial y sumaría al trabajo algo que nadie revisó.
+  const aprobar = (como = '') => cambiar({ aprobacion: 'aprobada' }, seguro ? 'Compañía autorizó el presupuesto' : `Presupuesto aprobado${como ? ` ${como}` : ''}`);
   // Enviar = registrar el envío y abrir WhatsApp con el total y el link (el clic permite abrir la ventana).
   const enviar = () => {
     const nueva = conEvento({ ...o, aprobacion: 'enviada' as const }, 'Presupuesto enviado al cliente');
@@ -349,7 +352,9 @@ function Acciones({ o }: { o: Orden }) {
     <div className="acciones no-print">
       {o.aprobacion === 'pendiente' && !seguro && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={enviar}><PaperPlaneTilt size={24} /> Enviar presupuesto al cliente</button>}
       {esperando && <RespuestaCliente o={o} aprobar={aprobar} />}
-      {(o.aprobacion === 'pendiente' && seguro) && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={() => aprobar()}><CheckCircle size={24} /> La compañía autorizó</button>}
+      {/* Con adicionales pendientes la respuesta se registra en su panel, ítem por ítem: un botón
+          que apruebe todo escondería un rechazo parcial. */}
+      {(o.aprobacion === 'pendiente' && seguro && !o.items.some(i => i.adicional)) && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={() => aprobar()}><CheckCircle size={24} /> La compañía autorizó</button>}
       {et === 'entrega' && <button className="btn primario grande ancho" onClick={() => cambiar({ entregadaEl: fechaLocal(), costoHoraAplicado: Math.round(horaDe(o, empresa, p => costoHoraDelMes(empresa.id, p))), items: o.items.map(i => ({ ...i, estado: 'listo' as const })) }, 'Vehículo entregado')}><Truck size={24} /> Marcar como entregado</button>}
       {seguro ? <CobroSeguro o={o} /> : o.cobrada ? <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada</p> : (
         <button className="btn secundario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ cobrada: true, costoHoraAplicado: o.costoHoraAplicado ?? Math.round(horaDe(o, empresa, p => costoHoraDelMes(empresa.id, p))) }, 'Orden cobrada')}>Marcar como cobrada</button>
@@ -374,26 +379,54 @@ function PlazoCMF({ o }: { o: Orden }) {
   );
 }
 
-/** Trabajos descubiertos al desarmar: la compañía los autoriza aparte, con foto de cada daño. */
+/**
+ * Trabajos descubiertos al desarmar. La compañía los autoriza aparte: aquí se pide la solicitud y
+ * se registra su respuesta ítem por ítem, que es como responden los liquidadores en la práctica.
+ */
 function Adicionales({ o, onSolicitud }: { o: Orden; onSolicitud: () => void }) {
-  const lista = itemsCobrables(o).filter(i => i.adicional);
+  const [rechazando, setRechazando] = useState<string | null>(null);
+  const lista = adicionalesPendientes(o);
   if (!lista.length) return null;
   const sinFoto = lista.filter(i => !i.fotoAntes).length;
-  const neto = lista.reduce((a, i) => a + (i.monto ?? 0), 0);
+  const neto = netoAdicionales(o), t = totales(o), seguro = o.pagador.tipo === 'aseguradora';
+  const cia = seguro ? (o.pagador.aseguradora ?? 'la compañía') : 'el cliente';
+  const nombre = (i: Item) => tituloItem(i, o.vehiculo.carroceria);
+  const aplicar = (d: Decision | null) => { if (d) { setRechazando(null); actualizar(o.id, () => d.orden); } };
   return (
-    <section className="adicionales-caja">
+    <section className="adicionales-caja" aria-label="Trabajos adicionales por autorizar">
       <p className="ec-tit"><WarningCircle size={26} weight="fill" /><b>{lista.length} adicional{lista.length > 1 ? 'es' : ''} por autorizar</b></p>
-      <p className="ec-sub">Daños encontrados al desarmar. La compañía los autoriza aparte: envíale la solicitud con la foto de cada uno.</p>
+      <p className="ec-sub">Daños encontrados al desarmar. {seguro
+        ? 'Envíale la solicitud con la foto de cada uno y registra lo que responda el liquidador: lo autorizado se suma al trabajo, lo rechazado se retira.'
+        : 'Registra la respuesta: lo autorizado se suma al presupuesto, lo rechazado se retira.'}</p>
       <ul>
         {lista.map(i => (
           <li key={i.id}>
-            {i.fotoAntes ? <FotoGuardada id={i.fotoAntes} alt={`Daño en ${tituloItem(i, o.vehiculo.carroceria)}`} /> : <span className="sin-foto"><Camera size={22} />Falta foto</span>}
-            <div><b>{tituloItem(i, o.vehiculo.carroceria)}</b><small>{i.monto === null ? 'Sin monto' : clp(i.monto)}</small></div>
+            {i.fotoAntes ? <FotoGuardada id={i.fotoAntes} alt={`Daño en ${nombre(i)}`} /> : <span className="sin-foto"><Camera size={22} />Falta foto</span>}
+            <div className="ad-fila">
+              <b>{nombre(i)}</b><small>{i.monto === null ? 'Sin monto' : clp(i.monto)}</small>
+              {rechazando === i.id ? (
+                <div className="ad-confirmar" role="group" aria-label={`Rechazar ${nombre(i)}`}>
+                  <p>¿{seguro ? 'La compañía' : 'El cliente'} rechazó «{nombre(i)}»? No se hará ni se cobrará.</p>
+                  <div>
+                    <button className="btn secundario chico" onClick={() => aplicar(rechazarAdicionales(o, [i.id], nombre))}>Sí, rechazar</button>
+                    <button className="enlace" onClick={() => setRechazando(null)}>Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="ad-acciones">
+                  <button className="btn secundario chico" onClick={() => aplicar(autorizarAdicionales(o, [i.id], nombre))}><Check size={18} weight="bold" /> Autorizar</button>
+                  <button className="btn secundario chico" onClick={() => setRechazando(i.id)}><XCircle size={18} /> Rechazar</button>
+                </div>
+              )}
+            </div>
           </li>
         ))}
       </ul>
       {sinFoto > 0 && <p className="pista">{sinFoto} sin foto: el trabajador la saca desde su tarea («Foto para el liquidador»).</p>}
-      <button className="btn primario grande ancho" onClick={onSolicitud}><FilePdf size={24} /> Solicitud de adicionales ({clp(neto)} neto)</button>
+      <p className="pista">Autorizar lo suma al presupuesto: de {clp(t.total)} a {clp(t.total + Math.round(neto * 1.19))} con IVA{seguro ? `, que paga ${cia}` : ''}.</p>
+      <button className="btn primario grande ancho" onClick={() => aplicar(autorizarAdicionales(o, 'todos', nombre))}><CheckCircle size={24} /> Autorizar {lista.length === 1 ? 'el adicional' : `los ${lista.length}`} · {clp(neto)} neto</button>
+      {seguro && <button className="btn secundario grande ancho" onClick={onSolicitud}><FilePdf size={24} /> Solicitud de adicionales (PDF)</button>}
+      {o.factura && <p className="pista">La factura N.º {o.factura.numero} ya está emitida por {clp(o.factura.monto)}: lo que autorices ahora no la edita, va en una nota de débito.</p>}
     </section>
   );
 }
@@ -453,9 +486,9 @@ export function AdminOrden({ id }: { id: string }) {
           </section>
         </div>
         <div>
-          {seguro && <Adicionales o={o} onSolicitud={() => setDoc('adicionales')} />}
+          <Adicionales o={o} onSolicitud={() => setDoc('adicionales')} />
           <h2>Costos por trabajo</h2>
-          <ul className="precios">{itemsCobrables(o).map(i => <FilaItem key={i.id} o={o} i={i} />)}</ul>
+          <ul className="precios">{itemsPresupuesto(o).map(i => <FilaItem key={i.id} o={o} i={i} />)}</ul>
           <dl className="totales">
             <div><dt>Neto</dt><dd>{clp(t.neto)}</dd></div>
             <div><dt>IVA 19%</dt><dd>{clp(t.iva)}</dd></div>

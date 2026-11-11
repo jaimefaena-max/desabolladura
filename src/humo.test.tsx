@@ -67,6 +67,15 @@ describe('cada pantalla se dibuja completa', async () => {
     expect(texto).not.toMatch(roto);
   });
 
+  it('los adicionales se deciden en su panel, no con el botón de la compañía', () => {
+    const o = ordenes.find(x => x.numero === 1053)!;
+    const texto = dibujar(<AdminOrden id={o.id} />, 'admin');
+    expect(texto).toMatch(/3 adicionales por autorizar/);
+    expect(texto).toMatch(/Autorizar los 3/);
+    expect(texto).toMatch(/de \$[\d.]+ a \$[\d.]+ con IVA/);
+    expect(texto).not.toMatch(/La compañía autorizó/);
+  });
+
   it.each(ordenes.map(o => [o.numero, o] as const))('orden %s en los tres perfiles y por link', (_n, o) => {
     for (const [el, rol] of [[<AdminOrden id={o.id} />, 'admin'], [<MaestroOrden id={o.id} />, 'trabajador'], [<ClientePortal codigo={o.codigo} />, undefined]] as const) {
       const texto = dibujar(el, rol);

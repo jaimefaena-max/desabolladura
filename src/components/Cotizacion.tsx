@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { clp, itemsCobrables, nombrePieza, totales, TRABAJOS } from '../lib/piezas';
+import { clp, itemsPresupuesto, nombrePieza, totales, TRABAJOS } from '../lib/piezas';
 import { useEmpresa } from '../lib/store';
 import type { Orden } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';
@@ -31,7 +31,7 @@ export function CotizacionDoc({ o }: { o: Orden }) {
   const foto = useVista(vistasDe(o)?.frente);
   const emision = new Date();
   const vence = new Date(emision); vence.setDate(vence.getDate() + VALIDEZ_DIAS);
-  const items = itemsCobrables(o);
+  const items = itemsPresupuesto(o);
   const nombreTrabajo = (id: string) => TRABAJOS.find(x => x.id === id)?.nombre ?? 'Trabajo general';
 
   return createPortal(

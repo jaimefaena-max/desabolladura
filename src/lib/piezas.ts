@@ -64,8 +64,14 @@ export function estadosPiezas(items: Item[]) {
 
 export const itemsCobrables = (o: Orden) => o.items.filter(i => i.trabajo !== 'general');
 
+/**
+ * Presupuesto vigente. Un adicional que la compañía todavía no autoriza no se suma al total ni se
+ * factura: si se contara, el cliente vería cobrado un trabajo que aún puede rechazar.
+ */
+export const itemsPresupuesto = (o: Orden) => o.items.filter(i => i.trabajo !== 'general' && !i.adicional);
+
 export function totales(o: Orden) {
-  const cobrables = itemsCobrables(o);
+  const cobrables = itemsPresupuesto(o);
   const neto = cobrables.reduce((a, i) => a + (i.monto ?? 0), 0);
   const iva = Math.round(neto * .19);
   const total = neto + iva;

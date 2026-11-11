@@ -1,5 +1,5 @@
 import { INSUMOS_REFERENCIA } from './costos';
-import { itemsCobrables, TRABAJOS, totales } from './piezas';
+import { itemsPresupuesto, TRABAJOS, totales } from './piezas';
 import type { Empresa, Item, Orden, Severidad, Trabajo } from './types';
 
 /**
@@ -72,7 +72,7 @@ export function rentabilidad(o: Orden, empresa: Pick<Empresa, 'costoHora'>, reso
   const manoObra = suma('manoObra'), insumos = suma('insumos'), repuestos = suma('repuesto');
   const costo = manoObra + insumos + repuestos, ganancia = ingreso - costo;
   const margen = ingreso > 0 ? Math.round((ganancia / ingreso) * 100) : 0;
-  const sinMonto = itemsCobrables(o).some(i => i.monto === null);
+  const sinMonto = itemsPresupuesto(o).some(i => i.monto === null);
   return {
     lineas, ingreso, manoObra, insumos, repuestos, costo, ganancia, margen, horas: Math.round(suma('horas') * 10) / 10,
     semaforo: semaforoMargen(margen), sinMonto,
@@ -82,7 +82,7 @@ export function rentabilidad(o: Orden, empresa: Pick<Empresa, 'costoHora'>, reso
 
 /** Para el dueño: margen total y qué trabajos y qué pagadores dejan más (o menos) plata. */
 export function resumenRentabilidad(ordenes: Orden[], empresa: Pick<Empresa, 'costoHora'>, resolver?: ResolverHora, insumo?: ResolverInsumo) {
-  const conMonto = ordenes.filter(o => totales(o).neto > 0 && !itemsCobrables(o).some(i => i.monto === null));
+  const conMonto = ordenes.filter(o => totales(o).neto > 0 && !itemsPresupuesto(o).some(i => i.monto === null));
   const filas = conMonto.map(o => ({ o, r: rentabilidad(o, empresa, resolver, insumo) }));
   const ingreso = filas.reduce((a, x) => a + x.r.ingreso, 0), ganancia = filas.reduce((a, x) => a + x.r.ganancia, 0);
 

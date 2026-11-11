@@ -700,10 +700,26 @@ img { display: block; max-width: 100%; }
 .adicionales-caja li img, .adicionales-caja .sin-foto, .adicionales-caja li .esqueleto, .adicionales-caja li .foto-taller { width: 84px; height: 63px; flex: none; object-fit: cover; border-radius: 10px; }
 .adicionales-caja li div { display: flex; flex-direction: column; }
 .adicionales-caja li small { color: var(--suave); }
+/* Nombre y monto a la izquierda; los dos botones, a su derecha. La confirmación ocupa la fila entera. */
+.adicionales-caja li .ad-fila { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: 1fr auto; gap: .1rem .8rem; align-items: center; }
+.adicionales-caja li .ad-acciones { grid-column: 2; grid-row: 1 / span 2; flex-direction: row; flex-wrap: nowrap; gap: .4rem; justify-content: flex-end; }
+.adicionales-caja li .ad-fila b, .adicionales-caja li .ad-fila small { grid-column: 1; }
+.ad-confirmar { grid-column: 1 / -1; display: grid; gap: .4rem; padding: .5rem 0 .2rem; }
+.ad-confirmar p { font-weight: 560; }
+.ad-confirmar div { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
+/* Los botones de confirmar van en fila: la regla de la lista los apilaría en columna. */
+.adicionales-caja li .ad-confirmar div { flex-direction: row; gap: .7rem; }
 .sin-foto { display: grid; place-items: center; align-content: center; gap: .1rem; border: 1.5px dashed var(--error); color: var(--error); font-size: .75rem; }
 .foto-liquidador { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: .1rem 0 .4rem; }
 .foto-liquidador img, .foto-liquidador .esqueleto { width: 72px; height: 54px; object-fit: cover; border-radius: 8px; }
 .foto-liquidador .btn { min-height: 48px; }
+
+/* En pantalla angosta los botones bajan debajo del daño, a todo el ancho: es donde se toca con el dedo. */
+@media (max-width: 620px) {
+  .adicionales-caja li .ad-fila { grid-template-columns: 1fr; }
+  .adicionales-caja li .ad-acciones { grid-column: 1; grid-row: auto; justify-content: stretch; flex-wrap: wrap; margin-top: .3rem; }
+  .ad-acciones .btn { flex: 1 1 auto; }
+}
 
 @media print {
   .dc-datos.tres { grid-template-columns: 1fr 1fr 1fr; }

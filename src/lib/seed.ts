@@ -72,6 +72,8 @@ interface Base {
   parte?: { item: string; proveedor: string; pedidoHace: number; prometidoHace: number; recibidoHace?: number; costo?: number };
   /** Horas reales distintas a las típicas (p. ej. un repintado). */
   horas?: Record<string, number>;
+  /** Daños aparecidos al desarmar, aún sin respuesta de la compañía: [trabajo, pieza, severidad, monto]. */
+  adicionales?: [Trabajo, PiezaId, Severidad, number][];
 }
 
 function orden(b: Base): Orden {
@@ -85,6 +87,13 @@ function orden(b: Base): Orden {
     vistas: FOTOS[slugAuto(b.v)]?.vistas,
   });
   if (b.horas) o.items = o.items.map(i => (b.horas![i.id] !== undefined ? { ...i, horas: b.horas![i.id] } : i));
+  if (b.adicionales) {
+    o.items = [...o.items, ...b.adicionales.map(([trabajo, pieza, severidad, monto], k): Item => ({
+      id: `ad${k}`, trabajo, pieza, severidad, estado: 'pendiente', monto, adicional: true,
+      sugerido: sugerir(trabajo, pieza, severidad, b.v), fotoAntes: `demo-ad-${b.numero}-${k}`,
+    }))];
+    Object.assign(o, sincronizar(o));
+  }
   if (b.parte) {
     const p = b.parte;
     o.repuestos = o.repuestos.map(r => (r.itemId !== p.item ? r : {
@@ -134,9 +143,11 @@ export function ordenesDemo(): Orden[] {
       parte: { item: 'i0', proveedor: 'Autopartes Demo Centro', pedidoHace: 2, prometidoHace: -2 },
     }),
     orden({
-      numero: 1053, codigo: 'L2006T', v: auto('Mitsubishi', 'L200', 2021, 84, 'Gris', '#4a4f55', 'pickup'), desde: 5, aprobacion: 'aprobada', pagador: seguro('Compañía Demo Centro', 1053, 120000),
-      filas: [['desabolladura', 'puerta_tras_izq', 'fuerte', 'proceso'], ['pintura', 'puerta_tras_izq', 'medio', 'pendiente'], ['desabolladura', 'costado_tras_izq', 'medio', 'proceso']],
+      numero: 1053, codigo: 'L2006T', v: auto('Mitsubishi', 'L200', 2021, 84, 'Gris', '#4a4f55', 'pickup'), desde: 5, aprobacion: 'pendiente', pagador: seguro('Compañía Demo Centro', 1053, 120000),
+      filas: [['desabolladura', 'puerta_tras_izq', 'fuerte', 'proceso', 520000], ['pintura', 'puerta_tras_izq', 'medio', 'pendiente', 320000], ['desabolladura', 'costado_tras_izq', 'medio', 'proceso', 330000]],
       notas: 'Costado izquierdo por roce con pilar.',
+      // Al desarmar apareció el tapabarro delantero derecho golpeado: tres adicionales esperando al liquidador.
+      adicionales: [['desabolladura', 'tapabarro_del_der', 'fuerte', 480000], ['pintura', 'tapabarro_del_der', 'fuerte', 350000], ['pulido', 'tapabarro_del_der', 'medio', 90000]],
     }),
     orden({
       numero: 1041, codigo: 'F150RJ', v: auto('Ford', 'F-150', 2020, 11, 'Rojo', '#a3121c', 'pickup'), desde: 4, aprobacion: 'aprobada', pagador: seguro('Compañía Demo Norte', 1041, 150000),
@@ -256,6 +267,10 @@ export function conFotosDemo(guardadas: Orden[]): Orden[] {
     let n = o;
     // Fotos y ficha del modelo (medidas para el 3D).
     if (f.vistas && !(o.vistas && JSON.stringify(o.vehiculo.ficha) === JSON.stringify(f.vehiculo.ficha))) n = { ...n, vistas: f.vistas, vehiculo: f.vehiculo };
+    // Adicionales nuevos de ejemplo: quien ya tenía la orden guardada no los vería. Solo se agregan
+    // si nunca se decidió nada sobre adicionales en esa orden (si no, un rechazo volvería a aparecer).
+    const extras = f.items.filter(i => i.adicional && !n.items.some(x => x.id === i.id) && !n.historial.some(h => /adicional/i.test(h.texto)));
+    if (extras.length) n = { ...n, items: [...n.items, ...extras], aprobacion: n.aprobacion === 'aprobada' ? 'pendiente' : n.aprobacion };
     // Cobranza de ejemplo: las órdenes históricas con seguro reciben su factura si aún no la tienen.
     if (f.factura && !o.factura && o.entregadaEl) n = { ...n, factura: f.factura, deducibleCobradoEl: f.deducibleCobradoEl, cobrada: f.cobrada };
     return n;
