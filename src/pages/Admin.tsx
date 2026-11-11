@@ -419,21 +419,25 @@ function Adicionales({ o, onSolicitud }: { o: Orden; onSolicitud: () => void }) 
   const abrir = (ids: string[]) => {
     const elegidos = lista.filter(i => ids.includes(i.id));
     setRechazando(null);
+    // Se escribe el monto con IVA, que es lo que se solicita a la compañía; dentro se guarda el neto.
     // Con factura ya emitida no hay opción: la emitida no se edita, lo nuevo va en la siguiente.
-    setRevision({ ids, precios: Object.fromEntries(elegidos.map(i => [i.id, i.monto === null ? '' : String(i.monto)])), aparte: facturas.length > 0 });
+    setRevision({ ids, precios: Object.fromEntries(elegidos.map(i => [i.id, i.monto === null ? '' : String(Math.round(i.monto * 1.19))])), aparte: facturas.length > 0 });
   };
   const precio = (id: string) => {
     const s = revision?.precios[id] ?? '';
     return s.trim() === '' ? null : Number(s.replace(/\D/g, ''));
   };
+  // El monto del ítem siempre es neto: lo que se escribe aquí viene con IVA (lo que paga la compañía).
+  const netoDe = (id: string) => { const g = precio(id); return g === null ? null : Math.round(g / 1.19); };
   const elegidos = revision ? lista.filter(i => revision.ids.includes(i.id)) : [];
-  const suma = elegidos.reduce((a, i) => a + (precio(i.id) ?? 0), 0);
+  const bruto = elegidos.reduce((a, i) => a + (precio(i.id) ?? 0), 0);
+  const suma = elegidos.reduce((a, i) => a + (netoDe(i.id) ?? 0), 0);
   const confirmar = () => revision && aplicar(autorizarAdicionales(o, revision.ids, nombre, {
-    precios: Object.fromEntries(elegidos.map(i => [i.id, precio(i.id)])), aparte: revision.aparte,
+    precios: Object.fromEntries(elegidos.map(i => [i.id, netoDe(i.id)])), aparte: revision.aparte,
   }));
   const destino = revision?.aparte
     ? (facturas.length ? `en la factura N.º ${siguienteFactura(ordenes)}, aparte de la del presupuesto` : `en una factura propia, la N.º ${siguienteFactura(ordenes)}`)
-    : `en una sola factura con el resto del presupuesto (${clp(t.total + Math.round(suma * 1.19))} con IVA)`;
+    : `en una sola factura con el resto del presupuesto (${clp(t.total + bruto)} con IVA)`;
   return (
     <section className="adicionales-caja" aria-label="Trabajos adicionales por autorizar">
       <p className="ec-tit"><WarningCircle size={26} weight="fill" /><b>{lista.length} adicional{lista.length > 1 ? 'es' : ''} por autorizar</b></p>
@@ -448,7 +452,7 @@ function Adicionales({ o, onSolicitud }: { o: Orden; onSolicitud: () => void }) 
               <li key={i.id}>
                 <b>{nombre(i)}</b>
                 <label className="ad-precio">
-                  <span>Precio neto</span>
+                  <span>Precio con IVA</span>
                   <input name={`precio-${i.id}`} inputMode="numeric" placeholder="Sin precio" value={revision.precios[i.id] ?? ''} onChange={e => setRevision(r => r && { ...r, precios: { ...r.precios, [i.id]: e.target.value } })} />
                 </label>
               </li>
@@ -459,15 +463,15 @@ function Adicionales({ o, onSolicitud }: { o: Orden; onSolicitud: () => void }) 
             <label className={!revision.aparte ? 'elegido' : ''}>
               <input type="radio" name="cobro" checked={!revision.aparte} disabled={facturas.length > 0} onChange={() => setRevision(r => r && { ...r, aparte: false })} />
               <span><b>Junto al presupuesto, una sola factura</b>
-                <small>{facturas.length ? 'No se puede: la factura del presupuesto ya está emitida y no se edita.' : `Todo va en la misma factura: ${clp(t.total + Math.round(suma * 1.19))} con IVA.`}</small></span>
+                <small>{facturas.length ? 'No se puede: la factura del presupuesto ya está emitida y no se edita.' : `Todo va en la misma factura: ${clp(t.total + bruto)} con IVA.`}</small></span>
             </label>
             <label className={revision.aparte ? 'elegido' : ''}>
               <input type="radio" name="cobro" checked={revision.aparte} onChange={() => setRevision(r => r && { ...r, aparte: true })} />
               <span><b>En una factura aparte</b>
-                <small>{facturas.length ? `Se emite la N.º ${siguienteFactura(ordenes)} solo por estos trabajos; las anteriores no se tocan.` : `Se emite la N.º ${siguienteFactura(ordenes)} por ${clp(Math.round(suma * 1.19))} con IVA, separada de la del presupuesto.`}</small></span>
+                <small>{facturas.length ? `Se emite la N.º ${siguienteFactura(ordenes)} solo por estos trabajos; las anteriores no se tocan.` : `Se emite la N.º ${siguienteFactura(ordenes)} por ${clp(bruto)} con IVA, separada de la del presupuesto.`}</small></span>
             </label>
           </fieldset>
-          <p className="pista">Lo autorizado: {clp(suma)} neto · {clp(Math.round(suma * 1.19))} con IVA · se cobra {destino}.</p>
+          <p className="pista">Lo autorizado: {clp(bruto)} con IVA · {clp(suma)} neto · se cobra {destino}.</p>
           <div className="ad-acciones">
             <button className="btn primario" onClick={confirmar} disabled={elegidos.some(i => precio(i.id) === null)}><Check size={20} weight="bold" /> Confirmar autorización</button>
             <button className="enlace" onClick={() => setRevision(null)}>Cancelar</button>
