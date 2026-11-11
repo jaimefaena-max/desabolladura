@@ -436,6 +436,18 @@ img { display: block; max-width: 100%; }
 .pf-sug a { color: var(--suave); font-size: .95rem; }
 .pf-monto .campo span { font-size: .95rem; color: var(--suave); }
 .pf-monto input { text-align: right; font-variant-numeric: tabular-nums; font-weight: 620; }
+/* Costos por factura: un bloque por documento, cerrado, con el monto y «Ver detalle». */
+.costos-facturas { display: grid; gap: .8rem; margin-top: .6rem; }
+.cf-grupo { border: 1px solid var(--linea); border-radius: var(--r); background: var(--fondo-2); padding: .9rem 1.1rem; }
+.cf-cab { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: .5rem 1rem; }
+.cf-cab > div { display: flex; flex-direction: column; min-width: 0; }
+.cf-cab small { color: var(--suave); }
+.cf-monto { font-size: 1.25rem; font-weight: 640; font-variant-numeric: tabular-nums; }
+.cf-grupo .precios { margin-top: .4rem; }
+@media (max-width: 620px) {
+  .cf-cab { grid-template-columns: minmax(0, 1fr) auto; }
+  .cf-cab .btn { grid-column: 1 / -1; justify-content: center; }
+}
 .totales { margin: 1.2rem 0; }
 .totales > div { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem 0; font-variant-numeric: tabular-nums; }
 .totales dt { color: var(--suave); }

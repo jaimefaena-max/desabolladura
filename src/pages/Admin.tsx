@@ -515,6 +515,49 @@ function Adicionales({ o, onSolicitud }: { o: Orden; onSolicitud: () => void }) 
   );
 }
 
+/**
+ * Costos por trabajo. Cuando el auto lleva más de una factura, la lista se parte por documento y
+ * cada bloque arranca cerrado con su monto y «Ver detalle»: así se ve de un golpe qué se cobró en
+ * cada factura sin tener que leer todos los trabajos juntos.
+ */
+function CostosPorFactura({ o }: { o: Orden }) {
+  const [abierto, setAbierto] = useState<GrupoFactura | null>(null);
+  const items = itemsPresupuesto(o);
+  const aparte = items.some(i => i.facturaAparte) || facturasDe(o).length > 1;
+  if (!aparte) return <ul className="precios">{items.map(i => <FilaItem key={i.id} o={o} i={i} />)}</ul>;
+  const grupos = (['presupuesto', 'adicionales'] as const)
+    .map(g => ({
+      g,
+      items: items.filter(i => (i.facturaAparte ? 'adicionales' : 'presupuesto') === g),
+      m: montosDe(o, g),
+      fs: facturasDe(o).filter(f => grupoDe(f) === g),
+    }))
+    .filter(x => x.items.length);
+  return (
+    <div className="costos-facturas">
+      {grupos.map(({ g, items: propios, m, fs }) => {
+        const ver = abierto === g;
+        return (
+          <section className="cf-grupo" key={g}>
+            <div className="cf-cab">
+              <div>
+                <b>{g === 'adicionales' ? 'Trabajos adicionales' : 'Presupuesto'}</b>
+                <small>{fs.length
+                  ? `${fs.length === 1 ? 'Factura' : 'Facturas'} ${fs.map(f => `N.º ${f.numero}`).join(', ')} · ${fs.every(f => f.pagadaEl) ? 'pagada' : 'pendiente de pago'}`
+                  : 'Sin facturar todavía'}</small>
+              </div>
+              {/* El valor del bloque es el de su factura; sin factura, lo que debe pagar la compañía. */}
+              <span className="cf-monto">{clp(fs.length ? fs.reduce((a, f) => a + f.monto, 0) : m.aseguradora)}</span>
+              <button className="btn primario chico" aria-expanded={ver} onClick={() => setAbierto(ver ? null : g)}><Eye size={20} /> {ver ? 'Ocultar detalle' : 'Ver detalle'}</button>
+            </div>
+            {ver && <ul className="precios">{propios.map(i => <FilaItem key={i.id} o={o} i={i} />)}</ul>}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 type Documento = 'cotizacion' | 'expediente' | 'adicionales';
 
 export function AdminOrden({ id }: { id: string }) {
@@ -572,7 +615,7 @@ export function AdminOrden({ id }: { id: string }) {
         <div>
           <Adicionales o={o} onSolicitud={() => setDoc('adicionales')} />
           <h2>Costos por trabajo</h2>
-          <ul className="precios">{itemsPresupuesto(o).map(i => <FilaItem key={i.id} o={o} i={i} />)}</ul>
+          <CostosPorFactura o={o} />
           <dl className="totales">
             <div><dt>Neto</dt><dd>{clp(t.neto)}</dd></div>
             <div><dt>IVA 19%</dt><dd>{clp(t.iva)}</dd></div>
