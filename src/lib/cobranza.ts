@@ -1,4 +1,5 @@
 import { fechaLocal, totales } from './piezas';
+import { enPeriodo, type Periodo } from './automatizacion';
 import type { Factura, Orden } from './types';
 
 /**
@@ -53,9 +54,12 @@ export function cobradaSeguro(o: Orden) {
 export interface FilaCobranza { o: Orden; f: Factura; e: ReturnType<typeof estadoFactura> }
 
 /** Todo lo que el dueño necesita ver de su plata en la calle, ordenado por urgencia. */
-export function resumenCobranza(ordenes: Orden[], hoy = fechaLocal()) {
+export function resumenCobranza(ordenes: Orden[], hoy = fechaLocal(), periodo?: Periodo) {
+  const dentro = (f?: string | null) => !periodo || enPeriodo(f, periodo);
   const seguros = ordenes.filter(o => o.pagador.tipo === 'aseguradora');
-  const filas: FilaCobranza[] = seguros.filter(o => o.factura).map(o => ({ o, f: o.factura!, e: estadoFactura(o.factura!, hoy) }));
+  // Las facturas se fechan al emitirse: ese mes es el que se filtra. Lo pendiente de hoy se mide aparte.
+  const filas: FilaCobranza[] = seguros.filter(o => o.factura && dentro(o.factura.emitida)).map(o => ({ o, f: o.factura!, e: estadoFactura(o.factura!, hoy) }));
+  const carteraHoy = seguros.reduce((a, o) => a + (o.factura && !o.factura.pagadaEl ? o.factura.monto : 0), 0);
   const abiertas = filas.filter(x => x.e.estado !== 'pagada').sort((a, b) => a.e.dias - b.e.dias);
   const pagadas = filas.filter(x => x.e.estado === 'pagada').sort((a, b) => b.f.pagadaEl!.localeCompare(a.f.pagadaEl!));
   const suma = (l: FilaCobranza[]) => l.reduce((a, x) => a + x.f.monto, 0);
@@ -73,11 +77,12 @@ export function resumenCobranza(ordenes: Orden[], hoy = fechaLocal()) {
     };
   }).filter(c => c.abiertas || c.diasPromedio !== null).sort((a, b) => b.porCobrar - a.porCobrar);
 
-  const sinFacturar = seguros.filter(o => !o.factura && o.entregadaEl && totales(o).aseguradora > 0);
-  const deducibles = seguros.filter(o => o.entregadaEl && totales(o).deducible > 0 && !o.deducibleCobradoEl);
+  const sinFacturar = seguros.filter(o => !o.factura && o.entregadaEl && totales(o).aseguradora > 0 && dentro(o.entregadaEl));
+  const deducibles = seguros.filter(o => o.entregadaEl && totales(o).deducible > 0 && !o.deducibleCobradoEl && dentro(o.entregadaEl));
 
   return {
-    abiertas, pagadas, companias, sinFacturar, deducibles,
+    abiertas, pagadas, companias, sinFacturar, deducibles, carteraHoy,
+    nFacturas: filas.length, facturado: suma(filas),
     porCobrar: suma(abiertas), vencido: suma(vencidas), nVencidas: vencidas.length,
     porVencer: suma(porVencer), nPorVencer: porVencer.length,
     comisiones: vencidas.reduce((a, x) => a + x.e.comision, 0),

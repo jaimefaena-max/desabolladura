@@ -379,6 +379,16 @@ describe('cobranza a compañías (Ley 19.983)', () => {
     expect(r.abiertas[0].e.estado).toBe('vencida');
     expect(r.companias.find(c => c.nombre === 'Compañía Demo Norte')!.diasPromedio).toBe(38);
   });
+  it('filtra la cobranza por mes de emisión y no pierde de vista la cartera total', () => {
+    const todas = resumenCobranza(ordenesDemo());
+    const f = todas.abiertas[0].f, mes = f.emitida.slice(0, 7);
+    const r = resumenCobranza(ordenesDemo(), undefined, { desde: mes, hasta: mes });
+    expect(r.nFacturas).toBeLessThan(todas.nFacturas);
+    expect(r.abiertas.some(x => x.f.numero === f.numero)).toBe(true);
+    expect([...r.abiertas, ...r.pagadas].every(x => x.f.emitida.startsWith(mes))).toBe(true);
+    expect(r.carteraHoy).toBe(todas.porCobrar); // la deuda de hoy no depende del rango elegido
+    expect(r.porCobrar).toBeLessThan(todas.porCobrar);
+  });
   it('el recordatorio cita la ley, los días de atraso y la comisión', () => {
     const r = resumenCobranza(ordenesDemo());
     const correo = decodeURIComponent(correoRecordatorio(r.abiertas[0], 'Taller Demo'));

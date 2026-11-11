@@ -10,7 +10,8 @@ import { costoHoraDelMes, insumoDe, leerCostos, restablecerCostos } from '../lib
 import { ExpedienteDoc } from '../components/Expediente';
 import { cobradaSeguro, estadoFactura, nombreEstado, siguienteFactura, vencimiento } from '../lib/cobranza';
 import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
-import { alertas, CMF_REPARACION, conEvento, diasEnTaller, enlaceWhatsApp, enPeriodo, mesesElegibles, metricas, nombreEtapa, semaforoPlazo, ETAPAS, etapaDe, mensajeCliente, ultimosMeses, type Periodo } from '../lib/automatizacion';
+import { alertas, CMF_REPARACION, conEvento, diasEnTaller, enlaceWhatsApp, enPeriodo, metricas, nombreEtapa, semaforoPlazo, ETAPAS, etapaDe, mensajeCliente, ultimosMeses } from '../lib/automatizacion';
+import BarraPeriodo, { textoRango, usePeriodo, type Preset } from '../components/Periodo';
 import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../lib/gemini';
 import { reducirImagen } from '../lib/padron';
 import { clp, estadosPiezas, fecha, fechaLocal, itemsCobrables, progreso, TRABAJOS, tituloItem, totales } from '../lib/piezas';
@@ -99,30 +100,10 @@ export function Ordenes() {
   );
 }
 
-const CLAVE_PERIODO = 'dp.reportes.periodo';
-
-/** El rango elegido se recuerda: quien revisó septiembre-octubre lo vuelve a ver al entrar. */
-function leerPeriodo(): Periodo | null {
-  try {
-    const v = JSON.parse(localStorage.getItem(CLAVE_PERIODO) ?? 'null');
-    return v && typeof v.desde === 'string' && typeof v.hasta === 'string' ? v : null;
-  } catch { return null; }
-}
-
 export function Reportes() {
   const ordenes = useOrdenes(), empresa = useEmpresa();
   const hoy = new Date();
-  const meses = mesesElegibles(ordenes, hoy);
-  const todo: Periodo = { desde: meses[0].clave, hasta: meses[meses.length - 1].clave };
-  /** El rango guardado puede apuntar a meses que ya no existen: se recorta al historial real. */
-  const acotar = (p: Periodo): Periodo => ({
-    desde: p.desde < todo.desde ? todo.desde : p.desde > todo.hasta ? todo.hasta : p.desde,
-    hasta: p.hasta > todo.hasta ? todo.hasta : p.hasta < todo.desde ? todo.desde : p.hasta,
-  });
-  const [periodo, setPeriodo] = useState<Periodo>(() => acotar(leerPeriodo() ?? ultimosMeses(6, hoy)));
-  useEffect(() => {
-    try { localStorage.setItem(CLAVE_PERIODO, JSON.stringify(periodo)); } catch { /* sin espacio: el rango dura la sesión */ }
-  }, [periodo]);
+  const { periodo, setPeriodo, meses, todo } = usePeriodo('reportes', ordenes, h => ultimosMeses(6, h));
   const m = metricas(ordenes, hoy, periodo);
   const cerradas = ordenes.filter(o => enPeriodo(o.entregadaEl, periodo));
   const rb = resumenRentabilidad(cerradas, empresa, p => costoHoraDelMes(empresa.id, p), (tr, s) => insumoDe(leerCostos(empresa.id), tr, s));
@@ -130,40 +111,21 @@ export function Reportes() {
   const tope = Math.max(...m.meses.map(x => x.valor), 1);
   const topeTipo = Math.max(...m.tipos.map(t => t[1]), 1);
   const nombreTipo = (id: string) => TRABAJOS.find(t => t.id === id)?.nombre ?? id;
-  const presets: { id: string; texto: string; p: Periodo }[] = [
+  const presets: Preset[] = [
     { id: 'mes', texto: 'Este mes', p: ultimosMeses(1, hoy) },
     { id: '3m', texto: '3 meses', p: ultimosMeses(3, hoy) },
     { id: '6m', texto: '6 meses', p: ultimosMeses(6, hoy) },
     { id: 'anio', texto: 'Este año', p: { desde: `${hoy.getFullYear()}-01`, hasta: ultimosMeses(1, hoy).hasta } },
     { id: 'todo', texto: 'Todo', p: todo },
   ];
-  const activo = (p: Periodo) => p.desde === periodo.desde && p.hasta === periodo.hasta;
-  const ponerDesde = (v: string) => setPeriodo({ desde: v, hasta: v > periodo.hasta ? v : periodo.hasta });
-  const ponerHasta = (v: string) => setPeriodo({ desde: v < periodo.desde ? v : periodo.desde, hasta: v });
   const larga = (clave: string) => meses.find(x => x.clave === clave)?.larga ?? clave;
   return (
     <Pantalla titulo="Reportes" sub="Cómo va el negocio, calculado con las órdenes del taller.">
-      <div className="periodo">
-        <div className="segmentos" role="group" aria-label="Rangos rápidos">
-          {presets.map(x => (
-            <button key={x.id} aria-pressed={activo(x.p)} className={activo(x.p) ? 'on' : ''} onClick={() => setPeriodo(x.p)}>{x.texto}</button>
-          ))}
-        </div>
-        <label className="campo"><span>Desde</span>
-          <select value={periodo.desde} onChange={e => ponerDesde(e.target.value)}>
-            {meses.map(x => <option key={x.clave} value={x.clave}>{x.larga}</option>)}
-          </select>
-        </label>
-        <label className="campo"><span>Hasta</span>
-          <select value={periodo.hasta} onChange={e => ponerHasta(e.target.value)}>
-            {meses.map(x => <option key={x.clave} value={x.clave}>{x.larga}</option>)}
-          </select>
-        </label>
-      </div>
+      <BarraPeriodo meses={meses} periodo={periodo} setPeriodo={setPeriodo} presets={presets} etiqueta="Rangos rápidos" />
       <p className="pista periodo-resumen">
         {m.entregadas > 0
-          ? <>{larga(periodo.desde)} a {larga(periodo.hasta)}: <b>{m.entregadas}</b> {m.entregadas === 1 ? 'orden entregada' : 'órdenes entregadas'}, {m.cobradas} cobradas.</>
-          : <>{larga(periodo.desde)} a {larga(periodo.hasta)}: sin órdenes entregadas.</>}
+          ? <>{textoRango(periodo, larga)}: <b>{m.entregadas}</b> {m.entregadas === 1 ? 'orden entregada' : 'órdenes entregadas'}, {m.cobradas} cobradas.</>
+          : <>{textoRango(periodo, larga)}: sin órdenes entregadas.</>}
         {m.abierto
           ? <> {m.enTaller} {m.enTaller === 1 ? 'auto sigue' : 'autos siguen'} en taller; cuentan cuando se entregan.</>
           : <> Hoy hay {m.enTaller} {m.enTaller === 1 ? 'auto' : 'autos'} en taller, fuera de este período.</>}

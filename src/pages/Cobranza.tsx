@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Check, EnvelopeSimple, Scales } from '../components/iconos';
+import BarraPeriodo, { textoRango, usePeriodo, type Preset } from '../components/Periodo';
 import { ir, Pantalla } from '../components/ui';
-import { conEvento } from '../lib/automatizacion';
+import { conEvento, ultimosMeses } from '../lib/automatizacion';
 import { cobradaSeguro, correoRecordatorio, nombreEstado, resumenCobranza, vencimiento, type FilaCobranza } from '../lib/cobranza';
 import { clp, fecha, fechaLocal, totales } from '../lib/piezas';
 import { actualizar, useEmpresa, useOrdenes } from '../lib/store';
@@ -29,12 +30,29 @@ function Pagar({ x }: { x: FilaCobranza }) {
  */
 export function Cobranza() {
   const ordenes = useOrdenes(), empresa = useEmpresa();
-  const r = resumenCobranza(ordenes);
+  const hoy = new Date();
+  // En Cobranza el rango arranca en «Todo»: el dueño entra a ver su plata pendiente, no un mes suelto.
+  const { periodo, setPeriodo, meses, todo } = usePeriodo('cobranza', ordenes, (_, t) => t);
+  const r = resumenCobranza(ordenes, undefined, periodo);
   const [verPagadas, setVerPagadas] = useState(false);
   const lista = verPagadas ? r.pagadas : r.abiertas;
+  const presets: Preset[] = [
+    { id: 'todo', texto: 'Todo', p: todo },
+    { id: 'mes', texto: 'Este mes', p: ultimosMeses(1, hoy) },
+    { id: '3m', texto: '3 meses', p: ultimosMeses(3, hoy) },
+    { id: 'anio', texto: 'Este año', p: { desde: `${hoy.getFullYear()}-01`, hasta: ultimosMeses(1, hoy).hasta } },
+  ];
+  const larga = (clave: string) => meses.find(x => x.clave === clave)?.larga ?? clave;
+  const fueraDelRango = r.carteraHoy !== r.porCobrar;
 
   return (
     <Pantalla titulo="Cobranza" sub="Lo que te deben las compañías de seguros y los asegurados, ordenado por urgencia.">
+      <BarraPeriodo meses={meses} periodo={periodo} setPeriodo={setPeriodo} presets={presets} etiqueta="Rangos de facturación" />
+      <p className="pista periodo-resumen">
+        {textoRango(periodo, larga)}: <b>{r.nFacturas}</b> {r.nFacturas === 1 ? 'factura emitida' : 'facturas emitidas'} por {clp(r.facturado)}.
+        {' '}Siguen impagas {r.abiertas.length}, por {clp(r.porCobrar)}.
+        {fueraDelRango && <> Cartera pendiente hoy en todo el historial: <b>{clp(r.carteraHoy)}</b>.</>}
+      </p>
       <dl className="kpis">
         <div><dt>Por cobrar a compañías</dt><dd>{clp(r.porCobrar)}</dd></div>
         <div className={r.nVencidas ? 'alerta' : ''}><dt>Vencido ({r.nVencidas})</dt><dd>{clp(r.vencido)}</dd></div>
@@ -55,7 +73,7 @@ export function Cobranza() {
               <button aria-pressed={verPagadas} className={verPagadas ? 'on' : ''} onClick={() => setVerPagadas(true)}>Pagadas ({r.pagadas.length})</button>
             </div>
           </div>
-          {lista.length === 0 && <p className="vacio">{verPagadas ? 'Aún no hay facturas pagadas.' : 'No hay facturas por cobrar. ¡Todo al día!'}</p>}
+          {lista.length === 0 && <p className="vacio">{verPagadas ? 'Sin facturas pagadas en este período.' : r.nFacturas ? 'No queda nada por cobrar en este período. ¡Todo al día!' : 'Sin facturas emitidas en este período.'}</p>}
           <ul className="cb-facturas">
             {lista.map(x => {
               const v = x.o.vehiculo;
