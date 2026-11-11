@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { boletaEjemplo, leerBoletaConOCR } from '../lib/boletas';
 import {
-  archivarGasto, alertas, calculoMes, guardarBoleta, guardarGasto, guardarTrabajador, leerCostos,
-  mesActual, mesesAtras, nombreMes, nuevoGasto, nuevoTrabajador, quitarTrabajador,
-  restablecerCostos, useCostos, type Boleta, type Gasto, type Trabajador,
+  archivarGasto, alertas, calculoMes, guardarBoleta, guardarGasto, guardarInsumo, guardarTrabajador, insumoCorregido,
+  insumoDe, leerCostos, mesActual, mesesAtras, nombreMes, nuevoGasto, nuevoTrabajador, quitarTrabajador,
+  restablecerCostos, useCostos, type BaseCostos, type Boleta, type Gasto, type Trabajador,
 } from '../lib/costos';
 import { guardarFoto, leerFoto } from '../lib/fotos';
+import { TRABAJOS } from '../lib/piezas';
+import { MARGEN_OBJETIVO } from '../lib/rentabilidad';
+import type { Severidad, Trabajo } from '../lib/types';
 import { reducirImagen } from '../lib/padron';
-import { uid, useEmpresa } from '../lib/store';
-import { Camera, Plus, Receipt, Trash, UsersThree, Warning } from './iconos';
+import { editarEmpresa, uid, useEmpresa } from '../lib/store';
+import { Camera, Package, Plus, Receipt, Scales, Trash, UsersThree, Warning } from './iconos';
 
 const clp = (n: number) => '$' + Math.round(n).toLocaleString('es-CL');
 const hoyISO = () => new Date().toISOString().slice(0, 10);
@@ -104,6 +107,26 @@ export default function Costos() {
         )}
       </section>
 
+      <section className="ajuste-tarjeta costos-ancho">
+        <h2><Package size={22} /> Insumos por trabajo</h2>
+        <p className="sub">Pintura, masilla, lija y demás, por tamaño de daño. Salen de una tabla típica del rubro: si el taller compra a otro precio, corrígelo aquí y la ganancia se calcula con tus números.</p>
+        <div className="insumos-tabla">
+          <div className="insumos-fila insumos-cabeza"><span>Trabajo</span><span>Leve</span><span>Medio</span><span>Fuerte</span><span /></div>
+          {TRABAJOS.map(x => <FilaInsumo key={x.id} empresaId={empresa.id} bd={bd} id={x.id} nombre={x.nombre} />)}
+          <FilaInsumo empresaId={empresa.id} bd={bd} id="general" nombre="Tareas generales" />
+        </div>
+        <p className="pista">Los repuestos no van aquí: su costo se anota en cada orden.</p>
+      </section>
+
+      <section className="ajuste-tarjeta">
+        <h2><Scales size={22} /> Precio de venta</h2>
+        <p className="sub">Margen que quieres dejar en cada trabajo. Al cobrar, si un monto queda por debajo, el sistema avisa y sugiere el mínimo.</p>
+        <label className="campo"><span>Margen objetivo (%)</span>
+          <input inputMode="numeric" value={empresa.margenObjetivo ?? MARGEN_OBJETIVO}
+            onChange={e => editarEmpresa({ margenObjetivo: Math.min(90, Number(e.target.value.replace(/\D/g, '')) || 0) })} />
+        </label>
+      </section>
+
       {avisos.length > 0 && (
         <section className="ajuste-tarjeta">
           <h2><Warning size={22} /> Avisos</h2>
@@ -121,6 +144,27 @@ export default function Costos() {
 
       {boleta && <HojaBoleta empresaId={empresa.id} gastoId={boleta.gastoId} periodo={boleta.periodo} onCerrar={() => setBoleta(null)} />}
     </>
+  );
+}
+
+const SEVERIDADES: Severidad[] = ['leve', 'medio', 'fuerte'];
+
+/** Una fila de la tabla de insumos: lo que gasta ese trabajo según el tamaño del daño. */
+function FilaInsumo({ empresaId, bd, id, nombre }: { empresaId: string; bd: BaseCostos; id: Trabajo | 'general'; nombre: string }) {
+  const valores = { leve: insumoDe(bd, id, 'leve'), medio: insumoDe(bd, id, 'medio'), fuerte: insumoDe(bd, id, 'fuerte') };
+  const corregido = insumoCorregido(bd, id);
+  const poner = (s: Severidad, texto: string) => guardarInsumo(empresaId, id, { ...valores, [s]: Number(texto.replace(/\D/g, '')) || 0 });
+  return (
+    <div className="insumos-fila">
+      <span className="insumos-nombre">{nombre}</span>
+      {SEVERIDADES.map(s => (
+        <input key={s} inputMode="numeric" aria-label={`Insumos de ${nombre}, daño ${s}`}
+          value={valores[s].toLocaleString('es-CL')} onChange={e => poner(s, e.target.value)} />
+      ))}
+      {corregido
+        ? <button className="enlace" onClick={() => guardarInsumo(empresaId, id)}>Volver a la tabla</button>
+        : <small>típico</small>}
+    </div>
   );
 }
 

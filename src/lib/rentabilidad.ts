@@ -1,3 +1,4 @@
+import { INSUMOS_REFERENCIA } from './costos';
 import { itemsCobrables, TRABAJOS, totales } from './piezas';
 import type { Empresa, Item, Orden, Severidad, Trabajo } from './types';
 
@@ -21,15 +22,15 @@ const HORAS: Record<Trabajo | 'general', Record<Severidad, number>> = {
   general: { leve: 1, medio: 1, fuerte: 1 },
 };
 
-/** Pintura e insumos por trabajo (pesos netos): masilla y lija en desabolladura; pintura, barniz y aparejo al pintar. */
-const INSUMOS: Record<Trabajo | 'general', Record<Severidad, number>> = {
-  desabolladura: { leve: 10000, medio: 18000, fuerte: 28000 },
-  pintura: { leve: 45000, medio: 75000, fuerte: 110000 },
-  cambio: { leve: 5000, medio: 5000, fuerte: 8000 },
-  plastico: { leve: 12000, medio: 18000, fuerte: 25000 },
-  pulido: { leve: 6000, medio: 9000, fuerte: 14000 },
-  general: { leve: 0, medio: 0, fuerte: 0 },
-};
+/** Pintura e insumos: manda la tabla que corrigió el administrador; si no, la de referencia. */
+export type ResolverInsumo = (trabajo: Trabajo | 'general', severidad: Severidad) => number;
+const insumoDeReferencia: ResolverInsumo = (t, s) => INSUMOS_REFERENCIA[t][s];
+
+/** Margen que el taller quiere dejar en cada trabajo. Bajo esto, al cobrar salta el aviso. */
+export const MARGEN_OBJETIVO = 30;
+
+/** Precio al que el trabajo cubre su costo y deja el margen pedido. */
+export const precioMinimo = (costo: number, margen = MARGEN_OBJETIVO) => Math.ceil(costo / (1 - margen / 100) / 100) * 100;
 
 /** Si aún no se anota lo que costó un repuesto, se estima como la mitad de lo cobrado por ese cambio. */
 const REPUESTO_SOBRE_COBRO = .5;
@@ -43,8 +44,12 @@ export const horasEstimadas = (i: Item) => HORAS[i.trabajo][i.severidad ?? 'medi
  */
 export type ResolverHora = (periodo: string) => number | undefined;
 
-function horaDe(empresa: Pick<Empresa, 'costoHora'>, periodo: string, resolver?: ResolverHora) {
-  return empresa.costoHora ?? resolver?.(periodo) ?? COSTO_HORA_DEFECTO;
+/**
+ * La hora que se está usando. Si la orden ya guardó la suya al entregarse, esa manda: una boleta
+ * que llegue atrasada corrige los meses siguientes, no la historia de un trabajo ya cerrado.
+ */
+export function horaDe(o: Pick<Orden, 'creada' | 'costoHoraAplicado'>, empresa: Pick<Empresa, 'costoHora'>, resolver?: ResolverHora) {
+  return empresa.costoHora ?? o.costoHoraAplicado ?? resolver?.(o.creada.slice(0, 7)) ?? COSTO_HORA_DEFECTO;
 }
 
 export interface LineaCosto { item: Item; horas: number; horasReales: boolean; manoObra: number; insumos: number; repuesto: number; repuestoReal: boolean }
@@ -53,14 +58,14 @@ export type Semaforo = 'buena' | 'justa' | 'baja' | 'perdida';
 export const semaforoMargen = (margen: number): Semaforo => (margen < 0 ? 'perdida' : margen < 15 ? 'baja' : margen < 30 ? 'justa' : 'buena');
 
 /** Cuentas de una orden. `estimado` indica si algún costo aún no es real (horas o repuesto sin anotar). */
-export function rentabilidad(o: Orden, empresa: Pick<Empresa, 'costoHora'>, resolver?: ResolverHora) {
-  const hora = horaDe(empresa, o.creada.slice(0, 7), resolver);
+export function rentabilidad(o: Orden, empresa: Pick<Empresa, 'costoHora'>, resolver?: ResolverHora, insumo: ResolverInsumo = insumoDeReferencia) {
+  const hora = horaDe(o, empresa, resolver);
   const lineas: LineaCosto[] = o.items.map(i => {
     const horas = i.horas ?? horasEstimadas(i);
     const rep = i.trabajo === 'cambio' ? o.repuestos.find(r => r.itemId === i.id) : undefined;
     const repuestoReal = rep?.costo !== undefined;
     const repuesto = i.trabajo !== 'cambio' ? 0 : repuestoReal ? rep!.costo! : Math.round((i.monto ?? 0) * REPUESTO_SOBRE_COBRO);
-    return { item: i, horas, horasReales: i.horas !== undefined, manoObra: Math.round(horas * hora), insumos: INSUMOS[i.trabajo][i.severidad ?? 'medio'], repuesto, repuestoReal: i.trabajo !== 'cambio' || repuestoReal };
+    return { item: i, horas, horasReales: i.horas !== undefined, manoObra: Math.round(horas * hora), insumos: insumo(i.trabajo, i.severidad ?? 'medio'), repuesto, repuestoReal: i.trabajo !== 'cambio' || repuestoReal };
   });
   const suma = (k: 'manoObra' | 'insumos' | 'repuesto' | 'horas') => lineas.reduce((a, l) => a + l[k], 0);
   const ingreso = totales(o).neto;
@@ -76,9 +81,9 @@ export function rentabilidad(o: Orden, empresa: Pick<Empresa, 'costoHora'>, reso
 }
 
 /** Para el dueño: margen total y qué trabajos y qué pagadores dejan más (o menos) plata. */
-export function resumenRentabilidad(ordenes: Orden[], empresa: Pick<Empresa, 'costoHora'>, resolver?: ResolverHora) {
+export function resumenRentabilidad(ordenes: Orden[], empresa: Pick<Empresa, 'costoHora'>, resolver?: ResolverHora, insumo?: ResolverInsumo) {
   const conMonto = ordenes.filter(o => totales(o).neto > 0 && !itemsCobrables(o).some(i => i.monto === null));
-  const filas = conMonto.map(o => ({ o, r: rentabilidad(o, empresa, resolver) }));
+  const filas = conMonto.map(o => ({ o, r: rentabilidad(o, empresa, resolver, insumo) }));
   const ingreso = filas.reduce((a, x) => a + x.r.ingreso, 0), ganancia = filas.reduce((a, x) => a + x.r.ganancia, 0);
 
   // Por tipo de trabajo: lo cobrado de cada ítem contra su propio costo.

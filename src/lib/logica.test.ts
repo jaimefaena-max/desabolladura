@@ -8,7 +8,7 @@ import { clp, estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
 import { alertas, CMF_REPARACION, diasEnTaller, diasTrabajo, enlaceWhatsApp, etapaDe, mensajeCliente, metricas, semaforoPlazo, sincronizar, sumarHabiles } from './automatizacion';
 import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
-import { COSTO_HORA_DEFECTO, horasEstimadas, rentabilidad, resumenRentabilidad, semaforoMargen } from './rentabilidad';
+import { COSTO_HORA_DEFECTO, horaDe, horasEstimadas, MARGEN_OBJETIVO, precioMinimo, rentabilidad, resumenRentabilidad, semaforoMargen } from './rentabilidad';
 import { diasEntre, estadoRepuesto, resumenRepuestos, textoEstado } from './repuestos';
 import { cobradaSeguro, COMISION_COBRANZA, correoRecordatorio, estadoFactura, resumenCobranza, vencimiento } from './cobranza';
 import type { Item, Orden } from './types';
@@ -442,6 +442,22 @@ describe('rentabilidad por orden', () => {
     expect(r.repuestos).toBe(24000);
     expect(r.estimado).toBe(false);
     expect(r.semaforo).toBe('perdida');
+  });
+  it('la hora fijada al entregar no cambia cuando llega una boleta atrasada', () => {
+    const o = { ...orden(1042), costoHoraAplicado: 12000 };
+    expect(horaDe(o, {}, () => 99000)).toBe(12000);
+    expect(rentabilidad(o, {}, () => 99000).manoObra).toBe(Math.round(rentabilidad(o, { costoHora: 12000 }).horas * 12000));
+  });
+  it('el precio mínimo cubre el costo y deja el margen pedido', () => {
+    expect(MARGEN_OBJETIVO).toBe(30);
+    const p = precioMinimo(10000);
+    expect(p).toBe(14300);
+    expect(Math.round(((p - 10000) / p) * 100)).toBeGreaterThanOrEqual(30);
+    expect(precioMinimo(10000, 0)).toBe(10000);
+  });
+  it('la ganancia usa los insumos corregidos por el taller', () => {
+    const o = orden(1042);
+    expect(rentabilidad(o, {}, undefined, () => 500000).insumos).toBe(500000 * rentabilidad(o, {}).lineas.length);
   });
   it('el costo de la hora del taller cambia la cuenta', () => {
     const o = orden(1042);

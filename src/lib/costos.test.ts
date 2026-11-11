@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { interpretarMontoBoleta, interpretarPeriodoBoleta } from './boletas';
 import {
-  CARGAS_DEFECTO, alertas, calculoMes, costoHoraDelMes, costosDemo, gastoEnMes, guardarBoleta,
-  leerCostos, mesesAtras, nombreMes, periodoDe, restablecerCostos, SEMANAS_MES, type BaseCostos,
+  CARGAS_DEFECTO, alertas, calculoMes, costoHoraDelMes, costosDemo, gastoEnMes, guardarBoleta, guardarInsumo,
+  insumoCorregido, insumoDe, leerCostos, mesesAtras, nombreMes, periodoDe, restablecerCostos, SEMANAS_MES,
+  type BaseCostos,
 } from './costos';
 
 const trabajador = (extra: Partial<BaseCostos['trabajadores'][number]> = {}) => ({
@@ -17,6 +18,7 @@ const base = (): BaseCostos => ({
     { id: 'b1', gastoId: 'luz', periodo: '2026-09', monto: 48200, registradaEl: '2026-09-10T00:00:00.000Z' },
     { id: 'b2', gastoId: 'luz', periodo: '2026-10', monto: 52700, registradaEl: '2026-10-10T00:00:00.000Z' },
   ],
+  insumos: {},
 });
 
 describe('meses', () => {
@@ -124,6 +126,24 @@ describe('alertas', () => {
     const bd = base();
     bd.trabajadores = [];
     expect(alertas(bd).some(a => /No hay trabajadores activos/.test(a.texto))).toBe(true);
+  });
+});
+
+describe('insumos', () => {
+  beforeEach(() => restablecerCostos('prueba-insumo'));
+
+  it('usa la tabla de referencia mientras el taller no la corrija', () => {
+    const bd = leerCostos('prueba-insumo');
+    expect(insumoDe(bd, 'pintura', 'fuerte')).toBe(110000);
+    expect(insumoCorregido(bd, 'pintura')).toBe(false);
+  });
+
+  it('guarda la corrección del taller y puede volver a la referencia', () => {
+    guardarInsumo('prueba-insumo', 'pintura', { leve: 1, medio: 2, fuerte: 3 });
+    expect(insumoDe(leerCostos('prueba-insumo'), 'pintura', 'fuerte')).toBe(3);
+    expect(insumoCorregido(leerCostos('prueba-insumo'), 'pintura')).toBe(true);
+    guardarInsumo('prueba-insumo', 'pintura');
+    expect(insumoDe(leerCostos('prueba-insumo'), 'pintura', 'fuerte')).toBe(110000);
   });
 });
 

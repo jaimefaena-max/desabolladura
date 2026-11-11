@@ -111,10 +111,17 @@ export interface Orden {
   vistas?: Partial<Record<Vista, string>>;
   /** Formato anterior (una sola imagen en data URL): se sigue leyendo como vista frontal. */
   imagenIA?: string;
+  /**
+   * Costo de la hora con el que se cotizó, fijado al entregar el vehículo. Una boleta que llega
+   * atrasada corrige los meses que vienen, pero no reescribe la ganancia de un trabajo ya cerrado.
+   */
+  costoHoraAplicado?: number | null;
 }
 
 export interface Empresa {
   id: string; nombre: string; logo?: string; acento: string; whatsapp: string;
   /** Costo de una hora de maestro para el taller (sueldo + leyes sociales), en pesos. */
   costoHora?: number;
+  /** Margen (%) que el taller quiere dejar en cada trabajo. Bajo esto, al cobrar salta el aviso. */
+  margenObjetivo?: number;
 }

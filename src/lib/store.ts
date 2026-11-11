@@ -69,6 +69,7 @@ function leerEmpresas(): Empresa[] {
       ...e,
       acento: typeof e.acento === 'string' && /^#[0-9a-f]{6}$/i.test(e.acento) ? e.acento : ACENTO,
       whatsapp: typeof e.whatsapp === 'string' ? e.whatsapp : '',
+      margenObjetivo: typeof e.margenObjetivo === 'number' && e.margenObjetivo >= 0 && e.margenObjetivo < 100 ? e.margenObjetivo : undefined,
     }) as Empresa);
   return validas.length ? validas : [empresaDemo()];
 }
@@ -85,6 +86,7 @@ function repararOrden(o: unknown): Orden | null {
     notas: typeof o.notas === 'string' ? o.notas : '',
     entrega: typeof o.entrega === 'string' ? o.entrega : '',
     entregadaEl: typeof o.entregadaEl === 'string' ? o.entregadaEl : null,
+    costoHoraAplicado: typeof o.costoHoraAplicado === 'number' && o.costoHoraAplicado > 0 ? o.costoHoraAplicado : null,
   } as unknown as Orden;
 }
 

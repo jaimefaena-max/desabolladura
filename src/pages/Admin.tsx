@@ -4,9 +4,9 @@ import { Auto3D, Barra, forma, FotoGuardada, FotoOrden, Galeria, GaleriaVistas, 
 import { CotizacionDoc, imprimirDocumento } from '../components/Cotizacion';
 import FilaRepuesto from '../components/FilaRepuesto';
 import Rentabilidad, { TEXTO_SEMAFORO } from '../components/Rentabilidad';
-import { resumenRentabilidad } from '../lib/rentabilidad';
+import { horaDe, MARGEN_OBJETIVO, precioMinimo, rentabilidad, resumenRentabilidad } from '../lib/rentabilidad';
 import Costos from '../components/Costos';
-import { costoHoraDelMes, restablecerCostos } from '../lib/costos';
+import { costoHoraDelMes, insumoDe, leerCostos, restablecerCostos } from '../lib/costos';
 import { ExpedienteDoc } from '../components/Expediente';
 import { cobradaSeguro, estadoFactura, nombreEstado, siguienteFactura, vencimiento } from '../lib/cobranza';
 import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
@@ -102,7 +102,7 @@ export function Ordenes() {
 export function Reportes() {
   const ordenes = useOrdenes(), empresa = useEmpresa();
   const m = metricas(ordenes);
-  const rb = resumenRentabilidad(ordenes, empresa, p => costoHoraDelMes(empresa.id, p));
+  const rb = resumenRentabilidad(ordenes, empresa, p => costoHoraDelMes(empresa.id, p), (tr, s) => insumoDe(leerCostos(empresa.id), tr, s));
   const topeMargen = Math.max(...rb.tipos.map(t => Math.abs(t.margen)), ...rb.pagadores.map(p => Math.abs(p.margen)), 1);
   const tope = Math.max(...m.meses.map(x => x.valor), 1);
   const topeTipo = Math.max(...m.tipos.map(t => t[1]), 1);
@@ -172,11 +172,18 @@ export function Reportes() {
 }
 
 function FilaItem({ o, i }: { o: Orden; i: Item }) {
+  const empresa = useEmpresa();
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState('');
   const v = o.vehiculo, s = i.sugerido;
   const poner = (c: Partial<Item>) => actualizar(o.id, x => ({ ...x, items: x.items.map(y => (y.id === i.id ? { ...y, ...c } : y)) }));
   const titulo = tituloItem(i, v.carroceria);
+  // Lo que cuesta este trabajo con los costos cargados: sirve para no cobrar por debajo.
+  const linea = rentabilidad(o, empresa, p => costoHoraDelMes(empresa.id, p), (tr, sv) => insumoDe(leerCostos(empresa.id), tr, sv)).lineas.find(l => l.item.id === i.id);
+  const costo = linea ? linea.manoObra + linea.insumos + linea.repuesto : 0;
+  const objetivo = empresa.margenObjetivo ?? MARGEN_OBJETIVO;
+  const minimo = precioMinimo(costo, objetivo);
+  const margen = i.monto && i.monto > 0 ? Math.round(((i.monto - costo) / i.monto) * 100) : null;
 
   const buscar = async () => {
     setBuscando(true); setError('');
@@ -201,6 +208,12 @@ function FilaItem({ o, i }: { o: Orden; i: Item }) {
             onChange={e => { const n = e.target.value.replace(/\D/g, ''); poner({ monto: n ? Number(n) : null }); }} />
         </label>
         {s && !o.cobrada && <button className="enlace" onClick={() => poner({ monto: Math.round((s.min + s.max) / 10000) * 5000 })}>Usar valor medio</button>}
+        {!o.cobrada && margen !== null && margen < objetivo && (
+          <p className="aviso-atencion" role="alert">
+            {margen < 0 ? 'Debajo del costo' : `Margen ${margen} %, la meta es ${objetivo} %`} · cuesta {clp(costo)} · cobra al menos {clp(minimo)}.{' '}
+            <button className="enlace" onClick={() => poner({ monto: minimo })}>Usar {clp(minimo)}</button>
+          </p>
+        )}
       </div>
     </li>
   );
@@ -315,9 +328,9 @@ function Acciones({ o }: { o: Orden }) {
       {o.aprobacion === 'pendiente' && !seguro && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={enviar}><PaperPlaneTilt size={24} /> Enviar presupuesto al cliente</button>}
       {esperando && <RespuestaCliente o={o} aprobar={aprobar} />}
       {(o.aprobacion === 'pendiente' && seguro) && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={() => aprobar()}><CheckCircle size={24} /> La compañía autorizó</button>}
-      {et === 'entrega' && <button className="btn primario grande ancho" onClick={() => cambiar({ entregadaEl: fechaLocal(), items: o.items.map(i => ({ ...i, estado: 'listo' as const })) }, 'Vehículo entregado')}><Truck size={24} /> Marcar como entregado</button>}
+      {et === 'entrega' && <button className="btn primario grande ancho" onClick={() => cambiar({ entregadaEl: fechaLocal(), costoHoraAplicado: Math.round(horaDe(o, empresa, p => costoHoraDelMes(empresa.id, p))), items: o.items.map(i => ({ ...i, estado: 'listo' as const })) }, 'Vehículo entregado')}><Truck size={24} /> Marcar como entregado</button>}
       {seguro ? <CobroSeguro o={o} /> : o.cobrada ? <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada</p> : (
-        <button className="btn secundario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ cobrada: true }, 'Orden cobrada')}>Marcar como cobrada</button>
+        <button className="btn secundario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ cobrada: true, costoHoraAplicado: o.costoHoraAplicado ?? Math.round(horaDe(o, empresa, p => costoHoraDelMes(empresa.id, p))) }, 'Orden cobrada')}>Marcar como cobrada</button>
       )}
       {o.cliente.telefono && !esperando && <a className="btn secundario grande ancho" href={enlaceWhatsApp(o.cliente.telefono, `${mensajeCliente(o, empresa)}
 ${enlaceSeguimiento(o, empresa.nombre)}`)} target="_blank" rel="noreferrer noopener"><WhatsappLogo size={26} /> Avisar por WhatsApp</a>}

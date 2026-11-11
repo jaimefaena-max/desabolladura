@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { ChartPieSlice } from './iconos';
 import { conEvento } from '../lib/automatizacion';
-import { calculoMes, costoHoraDelMes, leerCostos, nombreMes, periodoDe } from '../lib/costos';
+import { calculoMes, costoHoraDelMes, insumoDe, leerCostos, nombreMes, periodoDe } from '../lib/costos';
 import { clp } from '../lib/piezas';
-import { COSTO_HORA_DEFECTO, rentabilidad, type Semaforo } from '../lib/rentabilidad';
+import { horaDe, rentabilidad, type Semaforo } from '../lib/rentabilidad';
 import { actualizar, useEmpresa } from '../lib/store';
 import type { Orden, Repuesto } from '../lib/types';
 
@@ -28,10 +28,12 @@ function CostoRepuesto({ o, r }: { o: Orden; r: Repuesto }) {
 /** ¿Gané o perdí con este auto? Lo cobrado (neto) menos mano de obra, pintura e insumos y repuestos. */
 export default function Rentabilidad({ o }: { o: Orden }) {
   const empresa = useEmpresa();
-  const r = rentabilidad(o, empresa, p => costoHoraDelMes(empresa.id, p));
-  // El costo de la hora sale de los costos cargados para el mes de la orden, no de un número fijo.
-  const mes = calculoMes(leerCostos(empresa.id), periodoDe(o.creada));
-  const hora = empresa.costoHora ?? (mes.costoHora > 0 ? Math.round(mes.costoHora) : COSTO_HORA_DEFECTO);
+  // La hora y los insumos salen de los costos cargados en Ajustes, no de una tabla fija.
+  const bd = leerCostos(empresa.id);
+  const resolver = (p: string) => costoHoraDelMes(empresa.id, p);
+  const r = rentabilidad(o, empresa, resolver, (t, s) => insumoDe(bd, t, s));
+  const mes = calculoMes(bd, periodoDe(o.creada));
+  const hora = horaDe(o, empresa, resolver);
   if (r.ingreso === 0) return null;
   const barra = (n: number) => `${Math.max(0, Math.min(100, (n / Math.max(r.ingreso, r.costo)) * 100))}%`;
   return (
@@ -54,7 +56,10 @@ export default function Rentabilidad({ o }: { o: Orden }) {
       <p className="pista">
         {r.sinMonto ? 'Faltan montos: la ganancia cambiará al completarlos. ' : ''}
         Las horas las anota el trabajador al terminar cada tarea; las que faltan y la pintura se estiman con valores típicos. Costo de la hora de taller: {clp(hora)} de {nombreMes(periodoDe(o.creada))}
-        {empresa.costoHora ? ' (fijado a mano en Ajustes)' : mes.costoHora > 0 ? (mes.estimado ? ' (estimado: falta alguna boleta)' : ' (con las boletas del mes)') : ' (valor de referencia: carga los costos en Ajustes)'}.
+        {empresa.costoHora ? ' (fijado a mano en Ajustes)'
+          : o.costoHoraAplicado ? ' (fijado al entregar: no cambia aunque llegue una boleta atrasada)'
+          : mes.costoHora > 0 ? (mes.estimado ? ' (estimado: falta alguna boleta)' : ' (con las boletas del mes)')
+          : ' (valor de referencia: carga los costos en Ajustes)'}.
       </p>
     </section>
   );

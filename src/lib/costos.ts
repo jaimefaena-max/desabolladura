@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import type { Severidad, Trabajo } from './types';
 
 /**
  * Costos reales del taller: trabajadores con su sueldo, gastos fijos y variables, y las boletas
@@ -52,6 +53,8 @@ export interface BaseCostos {
   trabajadores: Trabajador[];
   gastos: Gasto[];
   boletas: Boleta[];
+  /** Lo que el taller corrigió a mano. Lo que no esté aquí usa la tabla de referencia. */
+  insumos: Partial<Record<string, Record<Severidad, number>>>;
 }
 
 /**
@@ -61,6 +64,20 @@ export interface BaseCostos {
  */
 export const CARGAS_DEFECTO = 12;
 export const OCUPACION_DEFECTO = 80;
+
+/**
+ * Referencia de pintura e insumos por trabajo y tipo de dano, en pesos netos: masilla y lija al
+ * desabollar; pintura, barniz y aparejo al pintar. El taller puede corregir cada fila en Ajustes;
+ * lo que no corrija usa esta tabla.
+ */
+export const INSUMOS_REFERENCIA: Record<Trabajo | 'general', Record<Severidad, number>> = {
+  desabolladura: { leve: 10000, medio: 18000, fuerte: 28000 },
+  pintura: { leve: 45000, medio: 75000, fuerte: 110000 },
+  cambio: { leve: 5000, medio: 5000, fuerte: 8000 },
+  plastico: { leve: 12000, medio: 18000, fuerte: 25000 },
+  pulido: { leve: 6000, medio: 9000, fuerte: 14000 },
+  general: { leve: 0, medio: 0, fuerte: 0 },
+};
 
 /** Semanas promedio por mes: 52 ÷ 12. */
 export const SEMANAS_MES = 52 / 12;
@@ -85,13 +102,26 @@ const guardado = {
   },
 };
 
-const vacia = (): BaseCostos => ({ trabajadores: [], gastos: [], boletas: [] });
+const vacia = (): BaseCostos => ({ trabajadores: [], gastos: [], boletas: [], insumos: {} });
 const cache = new Map<string, BaseCostos>();
 const oyentes = new Set<() => void>();
 const avisar = () => oyentes.forEach(f => f());
 
 const numero = (x: unknown) => (Number.isFinite(Number(x)) ? Number(x) : 0);
 const textoPlano = (x: unknown) => (typeof x === 'string' ? x : '');
+
+/** Solo se aceptan correcciones con las tres severidades y montos válidos. */
+function repararInsumos(crudo: unknown): BaseCostos['insumos'] {
+  if (typeof crudo !== 'object' || crudo === null) return {};
+  const salida: BaseCostos['insumos'] = {};
+  for (const [trabajo, fila] of Object.entries(crudo as Record<string, unknown>)) {
+    if (!fila || typeof fila !== 'object') continue;
+    const f = fila as Record<string, unknown>;
+    if (!['leve', 'medio', 'fuerte'].every(s => Number.isFinite(Number(f[s])))) continue;
+    salida[trabajo] = { leve: numero(f.leve), medio: numero(f.medio), fuerte: numero(f.fuerte) };
+  }
+  return salida;
+}
 
 /** Lo guardado puede venir de una versión anterior o dañado: se acepta solo lo que tiene forma. */
 function reparar(crudo: unknown): BaseCostos {
@@ -122,6 +152,7 @@ function reparar(crudo: unknown): BaseCostos {
         folio: textoPlano(b.folio) || undefined, foto: textoPlano(b.foto) || undefined,
         nota: textoPlano(b.nota) || undefined, registradaEl: textoPlano(b.registradaEl),
       })),
+    insumos: repararInsumos(o.insumos),
   };
 }
 
@@ -296,6 +327,24 @@ export function costoHoraDelMes(empresaId: string, periodo: string): number | un
   return c.horasProductivas > 0 && c.costoHora > 0 ? Math.round(c.costoHora) : undefined;
 }
 
+/**
+ * Lo que gasta en insumos ese trabajo con ese daño: lo que el taller corrigió, o la referencia.
+ */
+export function insumoDe(bd: BaseCostos, trabajo: Trabajo | 'general', severidad: Severidad): number {
+  return bd.insumos[trabajo]?.[severidad] ?? INSUMOS_REFERENCIA[trabajo][severidad];
+}
+
+/** Corregir una fila. Sin fila, vuelve a la tabla de referencia. */
+export function guardarInsumo(empresaId: string, trabajo: string, fila?: Record<Severidad, number>) {
+  const bd = leerCostos(empresaId);
+  const insumos = { ...bd.insumos };
+  if (fila) { insumos[trabajo] = fila; } else { delete insumos[trabajo]; }
+  escribir(empresaId, { ...bd, insumos });
+}
+
+/** ¿Esta fila está corregida a mano? Sirve para ofrecer «volver a la referencia». */
+export const insumoCorregido = (bd: BaseCostos, trabajo: string) => bd.insumos[trabajo] !== undefined;
+
 /* ---------------------------------------------------------------------------------------------
  * Alertas: lo que el administrador tiene que mirar
  * ------------------------------------------------------------------------------------------- */
@@ -375,5 +424,5 @@ export function costosDemo(): BaseCostos {
     }
     boletas.push({ id: `b-g-luz-${periodo}`, gastoId: 'g-luz', periodo, monto: luz[i], folio: `88${4520 + i}`, registradaEl: `${periodo}-10T12:00:00.000Z` });
   });
-  return { trabajadores: [trabajador], gastos, boletas };
+  return { trabajadores: [trabajador], gastos, boletas, insumos: {} };
 }
