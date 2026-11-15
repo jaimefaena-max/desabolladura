@@ -68,7 +68,7 @@ function Guardia({ rol, children }: { rol: 'maestro' | 'admin'; children: React.
 }
 
 function Franja() {
-  return <p className="demo-franja">Demostración: no ingreses datos reales. Los datos se guardan en este navegador.</p>;
+  return <p className="demo-franja">Demostración con datos ficticios: no ingreses datos reales. Los datos se guardan en este navegador.</p>;
 }
 
 function Rutas() {
