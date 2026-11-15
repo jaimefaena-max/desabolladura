@@ -81,7 +81,8 @@
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--fondo); color: var(--texto); font-family: 'Outfit Variable', system-ui, sans-serif; font-size: 1.25rem; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+/* Nada puede desplazar la página a los lados en el celular: el ancho lo fija la pantalla. */
+body { margin: 0; overflow-x: clip; max-width: 100%; background: var(--fondo); color: var(--texto); font-family: 'Outfit Variable', system-ui, sans-serif; font-size: 1.25rem; line-height: 1.45; -webkit-font-smoothing: antialiased; }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: clamp(2rem, 1.5rem + 2vw, 2.7rem); line-height: 1.08; letter-spacing: -.02em; font-weight: 650; }
 h2 { font-size: 1.5rem; line-height: 1.2; letter-spacing: -.01em; font-weight: 620; }
@@ -123,7 +124,7 @@ img { display: block; max-width: 100%; }
 .logo-img { width: 52px; height: 44px; object-fit: contain; border-radius: 9px; flex: none; }
 .logo-editor { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
 .logo-editor .logo-vacio, .logo-editor .logo-img { width: 92px; height: 78px; font-size: .8rem; }
-.nav-admin { display: flex; gap: .2rem; overflow-x: auto; scrollbar-width: none; flex: 1; justify-content: center; }
+.nav-admin { display: flex; gap: .2rem; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; justify-content: center; justify-content: safe center; }
 .nav-admin button { display: inline-flex; align-items: center; gap: .4rem; min-height: 50px; padding: 0 .85rem; border-radius: 11px; color: var(--suave); font-weight: 560; white-space: nowrap; transition: background-color .15s, color .15s; }
 .nav-admin button:hover { color: var(--texto); background: var(--fondo-2); }
 .nav-admin button.on { color: var(--texto); background: var(--fondo-3); }
@@ -249,6 +250,9 @@ img { display: block; max-width: 100%; }
 /* 3D */
 .viewer { width: 100%; height: 100%; touch-action: pan-y; }
 .viewer canvas { display: block; width: 100%; height: 100%; }
+/* Cualquier canvas (3D, fotos) se contiene en su caja; su tamaño de píxeles no debe ensanchar la página. */
+canvas { max-width: 100%; height: auto; }
+.viewer canvas { height: 100%; }
 .viewer-fallo { display: grid; place-items: center; color: var(--suave); text-align: center; padding: 1rem; }
 .viewer.cargando-3d { background: linear-gradient(100deg, transparent 30%, var(--brillo) 50%, transparent 70%); background-size: 220% 100%; animation: brillo 1.4s linear infinite; }
 .escena { height: clamp(260px, 42vw, 420px); border-radius: var(--r); background: radial-gradient(ellipse at 50% 35%, var(--escena-1), var(--escena-2) 72%); overflow: hidden; border: 1px solid var(--linea); }
