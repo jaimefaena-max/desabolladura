@@ -2,9 +2,10 @@ name = "patentes-zasa"
 main = "index.js"
 compatibility_date = "2026-01-01"
 
-# Quién puede llamar al servicio. Solo la demo publicada y el servidor de desarrollo local.
+# Quién puede llamar al servicio. La demo publicada (GitHub Pages y taller.solucionesconia.cl) y el servidor de desarrollo local.
+# Las vistas previas de Pages quedan fuera a propósito.
 [vars]
-ORIGENES = "https://jaimefaena-max.github.io,http://localhost:5173"
+ORIGENES = "https://jaimefaena-max.github.io,https://taller.solucionesconia.cl,http://localhost:5173"
 # boostr | getapi
 PROVEEDOR = "boostr"
 

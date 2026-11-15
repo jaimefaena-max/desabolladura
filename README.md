@@ -55,6 +55,20 @@ npm run build
 
 Un push a `main` compila y publica en GitHub Pages.
 
+### Dominio propio: taller.solucionesconia.cl
+
+Cloudflare Pages sirve la misma app en la raíz del dominio. Hay que compilar con `DEMO_BASE=/` (por defecto la base es `/desabolladura/`, la de GitHub Pages).
+
+Configuración del proyecto de Pages (panel de Cloudflare, una vez):
+
+- Repositorio: `jaimefaena-max/desabolladura`, rama de producción `main`
+- Comando de build: `npm ci && npm run build`
+- Carpeta de salida: `dist`
+- Variable de build: `DEMO_BASE` = `/`
+- Dominio personalizado: `taller.solucionesconia.cl`
+
+El origen `https://taller.solucionesconia.cl` ya está en `ORIGENES` del Worker de patentes (`infra/worker-patentes/wrangler.toml`). Para que tenga efecto hay que desplegarlo con `npx wrangler deploy` desde `infra/worker-patentes`.
+
 ### Fotos de los vehículos de la demo
 
 Se generan con el mismo camino que usa la app y se guardan en `public/autos/` y `src/lib/autosDemo.json`:

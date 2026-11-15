@@ -79,7 +79,8 @@ export default defineConfig(({ mode }) => {
   let origen = '';
   try { origen = patentes ? new URL(patentes).origin : ''; } catch { /* variable mal escrita: se ignora */ }
   return {
-    base: '/desabolladura/',
+    // GitHub Pages sirve en /desabolladura/; el dominio propio (Cloudflare Pages) sirve en /.
+    base: process.env.DEMO_BASE ?? '/desabolladura/',
     plugins: [react(), blindaje(origen)],
     build: { chunkSizeWarningLimit: 900 },
     test: { environment: 'node', include: ['src/**/*.test.ts', 'src/**/*.test.tsx'] },
