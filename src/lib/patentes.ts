@@ -23,6 +23,8 @@ export type Consulta =
  * Sin esta variable la app funciona igual, solo que la consulta automática queda apagada.
  */
 const SERVICIO = (import.meta.env.VITE_API_PATENTES ?? '').replace(/\/+$/, '');
+/** true cuando el build trae el registro real conectado (datos reales en vez del vehículo de prueba). */
+export const servicioPatentes = SERVICIO !== '';
 const MEMORIA = 'dp.patentes';
 const VIGENCIA = 30 * 24 * 60 * 60 * 1000;
 

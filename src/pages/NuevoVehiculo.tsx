@@ -5,7 +5,7 @@ import { ir, Pantalla } from '../components/ui';
 import { VISTAS } from '../lib/fichaModelo';
 import { claveGemini, fichaModeloGemini, generarVistasGemini, leerPadronGemini } from '../lib/gemini';
 import { leerConOCR, leerPatenteConOCR, padronEjemplo, reducirImagen, type DatosPadron } from '../lib/padron';
-import { carroceriaDeTipo, consultarPatente } from '../lib/patentes';
+import { carroceriaDeTipo, consultarPatente, servicioPatentes } from '../lib/patentes';
 import { PATENTE_EJEMPLO } from '../lib/patentesDemo';
 import { conEvento, sincronizar } from '../lib/automatizacion';
 import { fechaLocal } from '../lib/piezas';
@@ -253,6 +253,7 @@ type DatosIngreso = DatosPadron & { tipo?: string };
 function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?: string) => void; onManual: () => void }) {
   const fotoPadron = useRef<HTMLInputElement>(null);
   const fotoPatente = useRef<HTMLInputElement>(null);
+  const imagenPatente = useRef<HTMLInputElement>(null);
   const [estado, setEstado] = useState<{ avance: number; img: string; fuente: string } | null>(null);
   const [error, setError] = useState('');
   const [porConfirmar, setPorConfirmar] = useState<string | null>(null);
@@ -286,8 +287,11 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
       const p = await leerPatenteConOCR(img, x => setEstado(s => s && { ...s, avance: x }));
       setEstado(null);
       setPatente(p ?? '');
-      if (p) setNota('Este es el número que se leyó de la foto. Corrígelo si no coincide.');
-      else setError('No se pudo leer la patente de la foto. Escríbela abajo.');
+      if (p) {
+        // Leída la placa, se busca de inmediato: el maestro solo corrige si el registro no la encuentra.
+        setNota('Este es el número que se leyó de la foto. Corrígelo si no coincide.');
+        await buscar(p);
+      } else setError('No se pudo leer la patente de la foto. Escríbela abajo.');
     } catch (e) {
       setEstado(null); setPatente('');
       setError(`No se pudo leer la patente (${(e as Error).message}). Escríbela abajo.`);
@@ -353,7 +357,9 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
             <MagnifyingGlass size={22} weight="bold" /> {buscando ? 'Buscando…' : 'Buscar el vehículo'}
           </button>
         </form>
-        <p className="pista">Formato ABCD-12 (nuevo) o AB-1234 (antiguo). En la demo, cualquier patente carga un vehículo de prueba.</p>
+        <p className="pista">Formato ABCD-12 (nuevo) o AB-1234 (antiguo). {servicioPatentes
+          ? 'Los datos salen del registro de vehículos.'
+          : 'En la demo, cualquier patente carga un vehículo de prueba.'}</p>
         <div className="patente-acciones">
           <button className="enlace" onClick={() => { setPatente(null); setError(''); setNota(''); }}>Volver</button>
           <button className="enlace" onClick={onManual}>Escribir todos los datos a mano</button>
@@ -397,7 +403,16 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
           if (!f) return;
           try { await leerPatente(await reducirImagen(f, 2000)); } catch (err) { setError((err as Error).message); }
         }} />
+      {/* Sin `capture`: en el teléfono abre la galería, para una imagen que ya se tenía. */}
+      <input ref={imagenPatente} type="file" accept="image/*" hidden aria-label="Imagen con la patente"
+        onChange={async e => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (!f) return;
+          try { await leerPatente(await reducirImagen(f, 2000)); } catch (err) { setError((err as Error).message); }
+        }} />
       <div className="patente-acciones">
+        <button className="enlace" onClick={() => { setError(''); setNota(''); imagenPatente.current?.click(); }}>Subir una imagen con la patente</button>
         <button className="enlace" onClick={() => revisarPadron(padronEjemplo())}>Probar con un padrón de ejemplo</button>
         <button className="enlace" onClick={() => { setNota('Patente de ejemplo para la demostración.'); setPatente(PATENTE_EJEMPLO); }}>Probar con una patente de ejemplo</button>
         <button className="enlace" onClick={onManual}><PencilSimple size={18} /> Prefiero escribir todos los datos</button>

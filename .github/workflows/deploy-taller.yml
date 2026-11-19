@@ -32,6 +32,8 @@ jobs:
       - name: Compilar para la raíz del dominio
         env:
           DEMO_BASE: /
+          # Worker propio que consulta el registro de vehículos (la clave vive en Cloudflare, no aquí).
+          VITE_API_PATENTES: https://patentes-zasa.jaime-faena.workers.dev
         run: npm run build
       - name: Publicar en Cloudflare Pages
         env:
