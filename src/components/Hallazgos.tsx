@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { borrarFotos, guardarFoto } from '../lib/fotos';
-import { CATEGORIAS, MAX_DETALLE, MAX_FOTOS, nuevoHallazgo, resumenHallazgo, UBICACIONES } from '../lib/hallazgos';
+import { CATEGORIAS, MAX_DETALLE, MAX_FOTOS, MAX_HALLAZGOS, nuevoHallazgo, resumenHallazgo, UBICACIONES } from '../lib/hallazgos';
 import { reducirImagen } from '../lib/padron';
 import { uid } from '../lib/store';
 import type { Hallazgo, TipoHallazgo } from '../lib/types';
@@ -40,7 +40,8 @@ export function HallazgoForm({ autor, onGuardar, onCancelar }: { autor: string; 
   const camara = useRef<HTMLInputElement>(null), galeria = useRef<HTMLInputElement>(null);
   // Fotos que siguen «sueltas» (no guardadas en ningún hallazgo): se borran al desmontar.
   const sueltas = useRef<string[]>([]);
-  useEffect(() => () => { void borrarFotos(sueltas.current).catch(() => {}); }, []);
+  const montado = useRef(true);
+  useEffect(() => () => { montado.current = false; void borrarFotos(sueltas.current).catch(() => {}); }, []);
 
   const cambiarTipo = (t: TipoHallazgo) => { setTipo(t); setCategoria(''); setUbicacion(''); };
   const agregarFoto = async (f: File | undefined) => {
@@ -49,12 +50,14 @@ export function HallazgoForm({ autor, onGuardar, onCancelar }: { autor: string; 
     try {
       const id = uid();
       await guardarFoto(id, await reducirImagen(f, 1100));
+      // Si el formulario se cerró mientras se guardaba, la foto ya no tiene dueño.
+      if (!montado.current) { void borrarFotos([id]).catch(() => {}); return; }
       sueltas.current = [...sueltas.current, id];
       setFotos(x => [...x, id]);
     } catch {
       setError('No se pudo guardar la foto. Puede que el equipo no tenga espacio.');
     } finally {
-      setSubiendo(false);
+      if (montado.current) setSubiendo(false);
     }
   };
   const quitarFoto = (id: string) => {
@@ -176,7 +179,7 @@ export function ListaHallazgos({ hallazgos, modo, quitar, devolver, anular }: {
             </small>
             {!objetoCliente && h.detalle && <p className="hallazgo-detalle">«{h.detalle}»</p>}
             {h.anulado && <p className="hallazgo-anulado">Anulado por {h.anulado.por} el {cuando(h.anulado.el)}: {h.anulado.motivo}</p>}
-            {(h.fotos.length > 0 || fotosTaller > 0) && (
+            {!objetoCliente && (h.fotos.length > 0 || fotosTaller > 0) && (
               <div className="hallazgo-fotos">
                 {h.fotos.map((id, i) => <FotoGuardada key={id} id={id} alt={`Foto ${i + 1}: ${titulo}`} />)}
                 {Array.from({ length: fotosTaller }, (_, i) => <div key={`t${i}`} className="foto-taller" role="img" aria-label={`Foto ${i + 1} en el sistema del taller`}><Camera size={26} weight="light" /><span>Foto en el sistema del taller</span></div>)}
@@ -197,8 +200,10 @@ export function ListaHallazgos({ hallazgos, modo, quitar, devolver, anular }: {
 }
 
 /** Botón «Agregar hallazgo» + formulario. Lo usan el ingreso y la ficha del trabajador. */
-export function AgregarHallazgo({ autor, onGuardar }: { autor: string; onGuardar: (h: Hallazgo) => void }) {
+export function AgregarHallazgo({ autor, onGuardar, cantidad }: { autor: string; onGuardar: (h: Hallazgo) => void; cantidad: number }) {
   const [abierto, setAbierto] = useState(false);
+  // Tope por orden: más allá, las fotos quedarían guardadas sin hallazgo.
+  if (cantidad >= MAX_HALLAZGOS) return <p className="pista">Se alcanzó el máximo de {MAX_HALLAZGOS} hallazgos para esta orden.</p>;
   if (!abierto) return <button type="button" className="btn secundario" onClick={() => setAbierto(true)}><Plus size={22} /> Agregar hallazgo</button>;
   return <HallazgoForm autor={autor} onCancelar={() => setAbierto(false)} onGuardar={h => { setAbierto(false); onGuardar(h); }} />;
 }

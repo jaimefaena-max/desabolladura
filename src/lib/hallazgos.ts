@@ -106,7 +106,8 @@ export function repararHallazgo(x: unknown): Hallazgo | null {
 
 /** Lo que viaja en el link: sin autor, detalle, fotos ni anulado; los objetos, sin qué ni dónde. */
 export function hallazgoAlLink(h: Hallazgo): Record<string, unknown> {
-  if (h.tipo === 'objeto') return { i: h.id, t: 'o', f: h.fotos.length, r: h.creado, ...(h.devueltoEl ? { d: h.devueltoEl } : {}) };
+  // Del objeto, el cliente solo sabe que existe: ni cuántas fotos tiene.
+  if (h.tipo === 'objeto') return { i: h.id, t: 'o', f: 0, r: h.creado, ...(h.devueltoEl ? { d: h.devueltoEl } : {}) };
   return { i: h.id, t: 'd', c: h.categoria, u: h.ubicacion, f: h.fotos.length, r: h.creado, ...(h.noRepara ? { n: 1 } : {}) };
 }
 

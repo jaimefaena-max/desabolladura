@@ -122,7 +122,7 @@ export function MaestroOrden({ id }: { id: string }) {
                 <WhatsappLogo size={22} /> Avisar al cliente por WhatsApp
               </a>
             )}
-            <AgregarHallazgo autor={sesion()?.nombre ?? 'Taller'} onGuardar={h => { actualizar(id, x => agregarHallazgo(x, h)); setAvisar(h.tipo === 'objeto'); }} />
+            <AgregarHallazgo autor={sesion()?.nombre ?? 'Taller'} cantidad={o.hallazgos?.length ?? 0} onGuardar={h => { actualizar(id, x => agregarHallazgo(x, h)); setAvisar(h.tipo === 'objeto'); }} />
           </section>
         </div>
         <div>

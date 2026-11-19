@@ -293,9 +293,9 @@ export function conFotosDemo(guardadas: Orden[]): Orden[] {
     // si nunca se decidió nada sobre adicionales en esa orden (si no, un rechazo volvería a aparecer).
     const extras = f.items.filter(i => i.adicional && !n.items.some(x => x.id === i.id) && !n.historial.some(h => /adicional/i.test(h.texto)));
     if (extras.length) n = { ...n, items: [...n.items, ...extras], aprobacion: n.aprobacion === 'aprobada' ? 'pendiente' : n.aprobacion };
-    // Cobranza de ejemplo: las órdenes históricas con seguro reciben su factura si aún no la tienen.
     // Acta de ejemplo: solo si la orden guardada nunca tuvo hallazgos (si se anuló uno, no vuelve).
     if (f.hallazgos?.length && !n.hallazgos?.length && !n.historial.some(h => /allazgo/i.test(h.texto))) n = { ...n, hallazgos: f.hallazgos };
+    // Cobranza de ejemplo: las órdenes históricas con seguro reciben su factura si aún no la tienen.
     if (f.facturas?.length && !o.facturas?.length && o.entregadaEl) n = { ...n, facturas: f.facturas, deducibleCobradoEl: f.deducibleCobradoEl, cobrada: f.cobrada };
     return n;
   });

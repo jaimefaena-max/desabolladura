@@ -41,7 +41,10 @@ export function empaquetar(o: Orden, taller: string, wspTaller = '', limite = LA
   const comprimir = (x: Paquete) => b64url(deflateSync(strToU8(JSON.stringify(x)), { level: 9 }));
   const acta = vigentes(o);
   if (!acta.length) return comprimir(datos);
-  const completo = comprimir({ ...datos, h: acta.map(hallazgoAlLink), k: o.conformidadRecepcion || undefined });
+  const h = acta.map(hallazgoAlLink);
+  // Un hallazgo viejo con datos fuera de las listas no pasaría la validación del portal: se avisa que el acta está en el taller.
+  if (h.some(x => !hallazgoDelLink(x))) return comprimir({ ...datos, hr: 1 });
+  const completo = comprimir({ ...datos, h, k: o.conformidadRecepcion || undefined });
   // Si el acta no cabe, no se recorta (alteraría la evidencia): se avisa que está en el taller.
   return completo.length <= limite ? completo : comprimir({ ...datos, hr: 1 });
 }

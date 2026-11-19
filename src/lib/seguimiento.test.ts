@@ -115,7 +115,7 @@ describe('link de seguimiento: acta de recepción', () => {
     expect(d.conformidadRecepcion).toBe('2026-11-19T12:00:00.000Z');
     expect(d.hallazgos).toEqual([
       expect.objectContaining({ id: 'hd1', tipo: 'dano', categoria: 'Rayón', ubicacion: 'Capot', noRepara: true, fotosEnTaller: 1, detalle: '', autor: '' }),
-      expect.objectContaining({ id: 'ho1', tipo: 'objeto', categoria: '', ubicacion: '', fotosEnTaller: 1 }),
+      expect.objectContaining({ id: 'ho1', tipo: 'objeto', categoria: '', ubicacion: '', fotosEnTaller: 0 }),
     ]);
   });
 
@@ -133,6 +133,13 @@ describe('link de seguimiento: acta de recepción', () => {
     expect(d.items.length).toBeGreaterThan(0);
     expect(d.hallazgos).toEqual([]);
     expect(d.actaEnTaller).toBe(true);
+  });
+
+  it('un hallazgo viejo con datos fuera de las listas no rompe el acta: el link dice que está en el taller', () => {
+    const raro = { ...dano, id: 'hr1', categoria: 'Golpe de granizo' };
+    const d = desempaquetar(empaquetar({ ...base(), hallazgos: [dano, raro] }, 'Taller Demo'))!;
+    expect(d.actaEnTaller).toBe(true);
+    expect(d.items.length).toBeGreaterThan(0);
   });
 
   it('30 hallazgos al máximo caben en el link', () => {

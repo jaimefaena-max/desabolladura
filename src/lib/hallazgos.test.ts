@@ -96,7 +96,7 @@ describe('hallazgos en el link del cliente', () => {
   it('un objeto viaja sin qué ni dónde', () => {
     const l = hallazgoAlLink(objeto());
     expect(JSON.stringify(l)).not.toMatch(/Cartera|Guantera|taller|cartera/);
-    expect(hallazgoDelLink(l)).toMatchObject({ tipo: 'objeto', categoria: '', ubicacion: '', fotosEnTaller: 2 });
+    expect(hallazgoDelLink(l)).toMatchObject({ tipo: 'objeto', categoria: '', ubicacion: '', fotosEnTaller: 0 });
     expect(resumenHallazgo(hallazgoDelLink(l)!)).toBe('Objeto de valor');
   });
   it.each([

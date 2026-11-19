@@ -3,7 +3,7 @@ titulo: Acta de recepción y hallazgos (daños preexistentes y objetos de valor 
 fecha: 2026-11-19
 repo: Workspace_Agencia/desabolladura
 tamano: grande
-estado: go
+estado: implementado
 sha:
 linear: (se crea al cerrar el plano)
 ---
@@ -297,4 +297,10 @@ Cierre de la revisión: la segunda ronda de Go/No-Go dio NO-GO por 5 puntos edit
 
 ## Desvíos durante la implementación
 
-- …
+- `marcarDevuelto` además vacía `fotos` del objeto en la orden (las fotos se borran de IndexedDB): así ninguna vista intenta cargarlas.
+- Componente extra `AgregarHallazgo` (botón + formulario) en `Hallazgos.tsx`, usado por el ingreso y la ficha del trabajador; con el tope de 30 muestra un aviso en vez del botón.
+- `Base.hallazgos` en la semilla es `Omit<Hallazgo, 'creado'>[]` (la fecha la pone `orden(b)`).
+- `hallazgoDelLink` rechaza claves de otro tipo (`d` en daños; `c`/`u` en objetos): más estricto que «se ignora».
+- Verificador (paso 5): B1 los objetos ya no muestran fotos al cliente y viajan con `f: 0`; B2 tope de 30 en el ingreso y en la ficha; B3 una foto que termina de guardarse con el formulario cerrado se borra; B4 si un hallazgo no pasaría la validación del portal, el link sale con `hr` (acta en el taller) en vez de ocultarla al descartarse.
+- C7: el botón de WhatsApp del portal aparece solo en links que traen `wspTaller` (hoy, el del presupuesto). En los demás, el portal muestra el texto para responder.
+- El administrador no crea hallazgos desde su ficha (lo hacen el ingreso y el trabajador); el historial del administrador sí muestra los eventos privados (personal del taller).

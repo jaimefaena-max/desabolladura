@@ -216,7 +216,7 @@ export default function NuevoVehiculo() {
             <h2>Acta de recepción</h2>
             <p className="pista">Registra con foto los daños que el auto ya trae y los objetos de valor que encuentres.</p>
             <ListaHallazgos hallazgos={hallazgos} modo="taller" quitar={quitarHallazgo} />
-            <AgregarHallazgo autor={u.nombre} onGuardar={h => setHallazgos(x => [...x, h])} />
+            <AgregarHallazgo autor={u.nombre} cantidad={hallazgos.length} onGuardar={h => setHallazgos(x => [...x, h])} />
           </section>
           <Navegar atras={() => setPaso(0)} siguiente={() => { setPaso(2); void crearConIA(v); }} ok={!!vehiculoOk} ayuda="Completa marca, modelo, año y patente." />
         </section>
