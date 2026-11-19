@@ -101,6 +101,31 @@ export interface Factura {
 }
 
 export interface FotoRef { id: string; momento: 'antes' | 'despues'; }
+
+export type TipoHallazgo = 'dano' | 'objeto';
+/**
+ * Acta de recepción: un daño que el auto ya traía o un objeto de valor encontrado. Es evidencia:
+ * no se borra, solo el administrador lo anula con un motivo.
+ */
+export interface Hallazgo {
+  id: string;
+  tipo: TipoHallazgo;
+  categoria: string;
+  ubicacion: string;
+  /** Nunca viaja en el link del cliente. */
+  detalle: string;
+  /** Ids de IndexedDB (0..3). Nunca viajan en el link. */
+  fotos: string[];
+  /** Solo en hallazgos que llegan del link: cuántas fotos tiene en el taller. */
+  fotosEnTaller?: number;
+  creado: string;
+  /** Quién lo registró. Nunca viaja en el link. */
+  autor: string;
+  noRepara?: boolean;
+  resguardo?: 'vehiculo' | 'taller';
+  devueltoEl?: string | null;
+  anulado?: { el: string; por: string; motivo: string };
+}
 export interface Recepcion { km: number | null; combustible: string; observaciones: string; }
 
 export interface Orden {
@@ -127,6 +152,10 @@ export interface Orden {
    * atrasada corrige los meses que vienen, pero no reescribe la ganancia de un trabajo ya cerrado.
    */
   costoHoraAplicado?: number | null;
+  /** Acta de recepción: daños preexistentes y objetos de valor. */
+  hallazgos?: Hallazgo[];
+  /** Fecha (ISO) en que se registró la conformidad del cliente con el acta. */
+  conformidadRecepcion?: string | null;
 }
 
 export interface Empresa {

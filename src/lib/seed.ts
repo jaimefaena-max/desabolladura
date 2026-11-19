@@ -5,7 +5,7 @@ import { fechaLocal, totales } from './piezas';
 import { sugerir } from './precios';
 import autosDemo from './autosDemo.json';
 import { slugAuto } from './fichaModelo';
-import type { Aprobacion, Carroceria, EstadoItem, Factura, FichaModelo, Item, Orden, Pagador, PiezaId, Severidad, Trabajo, Usuario, Vehiculo, Vista } from './types';
+import type { Aprobacion, Carroceria, EstadoItem, Factura, FichaModelo, Hallazgo, Item, Orden, Pagador, PiezaId, Severidad, Trabajo, Usuario, Vehiculo, Vista } from './types';
 
 /**
  * Datos ficticios hechos para no coincidir con nadie: los RUT tienen dígito verificador inválido
@@ -78,6 +78,8 @@ interface Base {
   horas?: Record<string, number>;
   /** Daños aparecidos al desarmar, aún sin respuesta de la compañía: [trabajo, pieza, severidad, monto]. */
   adicionales?: [Trabajo, PiezaId, Severidad, number][];
+  /** Acta de recepción de ejemplo (dato directo, sin evento); la fecha es la de ingreso de la orden. */
+  hallazgos?: Omit<Hallazgo, 'creado'>[];
 }
 
 function orden(b: Base): Orden {
@@ -89,6 +91,7 @@ function orden(b: Base): Orden {
     entregadaEl: b.entregadaHace === undefined ? null : dias(-b.entregadaHace), cobrada: b.cobrada ?? false,
     deducibleCobradoEl: b.factura && !b.factura.deduciblePendiente && b.entregadaHace !== undefined ? dias(-b.entregadaHace) : null,
     vistas: FOTOS[slugAuto(b.v)]?.vistas,
+    hallazgos: (b.hallazgos ?? []).map(h => ({ ...h, creado: dias(-b.desde) })), conformidadRecepcion: null,
   });
   if (b.horas) o.items = o.items.map(i => (b.horas![i.id] !== undefined ? { ...i, horas: b.horas![i.id] } : i));
   if (b.adicionales) {
@@ -179,6 +182,7 @@ export function ordenesDemo(): Orden[] {
       numero: 1042, codigo: 'COR7X2', v: auto('Toyota', 'Corolla', 2020, 22, 'Gris azulado', '#717f8b', 'sedan'), desde: 6, aprobacion: 'aprobada', pagador: seguro('Compañía Demo Centro', 1042, 90000),
       filas: [['desabolladura', 'maletera', 'medio', 'listo', 240000], ['pintura', 'maletera', 'medio', 'listo', 230000], ['plastico', 'parachoque_tras', 'medio', 'listo', 120000], ['pintura', 'parachoque_tras', 'medio', 'proceso', 230000]],
       notas: 'Alcance por atrás.',
+      hallazgos: [{ id: 'demoh1', tipo: 'dano', categoria: 'Rayón', ubicacion: 'Parachoque delantero', detalle: 'Rayón de unos 10 cm, del lado derecho.', fotos: [], autor: 'Recepción', noRepara: true }],
     }),
     orden({
       numero: 1055, codigo: 'ONX3H5', v: auto('Chevrolet', 'Onix', 2022, 86, 'Azul', '#1d3f72', 'hatchback'), desde: 8, aprobacion: 'aprobada', pagador: particular,
@@ -290,6 +294,8 @@ export function conFotosDemo(guardadas: Orden[]): Orden[] {
     const extras = f.items.filter(i => i.adicional && !n.items.some(x => x.id === i.id) && !n.historial.some(h => /adicional/i.test(h.texto)));
     if (extras.length) n = { ...n, items: [...n.items, ...extras], aprobacion: n.aprobacion === 'aprobada' ? 'pendiente' : n.aprobacion };
     // Cobranza de ejemplo: las órdenes históricas con seguro reciben su factura si aún no la tienen.
+    // Acta de ejemplo: solo si la orden guardada nunca tuvo hallazgos (si se anuló uno, no vuelve).
+    if (f.hallazgos?.length && !n.hallazgos?.length && !n.historial.some(h => /allazgo/i.test(h.texto))) n = { ...n, hallazgos: f.hallazgos };
     if (f.facturas?.length && !o.facturas?.length && o.entregadaEl) n = { ...n, facturas: f.facturas, deducibleCobradoEl: f.deducibleCobradoEl, cobrada: f.cobrada };
     return n;
   });

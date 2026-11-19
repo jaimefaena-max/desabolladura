@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { borrarFotos } from './fotos';
+import { repararHallazgo } from './hallazgos';
 import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
 import type { Empresa, Orden, Usuario } from './types';
 
@@ -86,6 +87,8 @@ function repararOrden(o: unknown): Orden | null {
     facturas: facturas.length ? facturas : esObjeto(legado) ? [legado] : [],
     cliente: esObjeto(o.cliente) ? o.cliente : { nombre: '', rut: '', telefono: '' },
     recepcion: esObjeto(o.recepcion) ? o.recepcion : { km: null, combustible: '', observaciones: '' },
+    hallazgos: lista(o.hallazgos).map(repararHallazgo).filter((h): h is NonNullable<typeof h> => !!h),
+    conformidadRecepcion: typeof o.conformidadRecepcion === 'string' ? o.conformidadRecepcion : null,
     repuestos: lista(o.repuestos), fotos: lista(o.fotos), historial: lista(o.historial),
     notas: typeof o.notas === 'string' ? o.notas : '',
     entrega: typeof o.entrega === 'string' ? o.entrega : '',
@@ -158,8 +161,9 @@ export function actualizar(id: string, cambio: (o: Orden) => Orden) {
 export const siguienteNumero = () => Math.max(1000, ...ordenes.map(o => o.numero)) + 1;
 
 /** Identificadores de las fotos que el taller guardó en este equipo para estas órdenes. */
-const fotosDe = (os: Orden[]) => os.flatMap(o => [
+export const fotosDe = (os: Orden[]) => os.flatMap(o => [
   ...o.fotos.map(f => f.id),
+  ...(o.hallazgos ?? []).flatMap(h => h.fotos),
   ...o.items.flatMap(i => [i.fotoAntes, i.fotoDespues]),
   ...Object.values(o.vistas ?? {}).map(r => (r?.startsWith('idb:') ? r.slice(4) : undefined)),
 ]).filter((x): x is string => !!x);

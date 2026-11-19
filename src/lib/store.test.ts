@@ -87,3 +87,24 @@ describe('guardar no se cae si el navegador no deja', () => {
     expect(JSON.parse(local.datos.get('dp.ordenes.v2.demo')!)[0].id).toBe('a');
   });
 });
+
+describe('acta de recepción en lo guardado', () => {
+  it('una orden sin hallazgos (versión anterior) abre con el acta vacía y sin conformidad', async () => {
+    const { hallazgos: _h, conformidadRecepcion: _c, ...vieja } = ordenesDemo()[0];
+    const s = await arrancar(almacenFalso({ 'dp.ordenes.v2.demo': JSON.stringify([vieja]) }));
+    const o = s.instantanea().ordenes.find(x => x.id === vieja.id)!;
+    expect(o.hallazgos).toEqual([]);
+    expect(o.conformidadRecepcion).toBeNull();
+  });
+  it('hallazgos dañados se descartan y los salvables se completan', async () => {
+    const vieja = { ...ordenesDemo()[0], hallazgos: [{}, null, { id: 'a1', tipo: 'dano', creado: '2026-11-19T10:00:00Z', fotos: 'x' }] };
+    const s = await arrancar(almacenFalso({ 'dp.ordenes.v2.demo': JSON.stringify([vieja]) }));
+    const o = s.instantanea().ordenes.find(x => x.id === vieja.id)!;
+    expect(o.hallazgos).toEqual([{ id: 'a1', tipo: 'dano', creado: '2026-11-19T10:00:00Z', categoria: '', ubicacion: '', detalle: '', autor: '', fotos: [] }]);
+  });
+  it('restablecer la demo borra también las fotos del acta', async () => {
+    const s = await arrancar(almacenFalso());
+    const o = { ...ordenesDemo()[0], hallazgos: [{ id: 'h1', tipo: 'objeto' as const, categoria: 'Documentos', ubicacion: 'Guantera', detalle: '', fotos: ['fotoacta1', 'fotoacta2'], creado: '2026-11-19T10:00:00Z', autor: 'Ana' }] };
+    expect(s.fotosDe([o])).toEqual(expect.arrayContaining(['fotoacta1', 'fotoacta2']));
+  });
+});

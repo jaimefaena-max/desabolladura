@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, ArrowsClockwise, Camera, Car, CheckCircle, MagnifyingGlass, PencilSimple, Sparkle } from '../components/iconos';
+import { AgregarHallazgo, ListaHallazgos } from '../components/Hallazgos';
 import PiezaPicker from '../components/PiezaPicker';
 import { ir, Pantalla } from '../components/ui';
 import { VISTAS } from '../lib/fichaModelo';
@@ -8,11 +9,13 @@ import { leerConOCR, leerPatenteConOCR, padronEjemplo, reducirImagen, type Datos
 import { carroceriaDeTipo, consultarPatente, servicioPatentes } from '../lib/patentes';
 import { PATENTE_EJEMPLO } from '../lib/patentesDemo';
 import { conEvento, sincronizar } from '../lib/automatizacion';
+import { borrarFotos } from '../lib/fotos';
+import { agregarHallazgo } from '../lib/hallazgos';
 import { fechaLocal } from '../lib/piezas';
 import { sugerir } from '../lib/precios';
 import { ASEGURADORAS, tareasGenerales } from '../lib/seed';
 import { codigoCliente, guardarOrden, sesion, siguienteNumero, uid, ultimaOrdenDePatente } from '../lib/store';
-import type { Carroceria, Item, Orden, Pagador, Recepcion, Vehiculo } from '../lib/types';
+import type { Carroceria, Hallazgo, Item, Orden, Pagador, Recepcion, Vehiculo } from '../lib/types';
 import { guardarVistas, vistasDe, type Vistas } from '../lib/vistas';
 import { CARROCERIAS, carroceriaDe, CATALOGO, COLORES, colorHex, normalizarPatente, patenteValida, verPatente } from '../lib/vehiculos';
 
@@ -34,6 +37,17 @@ export default function NuevoVehiculo() {
   const [listo, setListo] = useState<Orden | null>(null);
   const [ia, setIa] = useState<EstadoIA | null>(null);
   const [guardando, setGuardando] = useState(false);
+  // Acta de recepción del ingreso. Si se sale sin guardar la orden, sus fotos se borran.
+  const [hallazgos, setHallazgos] = useState<Hallazgo[]>([]);
+  const fotosActa = useRef<string[]>([]);
+  fotosActa.current = hallazgos.flatMap(h => h.fotos);
+  const ordenGuardada = useRef(false);
+  useEffect(() => () => { if (!ordenGuardada.current) void borrarFotos(fotosActa.current).catch(() => {}); }, []);
+  const quitarHallazgo = (id: string) => {
+    const h = hallazgos.find(x => x.id === id);
+    setHallazgos(x => x.filter(y => y.id !== id));
+    if (h) void borrarFotos(h.fotos).catch(() => {});
+  };
 
   /**
    * Busca el modelo exacto en internet y crea sus tres fotos. Parte sola al confirmar el vehículo,
@@ -114,14 +128,18 @@ export default function NuevoVehiculo() {
       const fotosIA = ia && ia.clave === claveIA(v) && Object.keys(ia.vistas).length ? ia.vistas : undefined;
       // Si IndexedDB falla, la orden se guarda igual, sin fotos: el 3D las reemplaza.
       const vistas = fotosIA && await guardarVistas(id, fotosIA).catch(() => undefined);
-      const o: Orden = conEvento(sincronizar({
+      const base: Orden = conEvento(sincronizar({
         id, numero: siguienteNumero(), codigo: codigoCliente(), creada: fechaLocal(), entrega: '', maestroId: u.id,
         vehiculo: { ...v, patente: normalizarPatente(v.patente) }, cliente, pagador,
         // El maestro pudo corregir el vehículo después de agregar trabajos: el rango se recalcula con el dato final.
         items: items.map(i => (i.trabajo === 'general' ? i : { ...i, sugerido: sugerir(i.trabajo, i.pieza, i.severidad ?? 'medio', v) })),
         notas: '', cobrada: false, vistas, aprobacion: 'pendiente', repuestos: [], fotos: [], historial: [], recepcion, entregadaEl: null,
+        hallazgos: [], conformidadRecepcion: null,
       }), 'Vehículo ingresado al taller');
+      // Cada hallazgo del ingreso deja su evento (privado) en el historial.
+      const o = hallazgos.reduce(agregarHallazgo, base);
       guardarOrden(o);
+      ordenGuardada.current = true;
     setListo(o);
     } finally {
       // Si algo falla al armar la orden, el botón vuelve a quedar disponible.
@@ -192,8 +210,14 @@ export default function NuevoVehiculo() {
           </div>
           <div className="campos">
             <label className="campo"><span>Kilometraje</span><input type="number" inputMode="numeric" min={0} value={recepcion.km ?? ''} onChange={e => setRecepcion({ ...recepcion, km: e.target.value ? Number(e.target.value) : null })} /></label>
-            <label className="campo"><span>Daños previos u objetos de valor</span><input value={recepcion.observaciones} onChange={e => setRecepcion({ ...recepcion, observaciones: e.target.value })} autoComplete="off" /></label>
+            <label className="campo"><span>Otras observaciones</span><input value={recepcion.observaciones} onChange={e => setRecepcion({ ...recepcion, observaciones: e.target.value })} autoComplete="off" /></label>
           </div>
+          <section className="acta-seccion" aria-label="Acta de recepción">
+            <h2>Acta de recepción</h2>
+            <p className="pista">Registra con foto los daños que el auto ya trae y los objetos de valor que encuentres.</p>
+            <ListaHallazgos hallazgos={hallazgos} modo="taller" quitar={quitarHallazgo} />
+            <AgregarHallazgo autor={u.nombre} onGuardar={h => setHallazgos(x => [...x, h])} />
+          </section>
           <Navegar atras={() => setPaso(0)} siguiente={() => { setPaso(2); void crearConIA(v); }} ok={!!vehiculoOk} ayuda="Completa marca, modelo, año y patente." />
         </section>
       )}

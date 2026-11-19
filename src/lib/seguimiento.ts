@@ -2,6 +2,7 @@ import { deflateSync, inflateSync, strFromU8, strToU8 } from 'three/examples/jsm
 import { clp, fecha, fechaLocal, PIEZAS, progreso, tituloItem, TRABAJOS, totales } from './piezas';
 import type { Empresa, Item, Orden, Repuesto } from './types';
 import { vistasDe } from './vistas';
+import { hallazgoAlLink, hallazgoDelLink, MAX_HALLAZGOS, vigentes } from './hallazgos';
 
 /**
  * Link de seguimiento para el cliente.
@@ -24,9 +25,11 @@ const desdeB64url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').rep
 interface Paquete {
   t: string; w?: string; n: number; c: string; e: string; a: Orden['aprobacion']; p: Orden['pagador']['tipo'];
   v: Orden['vehiculo']; vi: Record<string, string>; i: Item[];
+  /** Acta de recepción (sin autor, detalle ni fotos; objetos sin qué ni dónde), conformidad y bandera «el acta no cupo». */
+  h?: Record<string, unknown>[]; k?: string; hr?: 1;
 }
 
-export function empaquetar(o: Orden, taller: string, wspTaller = ''): string {
+export function empaquetar(o: Orden, taller: string, wspTaller = '', limite = LARGO_MAX_LINK): string {
   // Motor y chasis identifican al vehículo y el cliente no los necesita: no viajan en el link.
   const { motor: _m, chasis: _c, ...vehiculo } = o.vehiculo;
   const v = { ...vehiculo, ficha: vehiculo.ficha && { ...vehiculo.ficha, fuentes: undefined, rasgos: '' } };
@@ -35,7 +38,12 @@ export function empaquetar(o: Orden, taller: string, wspTaller = ''): string {
   // Las fotos del taller no caben en el link: va solo su identificador, para avisar que existen.
   const i = o.items.map(({ sugerido: _s, horas: _h, ...x }) => x);
   const datos: Paquete = { t: taller, w: wspTaller || undefined, n: o.numero, c: o.codigo, e: o.entrega, a: o.aprobacion, p: o.pagador.tipo, v, vi, i };
-  return b64url(deflateSync(strToU8(JSON.stringify(datos)), { level: 9 }));
+  const comprimir = (x: Paquete) => b64url(deflateSync(strToU8(JSON.stringify(x)), { level: 9 }));
+  const acta = vigentes(o);
+  if (!acta.length) return comprimir(datos);
+  const completo = comprimir({ ...datos, h: acta.map(hallazgoAlLink), k: o.conformidadRecepcion || undefined });
+  // Si el acta no cabe, no se recorta (alteraría la evidencia): se avisa que está en el taller.
+  return completo.length <= limite ? completo : comprimir({ ...datos, hr: 1 });
 }
 
 /*
@@ -91,7 +99,7 @@ function vehiculoDelLink(x: unknown): Orden['vehiculo'] | null {
 }
 
 /** Reconstruye una orden de solo lectura desde el link. Devuelve null si está dañado o no tiene la forma esperada. */
-export function desempaquetar(s: string): (Orden & { taller: string; wspTaller: string }) | null {
+export function desempaquetar(s: string): (Orden & { taller: string; wspTaller: string; actaEnTaller: boolean }) | null {
   try {
     if (typeof s !== 'string' || s.length > LARGO_MAX_LINK) return null;
     const bytes = inflateSync(desdeB64url(s));
@@ -102,6 +110,11 @@ export function desempaquetar(s: string): (Orden & { taller: string; wspTaller: 
     const items = d.i.map(itemDelLink).filter((i): i is Item => !!i);
     const codigo = texto(d.c, 12), entrega = texto(d.e, 10), wsp = texto(d.w, 30).replace(/\D/g, '');
     if (!vehiculo || items.length !== d.i.length || !/^[A-Z0-9]{4,12}$/i.test(codigo) || Number.isNaN(Date.parse(`${entrega}T12:00:00`))) return null;
+    // Un acta mal formada se descarta sola: el cliente no pierde su presupuesto ni su avance.
+    const crudas = d.h === undefined ? [] : Array.isArray(d.h) && d.h.length <= MAX_HALLAZGOS ? d.h.map(hallazgoDelLink) : null;
+    const hallazgos = crudas && crudas.every(Boolean) ? crudas as NonNullable<(typeof crudas)[number]>[] : [];
+    const actaEnTaller = d.hr === 1 || !crudas || !crudas.every(Boolean);
+    const k = typeof d.k === 'string' && d.k.length < 40 && !Number.isNaN(Date.parse(d.k)) ? d.k : null;
     const vi = esObjeto(d.vi) ? d.vi : {};
     const vistas: NonNullable<Orden['vistas']> = {};
     for (const k of VISTAS_LINK) {
@@ -115,7 +128,7 @@ export function desempaquetar(s: string): (Orden & { taller: string; wspTaller: 
       items, notas: '', aprobacion: uno(d.a, ['pendiente', 'enviada', 'aprobada', 'rechazada'] as const) ?? 'pendiente',
       repuestos: [], fotos: [], historial: [],
       recepcion: { km: null, combustible: '', observaciones: '' }, entregadaEl: null, cobrada: false,
-      vistas,
+      vistas, hallazgos, conformidadRecepcion: actaEnTaller ? null : k, actaEnTaller,
     };
   } catch {
     return null;

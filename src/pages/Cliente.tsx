@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Car, WhatsappLogo, CheckCircle, Circle, CircleHalf, Check } from '../components/iconos';
 import { Auto3D, Barra, forma, FotoGuardada, Galeria, GaleriaVistas, InterruptorTema, ir, Leyenda, Marca } from '../components/ui';
+import { ListaHallazgos } from '../components/Hallazgos';
 import { conEvento, enlaceWhatsApp, ETAPAS, etapaDe } from '../lib/automatizacion';
+import { vigentes } from '../lib/hallazgos';
 import { clp, estadosPiezas, fecha, itemsPresupuesto, progreso, tituloItem, totales } from '../lib/piezas';
 import { actualizar, buscarPorAcceso, sesion, useOrdenes } from '../lib/store';
 import { desempaquetar } from '../lib/seguimiento';
@@ -131,6 +133,30 @@ function Avances({ o }: { o: Orden }) {
   );
 }
 
+/**
+ * Acta de recepción para el cliente. La conformidad la da respondiendo por WhatsApp: en esta demo el
+ * portal con datos guardados solo se abre en el equipo del taller, así que un botón aquí lo pulsaría el personal.
+ */
+function ActaCliente({ o, enTaller, wspTaller }: { o: Orden; enTaller: boolean; wspTaller?: string }) {
+  if (enTaller) return <section className="acta-cliente"><h2>Acta de recepción</h2><p className="pista">El acta de recepción está en el taller.</p></section>;
+  if (!vigentes(o).length) return null;
+  return (
+    <section className="acta-cliente">
+      <h2>Acta de recepción</h2>
+      <p className="pista">Lo que el taller registró al recibir tu auto y durante el trabajo.</p>
+      <ListaHallazgos hallazgos={o.hallazgos ?? []} modo="cliente" />
+      {o.conformidadRecepcion
+        ? <p className="aviso-ok"><CheckCircle size={22} weight="fill" /> Diste tu conformidad el {new Date(o.conformidadRecepcion).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}.</p>
+        : (
+          <div className="presupuesto-wsp">
+            <p>Si estás de acuerdo con el estado en que recibimos tu auto, responde <b>«Estoy de acuerdo»</b> al WhatsApp del taller.</p>
+            {wspTaller && <a className="btn primario grande" href={enlaceWhatsApp(wspTaller, `Estoy de acuerdo con el acta de recepción de la orden ${o.numero}.`)} target="_blank" rel="noreferrer noopener"><WhatsappLogo size={24} /> Responder «Estoy de acuerdo»</a>}
+          </div>
+        )}
+    </section>
+  );
+}
+
 export function ClientePortal({ codigo, instantanea }: { codigo: string; instantanea?: string }) {
   const ordenes = useOrdenes();
   const local = codigo === 'demo' ? ordenDemo(ordenes) : ordenes.find(x => x.codigo === codigo.toUpperCase());
@@ -178,6 +204,7 @@ export function ClientePortal({ codigo, instantanea }: { codigo: string; instant
         </section>
         <div className="portal-galeria"><GaleriaVistas o={o} /></div>
         <Avances o={o} />
+        <ActaCliente o={o} enTaller={!!delLink?.actaEnTaller} wspTaller={delLink?.wspTaller} />
         <ol className="linea-etapas" aria-label="Etapas de la reparación">
           {pasos.map((e, i) => <li key={e.id} className={i < actual ? 'hecha' : i === actual ? 'actual' : ''} aria-current={i === actual ? 'step' : undefined}>{e.nombre}</li>)}
         </ol>

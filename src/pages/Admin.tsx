@@ -9,6 +9,9 @@ import { adicionalesPendientes, autorizarAdicionales, netoAdicionales, rechazarA
 import Costos from '../components/Costos';
 import { costoHoraDelMes, insumoDe, leerCostos, restablecerCostos } from '../lib/costos';
 import { ExpedienteDoc } from '../components/Expediente';
+import { ListaHallazgos } from '../components/Hallazgos';
+import { anularHallazgo, darConformidad, marcarDevuelto, objetosPorDevolver, puedeEntregar, vigentes } from '../lib/hallazgos';
+import { borrarFotos } from '../lib/fotos';
 import { cobradaSeguro, estadoFactura, facturadoDe, facturasDe, grupoDe, montosDe, nombreEstado, porFacturar, porFacturarDe, siguienteFactura, vencimiento, type GrupoFactura } from '../lib/cobranza';
 import { enlaceSeguimiento, mensajePresupuesto } from '../lib/seguimiento';
 import { alertas, CMF_REPARACION, conEvento, diasEnTaller, enlaceWhatsApp, enPeriodo, metricas, nombreEtapa, semaforoPlazo, ETAPAS, etapaDe, mensajeCliente, ultimosMeses } from '../lib/automatizacion';
@@ -17,7 +20,7 @@ import { buscarPrecioGemini, claveGemini, guardarClave, probarClave } from '../l
 import { reducirImagen } from '../lib/padron';
 import { clp, estadosPiezas, fecha, fechaLocal, itemsPresupuesto, progreso, TRABAJOS, tituloItem, totales } from '../lib/piezas';
 import { USUARIOS } from '../lib/seed';
-import { actualizar, cambiarEmpresa, crearEmpresa, editarEmpresa, restablecerDemo, useEmpresa, useEmpresas, useOrden, useOrdenes } from '../lib/store';
+import { actualizar, cambiarEmpresa, crearEmpresa, editarEmpresa, restablecerDemo, sesion, useEmpresa, useEmpresas, useOrden, useOrdenes } from '../lib/store';
 import type { Factura, Item, Orden } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';
 
@@ -353,6 +356,32 @@ function CobroSeguro({ o }: { o: Orden }) {
   );
 }
 
+/** Acta de recepción en la ficha del administrador: devolución de objetos, anulación con motivo y conformidad del cliente. */
+function ActaAdmin({ o }: { o: Orden }) {
+  const hs = o.hallazgos ?? [];
+  if (!hs.length) return null;
+  const quien = sesion()?.nombre ?? 'Administrador';
+  const devolver = (id: string) => {
+    let fotos: string[] = [];
+    actualizar(o.id, x => { const r = marcarDevuelto(x, id); fotos = r.fotos; return r.orden; });
+    void borrarFotos(fotos).catch(() => {});
+  };
+  return (
+    <section className="seccion-bloque acta-seccion" aria-label="Acta de recepción">
+      <h2>Acta de recepción</h2>
+      <ListaHallazgos hallazgos={hs} modo="taller" devolver={devolver} anular={(id, motivo) => actualizar(o.id, x => anularHallazgo(x, id, quien, motivo))} />
+      {o.conformidadRecepcion
+        ? <p className="aviso-ok"><CheckCircle size={22} /> El cliente dio su conformidad el {new Date(o.conformidadRecepcion).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}.</p>
+        : vigentes(o).length > 0 && (
+          <div className="acta-conformidad">
+            <p className="pista">Sin conformidad del cliente. Cuando responda «Estoy de acuerdo» por WhatsApp, regístralo aquí.</p>
+            <button type="button" className="btn secundario" onClick={() => actualizar(o.id, x => darConformidad(x, quien))}><CheckCircle size={20} /> El cliente dio su conformidad por WhatsApp</button>
+          </div>
+        )}
+    </section>
+  );
+}
+
 function Acciones({ o }: { o: Orden }) {
   const empresa = useEmpresa();
   const t = totales(o), et = etapaDe(o), seguro = o.pagador.tipo === 'aseguradora';
@@ -375,7 +404,8 @@ function Acciones({ o }: { o: Orden }) {
       {/* Con adicionales pendientes la respuesta se registra en su panel, ítem por ítem: un botón
           que apruebe todo escondería un rechazo parcial. */}
       {(o.aprobacion === 'pendiente' && seguro && !o.items.some(i => i.adicional)) && <button className="btn primario grande ancho" disabled={t.faltan > 0} onClick={() => aprobar()}><CheckCircle size={24} /> La compañía autorizó</button>}
-      {et === 'entrega' && <button className="btn primario grande ancho" onClick={() => cambiar({ entregadaEl: fechaLocal(), costoHoraAplicado: Math.round(horaDe(o, empresa, p => costoHoraDelMes(empresa.id, p))), items: o.items.map(i => ({ ...i, estado: 'listo' as const })) }, 'Vehículo entregado')}><Truck size={24} /> Marcar como entregado</button>}
+      {et === 'entrega' && !puedeEntregar(o) && <p className="pista">Devuelve primero los objetos de valor ({objetosPorDevolver(o).length}).</p>}
+      {et === 'entrega' && <button className="btn primario grande ancho" disabled={!puedeEntregar(o)} onClick={() => cambiar({ entregadaEl: fechaLocal(), costoHoraAplicado: Math.round(horaDe(o, empresa, p => costoHoraDelMes(empresa.id, p))), items: o.items.map(i => ({ ...i, estado: 'listo' as const })) }, 'Vehículo entregado')}><Truck size={24} /> Marcar como entregado</button>}
       {seguro ? <CobroSeguro o={o} /> : o.cobrada ? <p className="aviso-ok"><CheckCircle size={24} /> Orden cobrada</p> : (
         <button className="btn secundario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ cobrada: true, costoHoraAplicado: o.costoHoraAplicado ?? Math.round(horaDe(o, empresa, p => costoHoraDelMes(empresa.id, p))) }, 'Orden cobrada')}>Marcar como cobrada</button>
       )}
@@ -601,10 +631,11 @@ export function AdminOrden({ id }: { id: string }) {
             {p.tipo === 'aseguradora' && <div><dt>Siniestro</dt><dd>{p.siniestro}</dd></div>}
             {o.recepcion.km !== null && <div><dt>Kilometraje</dt><dd>{o.recepcion.km.toLocaleString('es-CL')} km</dd></div>}
             <div><dt>Combustible</dt><dd>{o.recepcion.combustible}</dd></div>
-            {o.recepcion.observaciones && <div><dt>Recepción</dt><dd>{o.recepcion.observaciones}</dd></div>}
+            {o.recepcion.observaciones && <div><dt>Observaciones de recepción</dt><dd>{o.recepcion.observaciones}</dd></div>}
             <div><dt>Código cliente</dt><dd className="codigo-chico">{o.codigo}</dd></div>
           </dl>
           <button className="enlace" onClick={() => ir(`/cliente/${o.codigo}`)}>Abrir el portal de este cliente</button>
+          <ActaAdmin o={o} />
           {o.repuestos.length > 0 && <section className="seccion-bloque"><h2>Repuestos</h2><ul className="repuestos">{o.repuestos.map(r => <FilaRepuesto key={r.id} o={o} r={r} />)}</ul></section>}
           <Galeria fotos={o.fotos} />
           <section className="seccion-bloque">

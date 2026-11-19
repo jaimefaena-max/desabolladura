@@ -1,13 +1,15 @@
 import { useRef, useState } from 'react';
-import { Camera, CheckCircle, Plus, Wrench } from '../components/iconos';
+import { Camera, CheckCircle, Plus, WhatsappLogo, Wrench } from '../components/iconos';
+import { AgregarHallazgo, ListaHallazgos } from '../components/Hallazgos';
 import PiezaPicker from '../components/PiezaPicker';
 import TerminarTrabajo from '../components/TerminarTrabajo';
 import { Auto3D, Barra, forma, FotoGuardada, Galeria, ir, Leyenda, Pantalla, TarjetaOrden } from '../components/ui';
 import { guardarFoto } from '../lib/fotos';
 import { reducirImagen } from '../lib/padron';
-import { conEvento, etapaDe, nombreEtapa, sincronizar } from '../lib/automatizacion';
+import { conEvento, enlaceWhatsApp, etapaDe, nombreEtapa, sincronizar } from '../lib/automatizacion';
+import { agregarHallazgo, mensajeObjeto } from '../lib/hallazgos';
 import { estadosPiezas, fecha, progreso, tituloItem } from '../lib/piezas';
-import { actualizar, sesion, uid, useOrden, useOrdenes } from '../lib/store';
+import { actualizar, sesion, uid, useEmpresa, useOrden, useOrdenes } from '../lib/store';
 import type { EstadoItem, Item } from '../lib/types';
 import { verPatente } from '../lib/vehiculos';
 
@@ -61,6 +63,9 @@ export function MaestroOrden({ id }: { id: string }) {
   const o = useOrden(id);
   const [agregando, setAgregando] = useState(false);
   const [terminando, setTerminando] = useState<Item | null>(null);
+  // Objeto recién registrado: se ofrece avisar al cliente hasta que se pulse o se salga.
+  const [avisar, setAvisar] = useState(false);
+  const empresa = useEmpresa();
   if (!o) return <Pantalla volver="/maestro" titulo="Orden no encontrada" />;
   const v = o.vehiculo, pct = progreso(o.items);
 
@@ -108,6 +113,17 @@ export function MaestroOrden({ id }: { id: string }) {
           <div className="avance-caja"><b className="pct">{pct}%</b><div><Barra valor={pct} /><p>{nombreEtapa(etapaDe(o))}. Entrega: {fecha(o.entrega)}</p></div></div>
           {o.notas && <p className="nota">{o.notas}</p>}
           <Galeria fotos={o.fotos} onAgregar={f => actualizar(id, x => conEvento({ ...x, fotos: [...x.fotos, f] }, `Foto agregada (${f.momento === 'antes' ? 'antes' : 'después'})`))} />
+          <section className="acta-seccion" aria-label="Acta de recepción">
+            <h2>Acta de recepción</h2>
+            <ListaHallazgos hallazgos={o.hallazgos ?? []} modo="taller" />
+            {avisar && o.cliente.telefono && (
+              <a className="btn primario" href={enlaceWhatsApp(o.cliente.telefono, mensajeObjeto(empresa))} target="_blank" rel="noreferrer noopener"
+                onClick={() => { setAvisar(false); actualizar(id, x => conEvento(x, 'Aviso de objeto de valor abierto en WhatsApp', true)); }}>
+                <WhatsappLogo size={22} /> Avisar al cliente por WhatsApp
+              </a>
+            )}
+            <AgregarHallazgo autor={sesion()?.nombre ?? 'Taller'} onGuardar={h => { actualizar(id, x => agregarHallazgo(x, h)); setAvisar(h.tipo === 'objeto'); }} />
+          </section>
         </div>
         <div>
           <div className="titulo-fila chico"><h2>Tareas</h2><button className="btn secundario" onClick={() => setAgregando(true)}><Wrench size={22} /> Agregar trabajo</button></div>

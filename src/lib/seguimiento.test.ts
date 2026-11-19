@@ -1,6 +1,9 @@
 import { deflateSync, strToU8 } from 'three/examples/jsm/libs/fflate.module.js';
 import { describe, expect, it } from 'vitest';
+import { inflateSync, strFromU8 } from 'three/examples/jsm/libs/fflate.module.js';
+import { anularHallazgo, nuevoHallazgo, UBICACIONES } from './hallazgos';
 import { ordenesDemo } from './seed';
+import type { Hallazgo } from './types';
 import { desempaquetar, empaquetar } from './seguimiento';
 
 /** Arma un link a mano, como lo haría alguien que quiere engañar al portal. */
@@ -90,5 +93,67 @@ describe('link de seguimiento: lo que se rechaza o se limpia', () => {
     const sano = con({ frente: 'autos/a.webp', lado: 'autos/b.JPG' }, 'autos/modelo.glb');
     expect(sano.vistas).toEqual({ frente: 'autos/a.webp', lado: 'autos/b.JPG' });
     expect(sano.vehiculo.ficha?.modelo3d).toEqual({ url: 'autos/modelo.glb', giro: 90 });
+  });
+});
+
+/** Contenido del link en claro, para revisar que no se cuele nada privado. */
+const abrir = (link: string) => strFromU8(inflateSync(Uint8Array.from(atob(link.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))));
+const azar = (n: number) => Array.from({ length: n }, () => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]).join('');
+
+describe('link de seguimiento: acta de recepción', () => {
+  const dano = nuevoHallazgo({ tipo: 'dano', categoria: 'Rayón', ubicacion: 'Capot', detalle: 'rayón largo cerca del foco', fotos: ['fotodano1'], autor: 'Ana Demo', noRepara: true }, 'hd1');
+  const objeto = nuevoHallazgo({ tipo: 'objeto', categoria: 'Dinero', ubicacion: 'Guantera', detalle: 'billetera con documentos', fotos: ['fotoobj1'], autor: 'Ana Demo', resguardo: 'vehiculo', devueltoEl: null }, 'ho1');
+
+  it('viaja el daño (sin detalle ni autor) y el objeto (sin qué ni dónde); lo anulado no viaja', () => {
+    const anulado = nuevoHallazgo({ ...dano, detalle: 'anulado' }, 'hx1');
+    const o = anularHallazgo({ ...base(), hallazgos: [dano, objeto, anulado], conformidadRecepcion: '2026-11-19T12:00:00.000Z' }, 'hx1', 'Jefe', 'duplicado');
+    const link = empaquetar({ ...o, conformidadRecepcion: '2026-11-19T12:00:00.000Z' }, 'Taller Demo');
+    const claro = abrir(link);
+    for (const x of ['Ana Demo', 'rayón largo', 'billetera', 'fotodano1', 'fotoobj1', 'Dinero', 'Guantera', 'vehiculo', 'hx1', 'duplicado']) expect(claro).not.toContain(x);
+    const d = desempaquetar(link)!;
+    expect(d.actaEnTaller).toBe(false);
+    expect(d.conformidadRecepcion).toBe('2026-11-19T12:00:00.000Z');
+    expect(d.hallazgos).toEqual([
+      expect.objectContaining({ id: 'hd1', tipo: 'dano', categoria: 'Rayón', ubicacion: 'Capot', noRepara: true, fotosEnTaller: 1, detalle: '', autor: '' }),
+      expect.objectContaining({ id: 'ho1', tipo: 'objeto', categoria: '', ubicacion: '', fotosEnTaller: 1 }),
+    ]);
+  });
+
+  it('un link sin acta (como los de antes) sigue abriendo, sin hallazgos', () => {
+    const d = desempaquetar(empaquetar({ ...base(), hallazgos: [] }, 'Taller Demo'))!;
+    expect(d.hallazgos).toEqual([]);
+    expect(d.actaEnTaller).toBe(false);
+  });
+
+  it('un acta mal formada se descarta sola: el resto del link sigue válido', () => {
+    const paquete = JSON.parse(abrir(empaquetar({ ...base(), hallazgos: [dano] }, 'Taller Demo')));
+    paquete.h.push({ i: 'malo', t: 'd', c: 'Explosión', u: 'Capot', f: 0, r: '2026-11-19T10:00:00Z' });
+    const d = desempaquetar(armar(paquete))!;
+    expect(d).not.toBeNull();
+    expect(d.items.length).toBeGreaterThan(0);
+    expect(d.hallazgos).toEqual([]);
+    expect(d.actaEnTaller).toBe(true);
+  });
+
+  it('30 hallazgos al máximo caben en el link', () => {
+    const largo = [...UBICACIONES.dano].sort((a, b) => b.length - a.length)[0];
+    const hs: Hallazgo[] = Array.from({ length: 30 }, () => nuevoHallazgo({ tipo: 'dano', categoria: 'Pieza suelta o rota', ubicacion: largo, detalle: azar(300), fotos: ['a', 'b', 'c'], autor: 'Ana', noRepara: true }, azar(20)));
+    const link = empaquetar({ ...base(), hallazgos: hs }, 'Taller Demo');
+    expect(link.length).toBeLessThanOrEqual(8000);
+    const d = desempaquetar(link)!;
+    expect(d.hallazgos).toHaveLength(30);
+  });
+
+  it('si el acta no cabe, no se recorta: el link dice que está en el taller y no lleva conformidad', () => {
+    const o = { ...base(), hallazgos: [dano, objeto], conformidadRecepcion: '2026-11-19T12:00:00.000Z' };
+    const limite = empaquetar({ ...base(), hallazgos: [] }, 'Taller Demo').length + 10;
+    const link = empaquetar(o, 'Taller Demo', '', limite);
+    const paquete = JSON.parse(abrir(link));
+    expect(paquete.h).toBeUndefined();
+    expect(paquete.k).toBeUndefined();
+    const d = desempaquetar(link)!;
+    expect(d.actaEnTaller).toBe(true);
+    expect(d.hallazgos).toEqual([]);
+    expect(d.conformidadRecepcion).toBeNull();
   });
 });
