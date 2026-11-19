@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { CMF_REPARACION, diasEnTaller } from '../lib/automatizacion';
+import { CMF_REPARACION, diasEnTaller, hitosPublicos } from '../lib/automatizacion';
 import { clp, itemsCobrables, nombrePieza, totales, TRABAJOS } from '../lib/piezas';
 import { useEmpresa } from '../lib/store';
 import type { Item, Orden } from '../lib/types';
@@ -39,7 +39,8 @@ export function ExpedienteDoc({ o, soloAdicionales = false }: { o: Orden; soloAd
       ...(i.fotoDespues && !soloAdicionales ? [{ id: i.fotoDespues, pie: `${pieza(i)} · reparada` }] : []),
     ]),
   ];
-  const hitos = [...o.historial].reverse().slice(-14);
+  // Los eventos privados (hallazgos, objetos del cliente) no van a la compañía.
+  const hitos = hitosPublicos(o);
 
   return createPortal(
     <article className="doc-cot doc-exp" aria-hidden="true">

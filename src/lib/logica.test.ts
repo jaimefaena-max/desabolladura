@@ -6,7 +6,7 @@ import { extraerJSON } from './gemini';
 import { interpretarPadron } from './padron';
 import { clp, estadosPiezas, fechaLocal, progreso, totales } from './piezas';
 import { sugerir } from './precios';
-import { alertas, CMF_REPARACION, diasEnTaller, diasTrabajo, enlaceWhatsApp, enPeriodo, etapaDe, mesesElegibles, mensajeCliente, metricas, semaforoPlazo, sincronizar, sumarHabiles, ultimosMeses } from './automatizacion';
+import { alertas, CMF_REPARACION, conEvento, diasEnTaller, hitosPublicos, diasTrabajo, enlaceWhatsApp, enPeriodo, etapaDe, mesesElegibles, mensajeCliente, metricas, semaforoPlazo, sincronizar, sumarHabiles, ultimosMeses } from './automatizacion';
 import { conFotosDemo, ordenesDemo, USUARIOS } from './seed';
 import { COSTO_HORA_DEFECTO, horaDe, horasEstimadas, MARGEN_OBJETIVO, precioMinimo, rentabilidad, resumenRentabilidad, semaforoMargen } from './rentabilidad';
 import { diasEntre, estadoRepuesto, resumenRepuestos, textoEstado } from './repuestos';
@@ -523,5 +523,16 @@ describe('los datos de ejemplo no dependen del día en que se abren', () => {
     expect(textos).toMatch(/factura N\.º 2205 vence en 3 días/);
     expect(textos).toContain('espejo derecho atrasado 2 días');
     expect(textos).not.toMatch(/NaN|Invalid|undefined/);
+  });
+});
+
+describe('hitos para documentos de terceros', () => {
+  it('el expediente no muestra los eventos privados', () => {
+    const base = { ...ordenesDemo()[0], historial: [] };
+    const o = conEvento(conEvento(conEvento(base, 'Ingresó al taller'), 'Hallazgo registrado por Ana: Cartera o bolso en Guantera', true), 'Compañía autorizó el presupuesto');
+    const textos = hitosPublicos(o).map(e => e.texto);
+    expect(textos).toEqual(['Ingresó al taller', 'Compañía autorizó el presupuesto']);
+    expect(o.historial.find(e => e.texto.startsWith('Hallazgo'))?.privado).toBe(true);
+    expect(o.historial.find(e => e.texto === 'Ingresó al taller')).not.toHaveProperty('privado');
   });
 });

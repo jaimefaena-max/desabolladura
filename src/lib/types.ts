@@ -73,7 +73,8 @@ export interface Pagador {
   aseguradora?: string; siniestro?: string; deducible?: number;
 }
 
-export interface Evento { fecha: string; texto: string; }
+/** `privado`: solo para el taller (hallazgos, objetos del cliente). Nunca sale en documentos para terceros. */
+export interface Evento { fecha: string; texto: string; privado?: true; }
 /**
  * Repuesto de un cambio de pieza. Fechas AAAA-MM-DD: cuándo se pidió, qué día prometió el proveedor
  * y cuándo llegó de verdad (para medir su cumplimiento).

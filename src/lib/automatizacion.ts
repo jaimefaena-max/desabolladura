@@ -1,7 +1,7 @@
 import { estadoFactura, facturasDe, porFacturar } from './cobranza';
 import { estadoRepuesto } from './repuestos';
 import { clp, fechaLocal, nombrePieza, totales } from './piezas';
-import type { Empresa, EtapaId, Item, Orden, Repuesto, Severidad } from './types';
+import type { Empresa, EtapaId, Evento, Item, Orden, Repuesto, Severidad } from './types';
 
 /** Reglas que mueven el taller solo: nadie arrastra tarjetas ni recuerda avisos. */
 
@@ -77,7 +77,11 @@ export function sincronizar(o: Orden): Orden {
   return { ...o, repuestos, entrega: !o.entrega || estimada > o.entrega ? estimada : o.entrega };
 }
 
-export const conEvento = (o: Orden, texto: string): Orden => ({ ...o, historial: [{ fecha: new Date().toISOString(), texto }, ...o.historial] });
+export const conEvento = (o: Orden, texto: string, privado = false): Orden =>
+  ({ ...o, historial: [{ fecha: new Date().toISOString(), texto, ...(privado ? { privado: true as const } : {}) }, ...o.historial] });
+
+/** Hitos que pueden ir en un documento para terceros (expediente a la compañía): sin eventos privados. */
+export const hitosPublicos = (o: Orden): Evento[] => [...o.historial].filter(e => !e.privado).reverse().slice(-14);
 
 export interface Alerta { id: string; ordenId: string; texto: string; urgente: boolean; }
 
