@@ -410,7 +410,7 @@ function Acciones({ o }: { o: Orden }) {
         <button className="btn secundario grande ancho" disabled={t.faltan > 0} onClick={() => cambiar({ cobrada: true, costoHoraAplicado: o.costoHoraAplicado ?? Math.round(horaDe(o, empresa, p => costoHoraDelMes(empresa.id, p))) }, 'Orden cobrada')}>Marcar como cobrada</button>
       )}
       {o.cliente.telefono && !esperando && <a className="btn secundario grande ancho" href={enlaceWhatsApp(o.cliente.telefono, `${mensajeCliente(o, empresa)}
-${enlaceSeguimiento(o, empresa.nombre)}`)} target="_blank" rel="noreferrer noopener"><WhatsappLogo size={26} /> Avisar por WhatsApp</a>}
+${enlaceSeguimiento(o, empresa.nombre, empresa.whatsapp)}`)} target="_blank" rel="noreferrer noopener"><WhatsappLogo size={26} /> Avisar por WhatsApp</a>}
       {t.faltan > 0 && <p className="pista">Faltan {t.faltan} montos por definir.</p>}
     </div>
   );
