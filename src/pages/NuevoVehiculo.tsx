@@ -260,6 +260,8 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
   // null = no se está pidiendo la patente; '' = pantalla abierta, todavía sin escribir.
   const [patente, setPatente] = useState<string | null>(null);
   const [nota, setNota] = useState('');
+  // Foto de la que se leyó la patente: se muestra al lado para comparar antes de buscar.
+  const [foto, setFoto] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
 
   // Una foto real de padrón con Gemini conectado sale del equipo: se avisa antes de enviarla.
@@ -287,11 +289,11 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
       const p = await leerPatenteConOCR(img, x => setEstado(s => s && { ...s, avance: x }));
       setEstado(null);
       setPatente(p ?? '');
-      if (p) {
-        // Leída la placa, se busca de inmediato: el maestro solo corrige si el registro no la encuentra.
-        setNota('Este es el número que se leyó de la foto. Corrígelo si no coincide.');
-        await buscar(p);
-      } else setError('No se pudo leer la patente de la foto. Escríbela abajo.');
+      setFoto(img);
+      // No se busca sola: cada consulta gasta cupo del registro, y una foto borrosa lee mal.
+      // El maestro compara con la foto, corrige si hace falta y recién ahí busca.
+      if (p) setNota('Revisa que coincida con la foto. Si no, corrígela y pulsa Buscar.');
+      else setError('No se pudo leer la patente de la foto. Escríbela abajo.');
     } catch (e) {
       setEstado(null); setPatente('');
       setError(`No se pudo leer la patente (${(e as Error).message}). Escríbela abajo.`);
@@ -348,6 +350,7 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
     return (
       <section className="elegir">
         <p className="sub">Patente del vehículo</p>
+        {foto && <img className="patente-foto" src={foto} alt="Foto de la que se leyó la patente" />}
         {nota && <p className="aviso-ok" role="status">{nota}</p>}
         {error && <p className="error" role="alert">{error}</p>}
         <form className="patente-caja" onSubmit={e => { e.preventDefault(); if (patenteValida(patente)) void buscar(patente); }}>
@@ -361,7 +364,7 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
           ? 'Los datos salen del registro de vehículos.'
           : 'En la demo, cualquier patente carga un vehículo de prueba.'}</p>
         <div className="patente-acciones">
-          <button className="enlace" onClick={() => { setPatente(null); setError(''); setNota(''); }}>Volver</button>
+          <button className="enlace" onClick={() => { setPatente(null); setError(''); setNota(''); setFoto(null); }}>Volver</button>
           <button className="enlace" onClick={onManual}>Escribir todos los datos a mano</button>
         </div>
       </section>
@@ -381,9 +384,9 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
         <button className="elegir-op" onClick={() => { setError(''); setNota(''); fotoPatente.current?.click(); }}>
           <Car size={52} weight="light" />
           <b>Foto a la patente</b>
-          <small>Se lee aquí mismo y se buscan los datos</small>
+          <small>Acércate sin zoom, con la patente derecha</small>
         </button>
-        <button className="elegir-op" onClick={() => { setError(''); setNota(''); setPatente(''); }}>
+        <button className="elegir-op" onClick={() => { setError(''); setNota(''); setFoto(null); setPatente(''); }}>
           <MagnifyingGlass size={52} weight="light" />
           <b>Escribir la patente</b>
           <small>Marca, modelo y año llegan solos</small>
@@ -414,7 +417,7 @@ function PasoIngreso({ onDatos, onManual }: { onDatos: (d: DatosIngreso, aviso?:
       <div className="patente-acciones">
         <button className="enlace" onClick={() => { setError(''); setNota(''); imagenPatente.current?.click(); }}>Subir una imagen con la patente</button>
         <button className="enlace" onClick={() => revisarPadron(padronEjemplo())}>Probar con un padrón de ejemplo</button>
-        <button className="enlace" onClick={() => { setNota('Patente de ejemplo para la demostración.'); setPatente(PATENTE_EJEMPLO); }}>Probar con una patente de ejemplo</button>
+        <button className="enlace" onClick={() => { setFoto(null); setNota('Patente de ejemplo para la demostración.'); setPatente(PATENTE_EJEMPLO); }}>Probar con una patente de ejemplo</button>
         <button className="enlace" onClick={onManual}><PencilSimple size={18} /> Prefiero escribir todos los datos</button>
       </div>
     </section>
